@@ -1,0 +1,53 @@
+# Archivo .gitignore para proyectos Django
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Entornos virtuales
+venv/
+ENV/
+env/
+.env
+
+# Django
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+media
+
+# Si estás usando PyCharm/IntelliJ
+.idea/
+*.iml
+*.iws
+.idea_modules/
+
+# VS Code
+.vscode/
+
+# Archivos de compilación JavaScript/React
+node_modules/
+/frontend/build
+.DS_Store
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
