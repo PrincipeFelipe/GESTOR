@@ -2,7 +2,8 @@ Django
 djangorestframework
 django-cors-headers
 python-dotenv
-mysqlclient  # Para MariaDB/MySQL
-dj-database-url  # Añadido para el manejo de URLs de bases de datos
-djangorestframework-simplejwt  # Para autenticación JWT
-django-filter  # Para filtrado de consultas en la API
+mysqlclient
+dj-database-url
+djangorestframework-simplejwt
+django-filter
+Pillow  # Para el manejo de imágenes
