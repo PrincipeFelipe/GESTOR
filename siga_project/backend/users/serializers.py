@@ -1,5 +1,7 @@
 from rest_framework import serializers
 from .models import Usuario
+from unidades.serializers import UnidadSerializer
+from empleos.serializers import EmpleoSerializer
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -60,3 +62,41 @@ class UserSerializer(serializers.ModelSerializer):
 
         instance.save()
         return instance
+
+# Nuevo serializador para perfil de usuario con detalles de unidad y empleo
+class ProfileSerializer(serializers.ModelSerializer):
+    unidad_details = UnidadSerializer(source='unidad', read_only=True)
+    empleo_details = EmpleoSerializer(source='empleo', read_only=True)
+    
+    class Meta:
+        model = Usuario
+        fields = [
+            'id', 
+            'nombre', 
+            'apellido1', 
+            'apellido2', 
+            'ref', 
+            'telefono', 
+            'email', 
+            'unidad', 
+            'unidad_details',
+            'empleo',
+            'empleo_details',
+            'tip', 
+            'tipo_usuario',
+            'estado',
+            'date_joined',
+            'last_login'
+        ]
+        read_only_fields = ['id', 'tipo_usuario', 'date_joined', 'last_login']
+
+# Serializador para cambio de contraseña
+class PasswordChangeSerializer(serializers.Serializer):
+    current_password = serializers.CharField(required=True)
+    new_password = serializers.CharField(required=True, min_length=8)
+    confirm_password = serializers.CharField(required=True)
+    
+    def validate(self, data):
+        if data.get('new_password') != data.get('confirm_password'):
+            raise serializers.ValidationError("Las contraseñas no coinciden.")
+        return data
