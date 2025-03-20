@@ -22,6 +22,14 @@ import ChangePassword from './components/Profile/ChangePassword';
 // Componente de Loader
 import Loader from './components/common/Loader';
 
+// Añadir estas importaciones
+import ProcedimientosList from './components/Procedimientos/ProcedimientosList';
+import ProcedimientoForm from './components/Procedimientos/ProcedimientoForm';
+import PasosManager from './components/Procedimientos/PasosManager';
+import TiposProcedimiento from './components/Procedimientos/TiposProcedimiento';
+import DocumentosList from './components/Procedimientos/DocumentosList';
+import ProcedimientoView from './components/Procedimientos/ProcedimientoView';
+
 const App = () => {
   return (
     <ThemeProvider theme={theme}>
@@ -43,6 +51,16 @@ const App = () => {
               <Route path="usuarios" element={<UsersList />} />
               <Route path="unidades" element={<div>Unidades</div>} />
               <Route path="empleos" element={<div>Empleos</div>} />
+              
+              {/* Rutas de Procedimientos */}
+              <Route path="procedimientos" element={<ProcedimientosList />} />
+              <Route path="procedimientos/nuevo" element={<ProcedimientoForm />} />
+              <Route path="procedimientos/:id" element={<ProcedimientoView />} />
+              <Route path="procedimientos/:id/editar" element={<ProcedimientoForm />} />
+              <Route path="procedimientos/:procedimientoId/pasos" element={<PasosManager />} />
+              <Route path="procedimientos/tipos" element={<TiposProcedimiento />} />
+              <Route path="procedimientos/documentos" element={<DocumentosList />} />
+              
               <Route path="configuracion" element={<div>Configuración</div>} />
               <Route path="perfil" element={<UserProfile />} />
               <Route path="cambiar-password" element={<ChangePassword />} />

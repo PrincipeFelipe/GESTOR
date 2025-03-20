@@ -20,7 +20,15 @@ import {
   Work as WorkIcon,
   Settings as SettingsIcon,
   Logout as LogoutIcon,
-  Person as PersonIcon
+  Person as PersonIcon,
+  Description as DescriptionIcon,
+  Assignment as AssignmentIcon,
+  AssignmentTurnedIn as AssignmentTurnedInIcon,
+  Folder as FolderIcon,
+  ListAlt as ListAltIcon,
+  Category as CategoryIcon,
+  FileCopy as FileCopyIcon,
+  FormatListNumbered as FormatListNumberedIcon
 } from '@mui/icons-material';
 import { AuthContext } from '../../contexts/AuthContext';
 
@@ -55,6 +63,38 @@ const Sidebar = ({ drawerWidth, mobileOpen, handleDrawerToggle }) => {
       roles: ['Gestor', 'Admin', 'SuperAdmin']
     },
     {
+      text: 'Procedimientos',
+      icon: <DescriptionIcon />,
+      path: '/dashboard/procedimientos',
+      roles: ['User', 'Gestor', 'Admin', 'SuperAdmin'],
+      submenu: [
+        {
+          text: 'Lista de Procedimientos',
+          icon: <FormatListNumberedIcon />,
+          path: '/dashboard/procedimientos',
+          roles: ['User', 'Gestor', 'Admin', 'SuperAdmin']
+        },
+        {
+          text: 'Nuevo Procedimiento',
+          icon: <AssignmentIcon />,
+          path: '/dashboard/procedimientos/nuevo',
+          roles: ['Admin', 'SuperAdmin']
+        },
+        {
+          text: 'Tipos de Procedimiento',
+          icon: <CategoryIcon />,
+          path: '/dashboard/procedimientos/tipos',
+          roles: ['Admin', 'SuperAdmin']
+        },
+        {
+          text: 'Documentos',
+          icon: <FileCopyIcon />,
+          path: '/dashboard/procedimientos/documentos',
+          roles: ['Admin', 'SuperAdmin']
+        }
+      ]
+    },
+    {
       text: 'Configuración',
       icon: <SettingsIcon />,
       path: '/dashboard/configuracion',
@@ -81,9 +121,21 @@ const Sidebar = ({ drawerWidth, mobileOpen, handleDrawerToggle }) => {
   };
 
   // Filtrar elementos del menú según el rol del usuario
-  const filteredMenuItems = menuItems.filter(item => 
-    currentUser && item.roles.includes(currentUser.tipo_usuario)
-  );
+  const filteredMenuItems = menuItems.filter(item => {
+    // Depuración para ver qué está pasando
+    console.log("Usuario actual:", currentUser);
+    console.log("Tipo usuario:", currentUser?.tipo_usuario);
+    console.log("Item roles:", item.roles);
+    console.log("¿Incluye el rol?", currentUser && item.roles.includes(currentUser.tipo_usuario));
+    
+    // Si el usuario es SuperAdmin, siempre mostrar todas las opciones
+    if (currentUser?.tipo_usuario === "SuperAdmin") {
+      return true;
+    }
+    
+    // Verificación normal para otros roles
+    return currentUser && item.roles.includes(currentUser.tipo_usuario);
+  });
 
   const drawer = (
     <div>
@@ -110,34 +162,76 @@ const Sidebar = ({ drawerWidth, mobileOpen, handleDrawerToggle }) => {
       <Divider />
       <List>
         {filteredMenuItems.map((item) => (
-          <ListItem key={item.text} disablePadding>
-            <ListItemButton 
-              onClick={() => handleNavigation(item.path)}
-              selected={location.pathname === item.path}
-              sx={{ 
-                '&.Mui-selected': {
-                  backgroundColor: 'rgba(46, 125, 50, 0.1)',
-                  borderRight: '4px solid #2e7d32',
-                  '&:hover': {
-                    backgroundColor: 'rgba(46, 125, 50, 0.2)',
+          <React.Fragment key={item.text}>
+            <ListItem disablePadding>
+              <ListItemButton 
+                onClick={() => handleNavigation(item.path)}
+                selected={location.pathname === item.path || 
+                        (item.submenu && item.submenu.some(subItem => location.pathname === subItem.path))}
+                sx={{ 
+                  '&.Mui-selected': {
+                    backgroundColor: 'rgba(46, 125, 50, 0.1)',
+                    borderRight: '4px solid #2e7d32',
+                    '&:hover': {
+                      backgroundColor: 'rgba(46, 125, 50, 0.2)',
+                    }
                   }
-                }
-              }}
-            >
-              <ListItemIcon sx={{ 
-                color: location.pathname === item.path ? 'primary.main' : 'inherit' 
-              }}>
-                {item.icon}
-              </ListItemIcon>
-              <ListItemText 
-                primary={item.text} 
-                primaryTypographyProps={{ 
-                  fontWeight: location.pathname === item.path ? 'medium' : 'normal',
-                  color: location.pathname === item.path ? 'primary.main' : 'inherit'
                 }}
-              />
-            </ListItemButton>
-          </ListItem>
+              >
+                <ListItemIcon sx={{ 
+                  color: (location.pathname === item.path || 
+                        (item.submenu && item.submenu.some(subItem => location.pathname === subItem.path))) 
+                        ? 'primary.main' : 'inherit'
+                }}>
+                  {item.icon}
+                </ListItemIcon>
+                <ListItemText 
+                  primary={item.text} 
+                  primaryTypographyProps={{ 
+                    fontWeight: (location.pathname === item.path || 
+                                (item.submenu && item.submenu.some(subItem => location.pathname === subItem.path))) 
+                                ? 'medium' : 'normal',
+                    color: (location.pathname === item.path || 
+                          (item.submenu && item.submenu.some(subItem => location.pathname === subItem.path))) 
+                          ? 'primary.main' : 'inherit'
+                  }}
+                />
+              </ListItemButton>
+            </ListItem>
+            
+            {/* Renderizar submenú si existe y la ruta actual coincide con la ruta del padre o alguna de sus hijas */}
+            {item.submenu && (location.pathname.startsWith(item.path) || 
+              item.submenu.some(subItem => location.pathname.startsWith(subItem.path))) && (
+              <List component="div" disablePadding>
+                {item.submenu
+                  .filter(subItem => currentUser && subItem.roles.includes(currentUser.tipo_usuario))
+                  .map(subItem => (
+                    <ListItem key={subItem.text} disablePadding>
+                      <ListItemButton 
+                        onClick={() => handleNavigation(subItem.path)}
+                        selected={location.pathname === subItem.path}
+                        sx={{ pl: 4 }}
+                      >
+                        <ListItemIcon sx={{ 
+                          color: location.pathname === subItem.path ? 'primary.main' : 'inherit' 
+                        }}>
+                          {subItem.icon}
+                        </ListItemIcon>
+                        <ListItemText 
+                          primary={subItem.text} 
+                          primaryTypographyProps={{ 
+                            fontWeight: location.pathname === subItem.path ? 'medium' : 'normal',
+                            color: location.pathname === subItem.path ? 'primary.main' : 'inherit',
+                            fontSize: '0.9rem'
+                          }}
+                        />
+                      </ListItemButton>
+                    </ListItem>
+                  ))
+                }
+              </List>
+            )}
+          </React.Fragment>
         ))}
       </List>
       <Divider sx={{ mt: 'auto' }} />

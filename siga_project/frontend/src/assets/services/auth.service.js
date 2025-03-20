@@ -2,31 +2,37 @@
 import api from './api';
 import { jwtDecode } from 'jwt-decode'; // Cambiado de jwt_decode a { jwtDecode }
 
+// Modifica la función login para enviar los parámetros correctamente
+
 const login = async (tip, password) => {
   try {
-    const response = await api.post('/token/', {
-      tip,
-      password,
-    });
+    console.log("Intentando login con:", { tip, password });
     
-    const { access, refresh } = response.data;
+    // Los datos deben enviarse en este formato según el error
+    const data = {
+      tip: tip,
+      password: password
+    };
     
-    // Guardar tokens en localStorage
-    localStorage.setItem('token', access);
-    localStorage.setItem('refreshToken', refresh);
+    const response = await api.post('/token/', data);
     
-    // Decodificar el token para obtener información del usuario
-    const user = jwtDecode(access);
-    return user;
-  } catch (error) {
-    // Gestionar errores específicos
-    if (error.response && error.response.status === 401) {
-      // Credenciales incorrectas - este es un error esperado y no necesitamos spamear la consola
-      throw new Error('Credenciales incorrectas');
+    // Guardar tokens
+    if (response.data.access) {
+      localStorage.setItem('authToken', response.data.access);
+    }
+    if (response.data.refresh) {
+      localStorage.setItem('refreshToken', response.data.refresh);
     }
     
-    // Propagar otros errores
-    console.error('Error durante la autenticación:', error);
+    return response;
+  } catch (error) {
+    console.error("Error durante la autenticación:", error);
+    
+    // Muestra más detalles del error para depuración
+    if (error.response && error.response.data) {
+      console.error("Detalles del error:", error.response.data);
+    }
+    
     throw error;
   }
 };
@@ -40,56 +46,50 @@ const register = async (userData) => {
   }
 };
 
-const logout = () => {
-  localStorage.removeItem('token');
-  localStorage.removeItem('refreshToken');
+// Modifica la función getUserDetails para usar la ruta correcta
+
+const getUserDetails = (userId) => {
+  // Cambia la ruta según la estructura de tu API backend
+  return api.get(`/users/${userId}/`);  // Parece que la ruta correcta es users, no usuarios
 };
 
+// Implementa getCurrentUser para verificar la sesión actual
 const getCurrentUser = async () => {
-  const token = localStorage.getItem('token');
-  if (!token) return null;
-  
   try {
-    // Verificar si el token es válido
-    const user = jwtDecode(token); // Cambiado de jwt_decode a jwtDecode
+    const token = localStorage.getItem('authToken');
+    if (!token) return null;
     
-    // Verificar si el token ha expirado
-    const currentTime = Date.now() / 1000;
-    if (user.exp < currentTime) {
-      // Token expirado, intentar refrescar
-      const refreshToken = localStorage.getItem('refreshToken');
-      if (!refreshToken) {
-        logout();
-        return null;
-      }
-      
-      try {
-        const response = await api.post('/token/refresh/', {
-          refresh: refreshToken,
-        });
-        
-        const { access } = response.data;
-        localStorage.setItem('token', access);
-        
-        return jwtDecode(access); // Cambiado de jwt_decode a jwtDecode
-      } catch (refreshError) {
-        logout();
-        return null;
-      }
-    }
+    // Decodificar el token para obtener el user_id
+    const tokenData = JSON.parse(atob(token.split('.')[1]));
+    const userId = tokenData.user_id;
     
-    return user;
+    // Obtener los detalles del usuario
+    const response = await getUserDetails(userId);
+    
+    // Combinar los datos del token con los detalles del usuario
+    return {
+      ...tokenData,
+      ...response.data
+    };
   } catch (error) {
-    logout();
+    console.error('Error al obtener usuario actual:', error);
+    // Si hay un error, limpiar el token y devolver null
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('refreshToken');
     return null;
   }
 };
 
+// Asegúrate de incluir todas las funciones en el objeto exportado
 const authService = {
   login,
   register,
-  logout,
+  logout: () => {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('refreshToken');
+  },
   getCurrentUser,
+  getUserDetails
 };
 
 export default authService;

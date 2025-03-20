@@ -47,45 +47,50 @@ const Login = () => {
     // Validación
     if (!tip || !password) {
       setErrorMsg('TIP y contraseña son requeridos');
+      setOpenSnackbar(true);
       setIsLoading(false);
-      return false; // Importante retornar false
+      return false;
     }
     
     try {
       setIsLoading(true);
       setErrorMsg('');
       
+      // Pasar directamente tip y password como argumentos separados
       await login(tip, password);
       
       // Navegación controlada después de login exitoso
-      setTimeout(() => {
-        navigate('/dashboard', { replace: true });
-      }, 0);
-      
-      return true; // Login exitoso
+      navigate('/dashboard', { replace: true });
+      return true;
     } catch (error) {
-      console.error('Error en el inicio de sesión:', error);
+      console.error("Error en el inicio de sesión:", error);
       
-      // Gestión de errores mejorada
-      let mensaje = ERROR_MESSAGES.LOGIN_FAILED;
-      
-      if (error.response) {
-        const status = error.response.status;
-        
-        if (status === 401) {
-          mensaje = 'Credenciales incorrectas. Por favor, verifique su TIP y contraseña.';
-        } else if (status === 403) {
-          mensaje = 'No tiene permisos para acceder. Su cuenta podría estar desactivada.';
+      // Extraer mensaje de error amigable
+      if (error.response && error.response.data) {
+        if (typeof error.response.data === 'object') {
+          // Formatear errores del objeto (tip: [...], password: [...])
+          const errorMessages = Object.keys(error.response.data)
+            .map(key => {
+              const msgs = error.response.data[key];
+              if (Array.isArray(msgs)) {
+                return `${key}: ${msgs.join(', ')}`;
+              }
+              return `${key}: ${msgs}`;
+            })
+            .join('; ');
+          setErrorMsg(errorMessages);
+        } else if (error.response.data.detail) {
+          setErrorMsg(error.response.data.detail);
         } else {
-          mensaje = error.response.data?.detail || ERROR_MESSAGES.LOGIN_FAILED;
+          setErrorMsg('Credenciales inválidas');
         }
-      } else if (error.request) {
-        mensaje = ERROR_MESSAGES.NETWORK_ERROR;
+      } else {
+        setErrorMsg('Error al conectar con el servidor');
       }
       
-      setErrorMsg(mensaje);
-      setOpenSnackbar(true); // Activar el Snackbar
-      return false; // Login fallido
+      setOpenSnackbar(true);
+      setIsLoading(false);
+      return false;
     } finally {
       setIsLoading(false);
     }
