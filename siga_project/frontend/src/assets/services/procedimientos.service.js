@@ -1,6 +1,7 @@
 import api from './api';
 
-const BASE_URL = '/procedimientos';
+// Corregir la URL base - quitar el /api/ porque ya se incluye en api.js
+const BASE_URL = '/procedimientos';  // Quitar el /api/
 
 // Procedimientos
 const getProcedimientos = (params) => {
@@ -8,6 +9,7 @@ const getProcedimientos = (params) => {
 };
 
 const getProcedimiento = (id) => {
+  console.log(`Solicitando procedimiento con ID: ${id}`);
   return api.get(`${BASE_URL}/procedimientos/${id}/`);
 };
 
@@ -50,6 +52,7 @@ const deleteTipoProcedimiento = (id) => {
 
 // Pasos
 const getPasos = (procedimientoId) => {
+  console.log("Obteniendo pasos para procedimiento:", procedimientoId);
   return api.get(`${BASE_URL}/pasos/`, { 
     params: { procedimiento: procedimientoId } 
   });
@@ -129,6 +132,9 @@ const getHistorialProcedimiento = (procedimientoId) => {
   });
 };
 
+// En el servicio
+
+
 const procedimientosService = {
   getProcedimientos,
   getProcedimiento,
@@ -153,5 +159,7 @@ const procedimientosService = {
   deleteDocumento,
   getHistorialProcedimiento
 };
+
+
 
 export default procedimientosService;

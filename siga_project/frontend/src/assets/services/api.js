@@ -2,10 +2,11 @@
 import axios from 'axios';
 import { navigateTo } from './navigation.service';
 
+// Definir la URL base como constante para usarla en todo el archivo
 const API_URL = 'http://localhost:8000/api';
 
 const api = axios.create({
-  baseURL: API_URL,
+  baseURL: API_URL,  // Usar la constante definida
   headers: {
     'Content-Type': 'application/json',
   },
@@ -14,7 +15,7 @@ const api = axios.create({
 // Interceptor para añadir token a las peticiones
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('authToken'); // Actualizar a 'authToken' si ese es el nombre correcto
     if (token) {
       config.headers['Authorization'] = `Bearer ${token}`;
     }
@@ -47,12 +48,14 @@ api.interceptors.response.use(
           return Promise.reject(error);
         }
         
+        // Usar la constante API_URL definida anteriormente
         const response = await axios.post(`${API_URL}/token/refresh/`, {
           refresh: refreshToken,
         });
         
         const { access } = response.data;
-        localStorage.setItem('token', access);
+        // Corregir el nombre del token para que sea consistente
+        localStorage.setItem('authToken', access);
         
         originalRequest.headers['Authorization'] = `Bearer ${access}`;
         return api(originalRequest);

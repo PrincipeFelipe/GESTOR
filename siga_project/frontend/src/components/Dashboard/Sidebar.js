@@ -123,10 +123,10 @@ const Sidebar = ({ drawerWidth, mobileOpen, handleDrawerToggle }) => {
   // Filtrar elementos del menú según el rol del usuario
   const filteredMenuItems = menuItems.filter(item => {
     // Depuración para ver qué está pasando
-    console.log("Usuario actual:", currentUser);
-    console.log("Tipo usuario:", currentUser?.tipo_usuario);
-    console.log("Item roles:", item.roles);
-    console.log("¿Incluye el rol?", currentUser && item.roles.includes(currentUser.tipo_usuario));
+    //console.log("Usuario actual:", currentUser);
+    //console.log("Tipo usuario:", currentUser?.tipo_usuario);
+    //console.log("Item roles:", item.roles);
+    //console.log("¿Incluye el rol?", currentUser && item.roles.includes(currentUser.tipo_usuario));
     
     // Si el usuario es SuperAdmin, siempre mostrar todas las opciones
     if (currentUser?.tipo_usuario === "SuperAdmin") {

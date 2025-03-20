@@ -1,5 +1,5 @@
 from django.shortcuts import render
-from rest_framework import viewsets, status, filters
+from rest_framework import viewsets, status, filters, renderers
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -106,6 +106,8 @@ class ProcedimientoViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(procedimiento)
         return Response(serializer.data)
 
+# Modificar la clase PasoViewSet para evitar el error de plantilla
+
 class PasoViewSet(viewsets.ModelViewSet):
     queryset = Paso.objects.all()
     serializer_class = PasoSerializer
@@ -113,7 +115,10 @@ class PasoViewSet(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_fields = ['procedimiento']
     ordering_fields = ['numero']
+    # Corregir la línea que causa el error
+    renderer_classes = [renderers.JSONRenderer]
     
+    # El resto del código se mantiene igual
     def get_queryset(self):
         queryset = super().get_queryset()
         procedimiento_id = self.request.query_params.get('procedimiento')

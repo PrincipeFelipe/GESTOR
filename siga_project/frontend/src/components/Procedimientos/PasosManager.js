@@ -212,7 +212,8 @@ const SortablePasoItem = ({ paso, index, isAdminOrSuperAdmin, handleOpenPasoForm
 };
 
 const PasosManager = () => {
-  const { id } = useParams();
+  const { procedimientoId } = useParams();
+  console.log("Parámetros de ruta:", useParams());
   const navigate = useNavigate();
   const { currentUser } = useContext(AuthContext);
   const isAdminOrSuperAdmin = ['Admin', 'SuperAdmin'].includes(currentUser?.tipo_usuario);
@@ -260,14 +261,42 @@ const PasosManager = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
+        
+        // Verifica que el ID está definido
+        if (!procedimientoId) {
+          console.error("ID de procedimiento no definido");
+          setSnackbar({
+            open: true,
+            message: 'Error: ID de procedimiento no encontrado',
+            severity: 'error'
+          });
+          setLoading(false);
+          return;
+        }
+        
+        console.log("Obteniendo datos para procedimiento:", procedimientoId);
+        
         const [procedimientoRes, pasosRes, documentosRes] = await Promise.all([
-          procedimientosService.getProcedimiento(id),
-          procedimientosService.getPasos(id),
+          procedimientosService.getProcedimiento(procedimientoId),
+          procedimientosService.getPasos(procedimientoId),  // Usa el ID del procedimiento
           procedimientosService.getDocumentos()
         ]);
         
+        console.log("Procedimiento:", procedimientoRes.data);
+        console.log("Pasos (respuesta completa):", pasosRes);
+        console.log("Pasos (datos):", pasosRes.data);
+        
         setProcedimiento(procedimientoRes.data);
-        setPasos(pasosRes.data.results || pasosRes.data);
+        
+        // Verifica la estructura de la respuesta y extrae los pasos correctamente
+        // La API puede devolver directamente un array o un objeto con propiedad 'results'
+        const pasosData = Array.isArray(pasosRes.data) 
+          ? pasosRes.data 
+          : (pasosRes.data.results || []);
+        
+        console.log("Pasos después de procesamiento:", pasosData);
+        
+        setPasos(pasosData);
         setDocumentos(documentosRes.data.results || documentosRes.data);
       } catch (error) {
         console.error('Error al cargar los datos:', error);
@@ -282,7 +311,7 @@ const PasosManager = () => {
     };
 
     fetchData();
-  }, [id]);
+  }, [procedimientoId]);
 
   const handleDragEnd = async (event) => {
     const { active, over } = event;
@@ -310,7 +339,7 @@ const PasosManager = () => {
       for (const paso of reorderedPasos) {
         await procedimientosService.updatePaso(paso.id, {
           numero: paso.numero,
-          procedimiento: id
+          procedimiento: procedimientoId  // Cambiar id por procedimientoId
         });
       }
       
@@ -380,7 +409,7 @@ const PasosManager = () => {
         // Actualizar paso existente
         await procedimientosService.updatePaso(pasoActual.id, {
           ...formData,
-          procedimiento: id
+          procedimiento: procedimientoId  // Cambiar id por procedimientoId
         });
         
         setSnackbar({
@@ -393,7 +422,7 @@ const PasosManager = () => {
         const nuevoNumero = pasos.length + 1;
         await procedimientosService.createPaso({
           ...formData,
-          procedimiento: id,
+          procedimiento: procedimientoId,  // Cambiar id por procedimientoId
           numero: nuevoNumero
         });
         
@@ -405,7 +434,7 @@ const PasosManager = () => {
       }
       
       // Recargar pasos
-      const response = await procedimientosService.getPasos(id);
+      const response = await procedimientosService.getPasos(procedimientoId);  // Cambiar id por procedimientoId
       setPasos(response.data.results || response.data);
       
       handleClosePasoForm();
@@ -429,7 +458,7 @@ const PasosManager = () => {
           await procedimientosService.deletePaso(paso.id);
           
           // Recargar pasos
-          const response = await procedimientosService.getPasos(id);
+          const response = await procedimientosService.getPasos(procedimientoId);  // Cambiar id por procedimientoId
           setPasos(response.data.results || response.data);
           
           setSnackbar({
@@ -687,3 +716,4 @@ const PasosManager = () => {
 };
 
 export default PasosManager;
+
