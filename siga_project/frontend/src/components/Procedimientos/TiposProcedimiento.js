@@ -1,17 +1,11 @@
 import React from 'react';
-import { Box, Typography, Paper } from '@mui/material';
+import { Box } from '@mui/material';
+import TiposProcedimientosList from './TiposProcedimientosList';
 
 const TiposProcedimiento = () => {
   return (
     <Box>
-      <Paper sx={{ p: 3 }}>
-        <Typography variant="h5" component="h1">
-          Tipos de Procedimiento
-        </Typography>
-        <Typography variant="body1" sx={{ mt: 2 }}>
-          Esta página está en desarrollo. Pronto podrás gestionar los tipos de procedimientos.
-        </Typography>
-      </Paper>
+      <TiposProcedimientosList />
     </Box>
   );
 };

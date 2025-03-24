@@ -1,36 +1,39 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Box, 
-  Typography, 
-  Paper, 
-  Divider, 
-  Button, 
-  IconButton, 
-  Tooltip, 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableContainer, 
-  TableHead, 
+import React, { useState, useEffect, useContext } from 'react';
+import {
+  Box,
+  Typography,
+  Button,
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
   TableRow,
+  IconButton,
+  Tooltip,
+  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
   DialogContentText,
   DialogTitle,
-  CircularProgress,
   Snackbar,
   Alert
 } from '@mui/material';
-import { 
-  Add as AddIcon, 
-  Edit as EditIcon, 
-  Delete as DeleteIcon 
+import {
+  Add as AddIcon,
+  Edit as EditIcon,
+  Delete as DeleteIcon
 } from '@mui/icons-material';
 import procedimientosService from '../../assets/services/procedimientos.service';
+import { AuthContext } from '../../contexts/AuthContext';
 import TipoProcedimientoForm from './TipoProcedimientoForm';
 
 const TiposProcedimientosList = () => {
+  const { currentUser } = useContext(AuthContext);
+  const isAdminOrSuperAdmin = ['Admin', 'SuperAdmin'].includes(currentUser?.tipo_usuario);
+  
   const [tiposProcedimiento, setTiposProcedimiento] = useState([]);
   const [loading, setLoading] = useState(true);
   const [openForm, setOpenForm] = useState(false);
@@ -51,6 +54,7 @@ const TiposProcedimientosList = () => {
     try {
       setLoading(true);
       const response = await procedimientosService.getTiposProcedimiento();
+      console.log('Respuesta de tipos de procedimiento:', response.data);
       setTiposProcedimiento(response.data.results || response.data);
     } catch (error) {
       console.error('Error al cargar tipos de procedimiento:', error);
@@ -121,7 +125,6 @@ const TiposProcedimientosList = () => {
         message: 'Tipo de procedimiento eliminado correctamente',
         severity: 'success'
       });
-      handleCloseDelete();
       fetchTiposProcedimiento();
     } catch (error) {
       console.error('Error al eliminar:', error);
@@ -130,6 +133,7 @@ const TiposProcedimientosList = () => {
         message: 'Error al eliminar el tipo de procedimiento',
         severity: 'error'
       });
+    } finally {
       handleCloseDelete();
     }
   };
@@ -140,23 +144,25 @@ const TiposProcedimientosList = () => {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h5" color="primary.main">
-          Tipos de Procedimiento
-        </Typography>
-        <Button
-          variant="contained"
-          color="primary"
-          startIcon={<AddIcon />}
-          onClick={() => handleOpenForm()}
-        >
-          Nuevo Tipo
-        </Button>
-      </Box>
-      
-      <Paper sx={{ p: 2 }}>
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+          <Typography variant="h5" component="h1">
+            Tipos de Procedimiento
+          </Typography>
+          {isAdminOrSuperAdmin && (
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<AddIcon />}
+              onClick={() => handleOpenForm()}
+            >
+              Nuevo Tipo
+            </Button>
+          )}
+        </Box>
+
         {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+          <Box display="flex" justifyContent="center" py={4}>
             <CircularProgress />
           </Box>
         ) : (
@@ -166,32 +172,40 @@ const TiposProcedimientosList = () => {
                 <TableRow>
                   <TableCell>Nombre</TableCell>
                   <TableCell>Descripción</TableCell>
-                  <TableCell align="right">Acciones</TableCell>
+                  {isAdminOrSuperAdmin && <TableCell align="center">Acciones</TableCell>}
                 </TableRow>
               </TableHead>
               <TableBody>
                 {tiposProcedimiento.length > 0 ? (
                   tiposProcedimiento.map((tipo) => (
-                    <TableRow key={tipo.id}>
+                    <TableRow key={tipo.id} hover>
                       <TableCell>{tipo.nombre}</TableCell>
-                      <TableCell>{tipo.descripcion || 'N/A'}</TableCell>
-                      <TableCell align="right">
-                        <Tooltip title="Editar">
-                          <IconButton onClick={() => handleOpenForm(tipo)}>
-                            <EditIcon />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Eliminar">
-                          <IconButton color="error" onClick={() => handleOpenDelete(tipo.id)}>
-                            <DeleteIcon />
-                          </IconButton>
-                        </Tooltip>
-                      </TableCell>
+                      <TableCell>{tipo.descripcion || 'Sin descripción'}</TableCell>
+                      {isAdminOrSuperAdmin && (
+                        <TableCell align="center">
+                          <Tooltip title="Editar">
+                            <IconButton
+                              color="primary"
+                              onClick={() => handleOpenForm(tipo)}
+                            >
+                              <EditIcon />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Eliminar">
+                            <IconButton
+                              color="error"
+                              onClick={() => handleOpenDelete(tipo.id)}
+                            >
+                              <DeleteIcon />
+                            </IconButton>
+                          </Tooltip>
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={3} align="center">
+                    <TableCell colSpan={isAdminOrSuperAdmin ? 3 : 2} align="center">
                       No hay tipos de procedimiento registrados
                     </TableCell>
                   </TableRow>
@@ -202,42 +216,50 @@ const TiposProcedimientosList = () => {
         )}
       </Paper>
 
-      {/* Form Dialog */}
-      <Dialog open={openForm} onClose={handleCloseForm} maxWidth="sm" fullWidth>
-        <DialogTitle>{currentTipo ? 'Editar Tipo de Procedimiento' : 'Nuevo Tipo de Procedimiento'}</DialogTitle>
-        <DialogContent>
-          <TipoProcedimientoForm 
-            initialData={currentTipo}
-            onSubmit={handleSubmit}
-            onCancel={handleCloseForm}
-          />
-        </DialogContent>
-      </Dialog>
+      {/* Formulario Modal */}
+      {openForm && (
+        <TipoProcedimientoForm
+          open={openForm}
+          onClose={handleCloseForm}
+          onSubmit={handleSubmit}
+          initialData={currentTipo}
+        />
+      )}
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={openDelete} onClose={handleCloseDelete}>
+      {/* Modal de confirmación de eliminación */}
+      <Dialog
+        open={openDelete}
+        onClose={handleCloseDelete}
+      >
         <DialogTitle>Confirmar eliminación</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            ¿Está seguro de que desea eliminar este tipo de procedimiento? Esta acción no se puede deshacer.
+            ¿Está seguro de que desea eliminar este tipo de procedimiento?
+            Esta acción no se puede deshacer y podría afectar a los procedimientos asociados.
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseDelete}>Cancelar</Button>
+          <Button onClick={handleCloseDelete} color="primary">
+            Cancelar
+          </Button>
           <Button onClick={handleDelete} color="error" variant="contained">
             Eliminar
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* Snackbar for notifications */}
+      {/* Snackbar para notificaciones */}
       <Snackbar
         open={snackbar.open}
         autoHideDuration={6000}
         onClose={handleCloseSnackbar}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
-        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity}>
+        <Alert
+          onClose={handleCloseSnackbar}
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
           {snackbar.message}
         </Alert>
       </Snackbar>

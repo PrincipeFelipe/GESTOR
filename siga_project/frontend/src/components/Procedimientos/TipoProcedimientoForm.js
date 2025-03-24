@@ -1,27 +1,34 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Box, 
-  TextField, 
-  Button, 
-  Grid,
+import {
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  TextField,
+  Box,
   CircularProgress
 } from '@mui/material';
 
-const TipoProcedimientoForm = ({ initialData, onSubmit, onCancel }) => {
+const TipoProcedimientoForm = ({ open, onClose, onSubmit, initialData }) => {
   const [formData, setFormData] = useState({
-    id: '',
     nombre: '',
     descripcion: ''
   });
-  const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (initialData) {
       setFormData({
-        id: initialData.id || '',
+        id: initialData.id,
         nombre: initialData.nombre || '',
         descripcion: initialData.descripcion || ''
+      });
+    } else {
+      setFormData({
+        nombre: '',
+        descripcion: ''
       });
     }
   }, [initialData]);
@@ -33,16 +40,13 @@ const TipoProcedimientoForm = ({ initialData, onSubmit, onCancel }) => {
       [name]: value
     }));
     
-    // Clear error when user types
+    // Limpiar error cuando el usuario modifica el campo
     if (errors[name]) {
-      setErrors(prev => ({
-        ...prev,
-        [name]: ''
-      }));
+      setErrors(prev => ({ ...prev, [name]: null }));
     }
   };
 
-  const validate = () => {
+  const validateForm = () => {
     const newErrors = {};
     
     if (!formData.nombre.trim()) {
@@ -53,14 +57,13 @@ const TipoProcedimientoForm = ({ initialData, onSubmit, onCancel }) => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    if (!validate()) return;
+  const handleSubmit = async () => {
+    if (!validateForm()) return;
     
     try {
       setLoading(true);
-      await onSubmit(formData, !!initialData);
+      const isEdit = !!initialData;
+      await onSubmit(formData, isEdit);
     } catch (error) {
       console.error('Error en el formulario:', error);
     } finally {
@@ -69,50 +72,49 @@ const TipoProcedimientoForm = ({ initialData, onSubmit, onCancel }) => {
   };
 
   return (
-    <Box component="form" onSubmit={handleSubmit} noValidate sx={{ mt: 1 }}>
-      <Grid container spacing={2}>
-        <Grid item xs={12}>
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle>
+        {initialData ? 'Editar Tipo de Procedimiento' : 'Nuevo Tipo de Procedimiento'}
+      </DialogTitle>
+      <DialogContent>
+        <Box component="form" sx={{ mt: 2 }}>
           <TextField
-            name="nombre"
             label="Nombre"
-            fullWidth
-            required
+            name="nombre"
             value={formData.nombre}
             onChange={handleChange}
+            fullWidth
+            margin="normal"
             error={!!errors.nombre}
             helperText={errors.nombre}
-            disabled={loading}
+            required
           />
-        </Grid>
-        
-        <Grid item xs={12}>
           <TextField
-            name="descripcion"
             label="Descripción"
-            fullWidth
-            multiline
-            rows={4}
+            name="descripcion"
             value={formData.descripcion}
             onChange={handleChange}
-            disabled={loading}
+            fullWidth
+            margin="normal"
+            multiline
+            rows={4}
           />
-        </Grid>
-      </Grid>
-      
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3, gap: 1 }}>
-        <Button onClick={onCancel} disabled={loading}>
+        </Box>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose} disabled={loading}>
           Cancelar
         </Button>
-        <Button
-          type="submit"
+        <Button 
+          onClick={handleSubmit} 
+          color="primary" 
           variant="contained"
-          color="primary"
           disabled={loading}
         >
-          {loading ? <CircularProgress size={24} /> : initialData ? 'Actualizar' : 'Crear'}
+          {loading ? <CircularProgress size={24} /> : initialData ? 'Actualizar' : 'Guardar'}
         </Button>
-      </Box>
-    </Box>
+      </DialogActions>
+    </Dialog>
   );
 };
 
