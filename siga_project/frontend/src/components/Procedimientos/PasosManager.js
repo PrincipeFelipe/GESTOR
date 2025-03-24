@@ -29,7 +29,8 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Grid
+  Grid,
+  Fade
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
@@ -41,7 +42,12 @@ import {
   Description as DescriptionIcon,
   AccessTime as AccessTimeIcon,
   Person as PersonIcon,
-  Save as SaveIcon
+  Save as SaveIcon,
+  Visibility as VisibilityIcon,
+  Download as DownloadIcon,
+  Close as CloseIcon,
+  ZoomIn as ZoomInIcon,
+  ZoomOut as ZoomOutIcon
 } from '@mui/icons-material';
 import {
   DndContext,
@@ -62,8 +68,8 @@ import { CSS } from '@dnd-kit/utilities';
 import procedimientosService from '../../assets/services/procedimientos.service';
 import { AuthContext } from '../../contexts/AuthContext';
 import ConfirmDialog from '../common/ConfirmDialog';
-
-// Reemplaza todo el componente SortablePasoItem con esta implementación mejorada
+import DocumentPreview from '../common/DocumentPreview';
+import axios from 'axios';
 
 const SortablePasoItem = ({ paso, index, isAdminOrSuperAdmin, handleOpenPasoForm, handleDeletePaso }) => {
   const {
@@ -82,144 +88,291 @@ const SortablePasoItem = ({ paso, index, isAdminOrSuperAdmin, handleOpenPasoForm
   // Estado para controlar la expansión del acordeón
   const [expanded, setExpanded] = useState(false);
   
+  // Estado para el documento seleccionado
+  const [selectedDocument, setSelectedDocument] = useState(null);
+  // Estado para controlar si el visualizador está abierto
+  const [previewOpen, setPreviewOpen] = useState(false);
+  
   const handleAccordionChange = () => {
     setExpanded(!expanded);
   };
 
-  return (
-    <ListItem
-      ref={setNodeRef}
-      style={style}
-      divider={true}
-      sx={{ 
-        bgcolor: 'background.paper',
-        borderRadius: 1,
-        mb: 1,
-        p: 0,
-        display: 'block'  // Cambiar a block para evitar problemas de layout
-      }}
-    >
-      <Box sx={{ 
-        display: 'flex', 
-        alignItems: 'flex-start',
-        p: 2
-      }}>
-        {isAdminOrSuperAdmin && (
-          <Box sx={{ mr: 1, pt: 0.5 }} {...attributes} {...listeners}>
-            <DragIndicatorIcon sx={{ cursor: 'grab' }} />
-          </Box>
-        )}
+  // Función para abrir el visualizador con el documento
+  const handleOpenDocumentoModal = (docPaso) => {
+    console.log("Documento a mostrar:", docPaso);
+    
+    // Verificar que tenemos la estructura correcta
+    const documentoParaPreview = {
+      // Asegurar que tenemos los campos necesarios
+      nombre: docPaso.documento_detalle?.nombre,
+      archivo_url: docPaso.documento_detalle?.archivo_url,
+      // Incluir todo el objeto por si acaso
+      documento_detalle: docPaso.documento_detalle
+    };
+    
+    console.log("Documento formateado para preview:", documentoParaPreview);
+    setSelectedDocument(documentoParaPreview);
+    setPreviewOpen(true);
+  };
+
+  // Función para cerrar el visualizador
+  const handleCloseDocumentoModal = () => {
+    setPreviewOpen(false);
+    setSelectedDocument(null);
+  };
+
+  // Reemplazar la implementación actual de handleDownloadDocumento
+
+  // Función para descargar directamente
+  const handleDownloadDocumento = (url, nombre) => {
+    if (!url) return;
+    
+    // Mostrar un pequeño indicador de carga
+    const loadingIndicator = document.createElement('div');
+    loadingIndicator.style.position = 'fixed';
+    loadingIndicator.style.top = '50%';
+    loadingIndicator.style.left = '50%';
+    loadingIndicator.style.transform = 'translate(-50%, -50%)';
+    loadingIndicator.style.background = 'rgba(0,0,0,0.7)';
+    loadingIndicator.style.color = 'white';
+    loadingIndicator.style.padding = '15px 20px';
+    loadingIndicator.style.borderRadius = '5px';
+    loadingIndicator.style.zIndex = '9999';
+    loadingIndicator.textContent = 'Descargando...';
+    document.body.appendChild(loadingIndicator);
+    
+    // Hacer la solicitud con axios para obtener el blob
+    axios({
+        url: url,
+        method: 'GET',
+        responseType: 'blob',
+        headers: {
+            'Content-Type': 'application/octet-stream'
+        }
+    })
+    .then(response => {
+        // Crear un blob
+        const contentType = response.headers['content-type'] || 'application/octet-stream';
+        const blob = new Blob([response.data], { type: contentType });
         
-        <Box sx={{ flexGrow: 1 }}>
-          <Typography variant="subtitle1" fontWeight="medium">
-            {`${paso.numero}. ${paso.titulo}`}
-          </Typography>
+        // Usar enfoque de FileSaver.js
+        const a = document.createElement('a');
+        const objectUrl = window.URL.createObjectURL(blob);
+        a.href = objectUrl;
+        a.download = nombre || 'documento';
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        
+        // Limpiar
+        setTimeout(() => {
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(objectUrl);
+            document.body.removeChild(loadingIndicator);
+        }, 100);
+    })
+    .catch(error => {
+        console.error('Error al descargar el documento:', error);
+        document.body.removeChild(loadingIndicator);
+        
+        // Intentar método alternativo
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = nombre || 'documento'; // Esto fuerza la descarga en navegadores modernos
+        a.target = '_blank'; // Abrir en nueva pestaña como plan B
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    });
+  };
+
+  return (
+    <>
+      <ListItem
+        ref={setNodeRef}
+        style={style}
+        divider={true}
+        sx={{ 
+          bgcolor: 'background.paper',
+          borderRadius: 1,
+          mb: 1,
+          p: 0,
+          display: 'block'  // Cambiar a block para evitar problemas de layout
+        }}
+      >
+        <Box sx={{ 
+          display: 'flex', 
+          alignItems: 'flex-start',
+          p: 2
+        }}>
+          {isAdminOrSuperAdmin && (
+            <Box sx={{ mr: 1, pt: 0.5 }} {...attributes} {...listeners}>
+              <DragIndicatorIcon sx={{ cursor: 'grab' }} />
+            </Box>
+          )}
           
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', mt: 0.5, gap: 2 }}>
-            {paso.responsable && (
-              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <PersonIcon fontSize="small" sx={{ mr: 0.5, color: 'text.secondary' }} />
-                <Typography variant="body2" color="text.secondary">
-                  {paso.responsable}
-                </Typography>
-              </Box>
-            )}
+          <Box sx={{ flexGrow: 1 }}>
+            <Typography variant="subtitle1" fontWeight="medium">
+              {`${paso.numero}. ${paso.titulo}`}
+            </Typography>
             
-            {paso.tiempo_estimado && (
-              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <AccessTimeIcon fontSize="small" sx={{ mr: 0.5, color: 'text.secondary' }} />
-                <Typography variant="body2" color="text.secondary">
-                  {paso.tiempo_estimado}
-                </Typography>
-              </Box>
-            )}
-          </Box>
-          
-          <Box sx={{ mt: 1 }}>
-            <Accordion 
-              expanded={expanded}
-              onChange={handleAccordionChange}
-              elevation={0}
-              disableGutters
-              sx={{ 
-                '&:before': { display: 'none' },
-                bgcolor: 'background.paper'
-              }}
-            >
-              <AccordionSummary 
-                expandIcon={<ExpandMoreIcon />}
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', mt: 0.5, gap: 2 }}>
+              {paso.responsable && (
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <PersonIcon fontSize="small" sx={{ mr: 0.5, color: 'text.secondary' }} />
+                  <Typography variant="body2" color="text.secondary">
+                    {paso.responsable}
+                  </Typography>
+                </Box>
+              )}
+              
+              {paso.tiempo_estimado && (
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <AccessTimeIcon fontSize="small" sx={{ mr: 0.5, color: 'text.secondary' }} />
+                  <Typography variant="body2" color="text.secondary">
+                    {paso.tiempo_estimado}
+                  </Typography>
+                </Box>
+              )}
+            </Box>
+            
+            <Box sx={{ mt: 1 }}>
+              <Accordion 
+                expanded={expanded}
+                onChange={handleAccordionChange}
+                elevation={0}
+                disableGutters
                 sx={{ 
-                  p: 0, 
-                  minHeight: 0,
-                  '& .MuiAccordionSummary-content': { 
-                    m: 0,
-                    '&.Mui-expanded': { m: 0 }
-                  } 
+                  '&:before': { display: 'none' },
+                  bgcolor: 'background.paper'
                 }}
               >
-                <Typography variant="body2" color="primary" sx={{ fontWeight: 'medium' }}>
-                  {expanded ? 'Ocultar descripción' : 'Ver descripción'}
-                </Typography>
-              </AccordionSummary>
-              
-              <AccordionDetails sx={{ px: 0, pt: 1, pb: 0 }}>
-                <Typography variant="body2" paragraph sx={{ whiteSpace: 'pre-line' }}>
-                  {paso.descripcion}
-                </Typography>
+                <AccordionSummary 
+                  expandIcon={<ExpandMoreIcon />}
+                  sx={{ 
+                    p: 0, 
+                    minHeight: 0,
+                    '& .MuiAccordionSummary-content': { 
+                      m: 0,
+                      '&.Mui-expanded': { m: 0 }
+                    } 
+                  }}
+                >
+                  <Typography variant="body2" color="primary" sx={{ fontWeight: 'medium' }}>
+                    {expanded ? 'Ocultar descripción' : 'Ver descripción'}
+                  </Typography>
+                </AccordionSummary>
                 
-                {/* Documentos asociados */}
-                {paso.documentos && paso.documentos.length > 0 && (
-                  <Box sx={{ mt: 1, mb: 1 }}>
-                    <Typography variant="body2" fontWeight="medium" sx={{ mb: 0.5 }}>
-                      Documentos asociados:
-                    </Typography>
-                    
-                    {paso.documentos.map((docPaso) => (
-                      <Box 
-                        key={docPaso.id} 
-                        sx={{ 
-                          display: 'flex', 
-                          alignItems: 'center',
-                          mb: 0.5
-                        }}
-                      >
-                        <DescriptionIcon fontSize="small" sx={{ mr: 1, color: 'info.main' }} />
-                        <Typography variant="body2">
-                          {docPaso.documento_detalle?.nombre || 'Documento'}
-                        </Typography>
+                <AccordionDetails sx={{ px: 0, pt: 1, pb: 0 }}>
+                  <Typography variant="body2" paragraph sx={{ whiteSpace: 'pre-line' }}>
+                    {paso.descripcion}
+                  </Typography>
+                  
+                  {/* Documentos asociados */}
+                  {paso.documentos && paso.documentos.length > 0 && (
+                    <Box sx={{ mt: 2, mb: 1 }}>
+                      <Typography variant="body2" fontWeight="medium" sx={{ mb: 1 }}>
+                        Documentos asociados:
+                      </Typography>
+                      
+                      <Box sx={{ 
+                        display: 'flex', 
+                        flexDirection: 'column',
+                        gap: 1, 
+                        pl: 1
+                      }}>
+                        {paso.documentos.map((docPaso) => (
+                          <Box 
+                            key={docPaso.id} 
+                            sx={{ 
+                              display: 'flex', 
+                              alignItems: 'center',
+                              p: 1,
+                              borderRadius: 1,
+                              bgcolor: 'background.default'
+                            }}
+                          >
+                            <DescriptionIcon fontSize="small" sx={{ mr: 1, color: 'info.main' }} />
+                            <Box sx={{ flexGrow: 1 }}>
+                              <Typography variant="body2" fontWeight="medium">
+                                {docPaso.documento_detalle?.nombre || 'Documento'}
+                              </Typography>
+                              {docPaso.documento_detalle?.descripcion && (
+                                <Typography variant="caption" color="text.secondary">
+                                  {docPaso.documento_detalle.descripcion}
+                                </Typography>
+                              )}
+                            </Box>
+                            <Box>
+                              {docPaso.documento_detalle?.archivo_url && (
+                                <>
+                                  <Tooltip title="Ver documento">
+                                    <IconButton 
+                                      size="small" 
+                                      color="primary"
+                                      onClick={() => handleOpenDocumentoModal(docPaso)}
+                                    >
+                                      <VisibilityIcon fontSize="small" />
+                                    </IconButton>
+                                  </Tooltip>
+                                  <Tooltip title="Descargar documento">
+                                    <IconButton 
+                                      size="small" 
+                                      color="primary"
+                                      onClick={() => handleDownloadDocumento(
+                                        docPaso.documento_detalle.archivo_url,
+                                        docPaso.documento_detalle.nombre || 'documento'
+                                      )}
+                                      sx={{ ml: 0.5 }}
+                                    >
+                                      <DownloadIcon fontSize="small" />
+                                    </IconButton>
+                                  </Tooltip>
+                                </>
+                              )}
+                            </Box>
+                          </Box>
+                        ))}
                       </Box>
-                    ))}
-                  </Box>
-                )}
-              </AccordionDetails>
-            </Accordion>
+                    </Box>
+                  )}
+                </AccordionDetails>
+              </Accordion>
+            </Box>
           </Box>
+          
+          {isAdminOrSuperAdmin && (
+            <Box>
+              <Tooltip title="Editar">
+                <IconButton 
+                  size="small"
+                  onClick={() => handleOpenPasoForm(paso)}
+                  sx={{ mr: 0.5 }}
+                >
+                  <EditIcon />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Eliminar">
+                <IconButton 
+                  size="small"
+                  onClick={() => handleDeletePaso(paso)}
+                  color="error"
+                >
+                  <DeleteIcon />
+                </IconButton>
+              </Tooltip>
+            </Box>
+          )}
         </Box>
-        
-        {isAdminOrSuperAdmin && (
-          <Box>
-            <Tooltip title="Editar">
-              <IconButton 
-                size="small"
-                onClick={() => handleOpenPasoForm(paso)}
-                sx={{ mr: 0.5 }}
-              >
-                <EditIcon />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Eliminar">
-              <IconButton 
-                size="small"
-                onClick={() => handleDeletePaso(paso)}
-                color="error"
-              >
-                <DeleteIcon />
-              </IconButton>
-            </Tooltip>
-          </Box>
-        )}
-      </Box>
-    </ListItem>
+      </ListItem>
+
+      {/* Reemplazar el Dialog actual con nuestro nuevo componente DocumentPreview */}
+      <DocumentPreview 
+        open={previewOpen} 
+        onClose={handleCloseDocumentoModal} 
+        document={selectedDocument} 
+      />
+    </>
   );
 };
 

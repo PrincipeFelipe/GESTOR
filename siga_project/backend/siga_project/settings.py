@@ -21,7 +21,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
-    'corsheaders',  # Añade esta línea
+    'corsheaders',
     'users',
     'unidades',
     'empleos',
@@ -31,7 +31,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'corsheaders.middleware.CorsMiddleware',  # Añade esta línea (antes de CommonMiddleware)
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -107,12 +107,37 @@ AUTH_USER_MODEL = 'users.Usuario'
 
 # Añade estas configuraciones CORS al final del archivo
 CORS_ALLOW_ALL_ORIGINS = True  # Solo para desarrollo, no usar en producción
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+]
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+    # Añade estos encabezados adicionales
+    'cache-control',
+    'pragma',
+    'expires',
+    'access-control-allow-origin',
+    'content-disposition'
+]
 
 # Alternativamente, si quieres especificar dominios permitidos:
-# CORS_ALLOWED_ORIGINS = [
-#     "http://localhost:3000",  # Puerto típico de React
-#     "http://127.0.0.1:3000",
-# ]
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    # Otras URLs de frontend permitidas
+]
 
 # Configuración de Django REST Framework
 REST_FRAMEWORK = {
@@ -150,3 +175,26 @@ SIMPLE_JWT = {
     'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
     'TOKEN_TYPE_CLAIM': 'token_type',
 }
+
+# Añadir configuración para servir archivos estáticos
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'static'),
+]
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+# Añade al final del archivo
+
+# Configuración para archivos media
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+# Configuración para archivos estáticos
+STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'static')
+
+# Añadir carpeta documentos a las ubicaciones de archivos estáticos
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'documentos'),
+]

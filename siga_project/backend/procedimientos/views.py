@@ -122,7 +122,7 @@ class PasoViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         queryset = super().get_queryset()
         procedimiento_id = self.request.query_params.get('procedimiento')
-        if procedimiento_id:
+        if (procedimiento_id):
             queryset = queryset.filter(procedimiento_id=procedimiento_id)
         return queryset
     
@@ -171,3 +171,41 @@ class HistorialProcedimientoViewSet(viewsets.ReadOnlyModelViewSet):
         if procedimiento_id:
             queryset = queryset.filter(procedimiento_id=procedimiento_id)
         return queryset
+
+# Añadir esta vista para manejo de descargas
+
+from django.http import FileResponse, HttpResponse
+from django.conf import settings
+import os
+import mimetypes
+
+def download_document(request, path):
+    """
+    Vista que sirve archivos con Content-Disposition: attachment para forzar descarga
+    """
+    # Sanitizar el path para evitar vulnerabilidades
+    path = path.replace('..', '').replace('\\', '/').lstrip('/')
+    
+    # Construir path completo
+    full_path = os.path.join(settings.MEDIA_ROOT, path)
+    
+    # Verificar que el archivo existe
+    if not os.path.exists(full_path) or not os.path.isfile(full_path):
+        return HttpResponse("Archivo no encontrado", status=404)
+    
+    # Determinar tipo MIME
+    content_type, _ = mimetypes.guess_type(full_path)
+    if not content_type:
+        content_type = 'application/octet-stream'
+    
+    # Obtener nombre del archivo
+    filename = os.path.basename(full_path)
+    
+    # Abrir y servir el archivo
+    file = open(full_path, 'rb')
+    response = FileResponse(file, content_type=content_type)
+    
+    # Importante: establecer Content-Disposition como attachment para forzar descarga
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    
+    return response
