@@ -63,7 +63,8 @@ import procedimientosService from '../../assets/services/procedimientos.service'
 import { AuthContext } from '../../contexts/AuthContext';
 import ConfirmDialog from '../common/ConfirmDialog';
 
-// Componente para cada paso con funcionalidad de arrastrar y soltar
+// Reemplaza todo el componente SortablePasoItem con esta implementación mejorada
+
 const SortablePasoItem = ({ paso, index, isAdminOrSuperAdmin, handleOpenPasoForm, handleDeletePaso }) => {
   const {
     attributes,
@@ -78,135 +79,146 @@ const SortablePasoItem = ({ paso, index, isAdminOrSuperAdmin, handleOpenPasoForm
     transition,
   };
 
+  // Estado para controlar la expansión del acordeón
+  const [expanded, setExpanded] = useState(false);
+  
+  const handleAccordionChange = () => {
+    setExpanded(!expanded);
+  };
+
   return (
     <ListItem
       ref={setNodeRef}
       style={style}
       divider={true}
-      sx={{ bgcolor: 'background.paper' }}
+      sx={{ 
+        bgcolor: 'background.paper',
+        borderRadius: 1,
+        mb: 1,
+        p: 0,
+        display: 'block'  // Cambiar a block para evitar problemas de layout
+      }}
     >
-      {isAdminOrSuperAdmin && (
-        <ListItemIcon {...attributes} {...listeners} sx={{ cursor: 'grab' }}>
-          <DragIndicatorIcon />
-        </ListItemIcon>
-      )}
-      
-      <ListItemText
-        primary={
-          <Typography variant="subtitle1">
-            {paso.numero}. {paso.titulo}
+      <Box sx={{ 
+        display: 'flex', 
+        alignItems: 'flex-start',
+        p: 2
+      }}>
+        {isAdminOrSuperAdmin && (
+          <Box sx={{ mr: 1, pt: 0.5 }} {...attributes} {...listeners}>
+            <DragIndicatorIcon sx={{ cursor: 'grab' }} />
+          </Box>
+        )}
+        
+        <Box sx={{ flexGrow: 1 }}>
+          <Typography variant="subtitle1" fontWeight="medium">
+            {`${paso.numero}. ${paso.titulo}`}
           </Typography>
-        }
-        secondary={
-          <Accordion elevation={0}>
-            <AccordionSummary
-              expandIcon={<ExpandMoreIcon />}
-              aria-controls={`panel-${paso.id}-content`}
-              id={`panel-${paso.id}-header`}
+          
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', mt: 0.5, gap: 2 }}>
+            {paso.responsable && (
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <PersonIcon fontSize="small" sx={{ mr: 0.5, color: 'text.secondary' }} />
+                <Typography variant="body2" color="text.secondary">
+                  {paso.responsable}
+                </Typography>
+              </Box>
+            )}
+            
+            {paso.tiempo_estimado && (
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <AccessTimeIcon fontSize="small" sx={{ mr: 0.5, color: 'text.secondary' }} />
+                <Typography variant="body2" color="text.secondary">
+                  {paso.tiempo_estimado}
+                </Typography>
+              </Box>
+            )}
+          </Box>
+          
+          <Box sx={{ mt: 1 }}>
+            <Accordion 
+              expanded={expanded}
+              onChange={handleAccordionChange}
+              elevation={0}
+              disableGutters
+              sx={{ 
+                '&:before': { display: 'none' },
+                bgcolor: 'background.paper'
+              }}
             >
-              <Typography variant="body2">Ver detalles</Typography>
-            </AccordionSummary>
-            <AccordionDetails>
-              <Typography paragraph variant="body2">
-                {paso.descripcion}
-              </Typography>
+              <AccordionSummary 
+                expandIcon={<ExpandMoreIcon />}
+                sx={{ 
+                  p: 0, 
+                  minHeight: 0,
+                  '& .MuiAccordionSummary-content': { 
+                    m: 0,
+                    '&.Mui-expanded': { m: 0 }
+                  } 
+                }}
+              >
+                <Typography variant="body2" color="primary" sx={{ fontWeight: 'medium' }}>
+                  {expanded ? 'Ocultar descripción' : 'Ver descripción'}
+                </Typography>
+              </AccordionSummary>
               
-              {(paso.tiempo_estimado || paso.responsable) && (
-                <Box display="flex" flexWrap="wrap" gap={2} mb={2}>
-                  {paso.tiempo_estimado && (
-                    <Box display="flex" alignItems="center" gap={0.5}>
-                      <AccessTimeIcon fontSize="small" color="action" />
-                      <Typography variant="body2" color="text.secondary">
-                        {paso.tiempo_estimado}
-                      </Typography>
-                    </Box>
-                  )}
-                  
-                  {paso.responsable && (
-                    <Box display="flex" alignItems="center" gap={0.5}>
-                      <PersonIcon fontSize="small" color="action" />
-                      <Typography variant="body2" color="text.secondary">
-                        {paso.responsable}
-                      </Typography>
-                    </Box>
-                  )}
-                </Box>
-              )}
-              
-              {paso.documentos && paso.documentos.length > 0 && (
-                <>
-                  <Typography variant="subtitle2" gutterBottom>
-                    Documentos asociados:
-                  </Typography>
-                  <List dense>
+              <AccordionDetails sx={{ px: 0, pt: 1, pb: 0 }}>
+                <Typography variant="body2" paragraph sx={{ whiteSpace: 'pre-line' }}>
+                  {paso.descripcion}
+                </Typography>
+                
+                {/* Documentos asociados */}
+                {paso.documentos && paso.documentos.length > 0 && (
+                  <Box sx={{ mt: 1, mb: 1 }}>
+                    <Typography variant="body2" fontWeight="medium" sx={{ mb: 0.5 }}>
+                      Documentos asociados:
+                    </Typography>
+                    
                     {paso.documentos.map((docPaso) => (
-                      <ListItem key={docPaso.id} disablePadding>
-                        <ListItemIcon sx={{ minWidth: 36 }}>
-                          <DescriptionIcon fontSize="small" />
-                        </ListItemIcon>
-                        <ListItemText
-                          primary={docPaso.documento_detalle.nombre}
-                          secondary={docPaso.documento_detalle.descripcion}
-                        />
-                        {docPaso.documento_detalle.archivo_url && (
-                          <Tooltip title="Ver archivo">
-                            <IconButton 
-                              size="small"
-                              component="a"
-                              href={docPaso.documento_detalle.archivo_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                            >
-                              <DescriptionIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                        {docPaso.documento_detalle.url && (
-                          <Tooltip title="Abrir URL">
-                            <IconButton 
-                              size="small"
-                              component="a"
-                              href={docPaso.documento_detalle.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                            >
-                              <DescriptionIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                      </ListItem>
+                      <Box 
+                        key={docPaso.id} 
+                        sx={{ 
+                          display: 'flex', 
+                          alignItems: 'center',
+                          mb: 0.5
+                        }}
+                      >
+                        <DescriptionIcon fontSize="small" sx={{ mr: 1, color: 'info.main' }} />
+                        <Typography variant="body2">
+                          {docPaso.documento_detalle?.nombre || 'Documento'}
+                        </Typography>
+                      </Box>
                     ))}
-                  </List>
-                </>
-              )}
-            </AccordionDetails>
-          </Accordion>
-        }
-      />
-      
-      {isAdminOrSuperAdmin && (
-        <ListItemSecondaryAction>
-          <Tooltip title="Editar">
-            <IconButton 
-              edge="end" 
-              aria-label="edit"
-              onClick={() => handleOpenPasoForm(paso)}
-            >
-              <EditIcon />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="Eliminar">
-            <IconButton 
-              edge="end" 
-              aria-label="delete"
-              onClick={() => handleDeletePaso(paso)}
-              color="error"
-            >
-              <DeleteIcon />
-            </IconButton>
-          </Tooltip>
-        </ListItemSecondaryAction>
-      )}
+                  </Box>
+                )}
+              </AccordionDetails>
+            </Accordion>
+          </Box>
+        </Box>
+        
+        {isAdminOrSuperAdmin && (
+          <Box>
+            <Tooltip title="Editar">
+              <IconButton 
+                size="small"
+                onClick={() => handleOpenPasoForm(paso)}
+                sx={{ mr: 0.5 }}
+              >
+                <EditIcon />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Eliminar">
+              <IconButton 
+                size="small"
+                onClick={() => handleDeletePaso(paso)}
+                color="error"
+              >
+                <DeleteIcon />
+              </IconButton>
+            </Tooltip>
+          </Box>
+        )}
+      </Box>
     </ListItem>
   );
 };
@@ -566,7 +578,7 @@ const PasosManager = () => {
           )}
         </Paper>
       ) : (
-        <Paper elevation={3} sx={{ mb: 3 }}>
+        <Paper elevation={3} sx={{ mb: 3, overflow: 'hidden' }}>
           <DndContext 
             sensors={sensors}
             collisionDetection={closestCenter}
@@ -576,7 +588,7 @@ const PasosManager = () => {
               items={pasos.map(paso => paso.id.toString())}
               strategy={verticalListSortingStrategy}
             >
-              <List>
+              <List sx={{ p: 0 }}>
                 {pasos.map((paso, index) => (
                   <SortablePasoItem 
                     key={paso.id} 

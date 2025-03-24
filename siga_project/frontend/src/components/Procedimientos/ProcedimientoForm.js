@@ -26,10 +26,12 @@ import procedimientosService from '../../assets/services/procedimientos.service'
 import { AuthContext } from '../../contexts/AuthContext';
 
 const ProcedimientoForm = () => {
-  const { id } = useParams();
+  const { procedimientoId } = useParams();  // Obtener el ID de la URL
   const navigate = useNavigate();
   const { currentUser } = useContext(AuthContext);
-  const isEditMode = !!id;
+  const isEditMode = !!procedimientoId;  // Si hay ID, estamos en modo edición
+  
+  console.log("Modo edición:", isEditMode, "ID:", procedimientoId);  // Para depuración
   
   const [formData, setFormData] = useState({
     nombre: '',
@@ -73,7 +75,7 @@ const ProcedimientoForm = () => {
       const fetchProcedimiento = async () => {
         try {
           setInitialLoading(true);
-          const response = await procedimientosService.getProcedimiento(id);
+          const response = await procedimientosService.getProcedimiento(procedimientoId);
           const procedimiento = response.data;
           
           setFormData({
@@ -97,7 +99,7 @@ const ProcedimientoForm = () => {
 
       fetchProcedimiento();
     }
-  }, [id, isEditMode]);
+  }, [isEditMode, procedimientoId]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -142,7 +144,7 @@ const ProcedimientoForm = () => {
     
     try {
       if (isEditMode) {
-        await procedimientosService.updateProcedimiento(id, formData);
+        await procedimientosService.updateProcedimiento(procedimientoId, formData);
         setSnackbar({
           open: true,
           message: 'Procedimiento actualizado correctamente',
@@ -156,9 +158,8 @@ const ProcedimientoForm = () => {
           severity: 'success'
         });
         
-        // Si se crea con éxito, redirigir a la página de edición de pasos
         setTimeout(() => {
-          navigate(`/dashboard/procedimientos/editar/${response.data.id}`);
+          navigate(`/dashboard/procedimientos/${response.data.id}/editar`);
         }, 1000);
       }
     } catch (error) {

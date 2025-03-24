@@ -12,17 +12,16 @@ import Login from './components/Auth/Login';
 import Register from './components/Auth/Register';
 import ProtectedRoute from './components/common/ProtectedRoute';
 
-// Componentes del Dashboard
-import Dashboard from './components/Dashboard/Dashboard';
+// Componente de Layout
+import Layout from './components/Layout/Layout';
+
+// Componentes de la aplicación
 import Home from './components/Dashboard/Home';
 import UsersList from './components/Users/UsersList';
 import UserProfile from './components/Profile/UserProfile';
 import ChangePassword from './components/Profile/ChangePassword';
 
-// Componente de Loader
-import Loader from './components/common/Loader';
-
-// Añadir estas importaciones
+// Procedimientos
 import ProcedimientosList from './components/Procedimientos/ProcedimientosList';
 import ProcedimientoForm from './components/Procedimientos/ProcedimientoForm';
 import PasosManager from './components/Procedimientos/PasosManager';
@@ -41,10 +40,10 @@ const App = () => {
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             
-            {/* Rutas protegidas */}
+            {/* Rutas protegidas con Layout común */}
             <Route path="/dashboard" element={
               <ProtectedRoute>
-                <Dashboard />
+                <Layout />
               </ProtectedRoute>
             }>
               <Route index element={<Home />} />
@@ -52,23 +51,24 @@ const App = () => {
               <Route path="unidades" element={<div>Unidades</div>} />
               <Route path="empleos" element={<div>Empleos</div>} />
               
-              {/* Rutas de Procedimientos */}
+              {/* Rutas de Procedimientos - reordenadas */}
               <Route path="procedimientos" element={<ProcedimientosList />} />
               <Route path="procedimientos/nuevo" element={<ProcedimientoForm />} />
-              <Route path="procedimientos/:id" element={<ProcedimientoView />} />
-              <Route path="procedimientos/:id/editar" element={<ProcedimientoForm />} />
-              <Route path="procedimientos/:procedimientoId/pasos" element={<PasosManager />} />
               <Route path="procedimientos/tipos" element={<TiposProcedimiento />} />
               <Route path="procedimientos/documentos" element={<DocumentosList />} />
+              {/* Rutas con parámetros después de las específicas */}
+              <Route path="procedimientos/:procedimientoId/editar" element={<ProcedimientoForm />} />
+              <Route path="procedimientos/:procedimientoId/pasos" element={<PasosManager />} />
+              <Route path="procedimientos/:procedimientoId" element={<ProcedimientoView />} />
               
-              <Route path="configuracion" element={<div>Configuración</div>} />
+              {/* Rutas de Perfil */}
               <Route path="perfil" element={<UserProfile />} />
-              <Route path="cambiar-password" element={<ChangePassword />} />
+              <Route path="perfil/cambiar-password" element={<ChangePassword />} />
             </Route>
             
             {/* Redirección por defecto */}
-            <Route path="/" element={<Navigate to="/login" replace />} />
-            <Route path="*" element={<Navigate to="/login" replace />} />
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </AuthProvider>
       </Router>

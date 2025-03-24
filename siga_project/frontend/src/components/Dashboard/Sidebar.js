@@ -75,12 +75,6 @@ const Sidebar = ({ drawerWidth, mobileOpen, handleDrawerToggle }) => {
           roles: ['User', 'Gestor', 'Admin', 'SuperAdmin']
         },
         {
-          text: 'Nuevo Procedimiento',
-          icon: <AssignmentIcon />,
-          path: '/dashboard/procedimientos/nuevo',
-          roles: ['Admin', 'SuperAdmin']
-        },
-        {
           text: 'Tipos de Procedimiento',
           icon: <CategoryIcon />,
           path: '/dashboard/procedimientos/tipos',
