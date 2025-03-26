@@ -35,6 +35,7 @@ import {
   Assignment as AssignmentIcon
 } from '@mui/icons-material';
 import procedimientosService from '../../assets/services/procedimientos.service';
+import api from '../../assets/services/api'; // Añadir esta importación
 import { AuthContext } from '../../contexts/AuthContext';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -83,11 +84,35 @@ const ProcedimientosList = () => {
           estado: filtroEstado
         };
         
+        console.log('Parámetros de búsqueda:', params);
         const response = await procedimientosService.getProcedimientos(params);
-        setProcedimientos(response.data.results || []);
-        setTotalCount(response.data.count || 0);
+        console.log('Respuesta completa de la API:', response);
+        
+        // Aquí está la corrección para manejar diferentes estructuras de respuesta
+        let procedimientosData = [];
+        let totalItems = 0;
+        
+        if (response.data) {
+          if (Array.isArray(response.data)) {
+            procedimientosData = response.data;
+            totalItems = response.data.length;
+          } else if (response.data.results && Array.isArray(response.data.results)) {
+            procedimientosData = response.data.results;
+            totalItems = response.data.count || procedimientosData.length;
+          } else if (response.data.procedimientos) {
+            // Si solo devuelve la URL de procedimientos, hacer una segunda llamada
+            const procResponse = await api.get(response.data.procedimientos);
+            console.log('Segunda llamada a procedimientos:', procResponse);
+            procedimientosData = procResponse.data.results || procResponse.data || [];
+            totalItems = procResponse.data.count || procedimientosData.length;
+          }
+        }
+        
+        console.log('Procedimientos procesados:', procedimientosData);
+        setProcedimientos(procedimientosData);
+        setTotalCount(totalItems);
       } catch (error) {
-        console.error('Error al cargar procedimientos:', error);
+        console.error('Error al cargar procedimientos:', error.response || error);
         showAlert('Error al cargar procedimientos', 'error');
       } finally {
         setLoading(false);

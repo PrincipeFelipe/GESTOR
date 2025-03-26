@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import TipoProcedimiento, Procedimiento, Paso, Documento, DocumentoPaso, HistorialProcedimiento
+from .models import Procedimiento, TipoProcedimiento, Paso, Documento, DocumentoPaso, HistorialProcedimiento
 from users.serializers import UserSerializer
 
 class TipoProcedimientoSerializer(serializers.ModelSerializer):
@@ -9,17 +9,21 @@ class TipoProcedimientoSerializer(serializers.ModelSerializer):
 
 class DocumentoSerializer(serializers.ModelSerializer):
     archivo_url = serializers.SerializerMethodField()
+    extension = serializers.SerializerMethodField()
     
     class Meta:
         model = Documento
-        fields = ['id', 'nombre', 'descripcion', 'archivo', 'archivo_url', 'url', 'fecha_creacion', 'fecha_actualizacion']
-        read_only_fields = ['fecha_creacion', 'fecha_actualizacion']
+        fields = '__all__'
     
     def get_archivo_url(self, obj):
         if obj.archivo:
-            request = self.context.get('request')
-            if request:
-                return request.build_absolute_uri(obj.archivo.url)
+            return obj.archivo.url
+        return None
+    
+    def get_extension(self, obj):
+        if obj.archivo and obj.archivo.name:
+            import os
+            return os.path.splitext(obj.archivo.name)[1].lstrip('.').upper()
         return None
 
 class DocumentoPasoSerializer(serializers.ModelSerializer):
@@ -27,7 +31,8 @@ class DocumentoPasoSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = DocumentoPaso
-        fields = ['id', 'documento', 'documento_detalle', 'orden', 'notas']
+        fields = ['id', 'paso', 'documento', 'documento_detalle', 'orden', 'notas']
+        read_only_fields = ['id']
 
 class PasoSerializer(serializers.ModelSerializer):
     documentos = DocumentoPasoSerializer(many=True, read_only=True)

@@ -1,22 +1,16 @@
-from django.urls import path, include, re_path
+from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import (
-    TipoProcedimientoViewSet,
-    ProcedimientoViewSet,
-    PasoViewSet,
-    DocumentoViewSet,
-    HistorialProcedimientoViewSet,
-)
 from . import views
 
 router = DefaultRouter()
-router.register(r'tipos', TipoProcedimientoViewSet)
-router.register(r'procedimientos', ProcedimientoViewSet)
-router.register(r'pasos', PasoViewSet)
-router.register(r'documentos', DocumentoViewSet)
-router.register(r'historial', HistorialProcedimientoViewSet)
+router.register(r'tipos', views.TipoProcedimientoViewSet)
+router.register(r'procedimientos', views.ProcedimientoViewSet)
+router.register(r'pasos', views.PasoViewSet)
+router.register(r'documentos', views.DocumentoViewSet)
+router.register(r'historial', views.HistorialProcedimientoViewSet, basename='historial')
 
 urlpatterns = [
     path('', include(router.urls)),
-    re_path(r'^download/(?P<path>.+)$', views.download_document, name='download_document'),
+    # Añadir ruta para descarga de documentos
+    path('media/documentos/<path:path>', views.download_document, name='document-download'),
 ]

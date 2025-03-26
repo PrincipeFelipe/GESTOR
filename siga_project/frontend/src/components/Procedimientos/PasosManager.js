@@ -1,401 +1,560 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
   Typography,
-  Paper,
   Button,
-  IconButton,
+  Paper,
   List,
-  ListItem,
-  ListItemText,
-  ListItemIcon,
-  ListItemSecondaryAction,
-  Divider,
-  TextField,
+  IconButton,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  CircularProgress,
-  Tooltip,
-  Chip,
+  TextField,
   Snackbar,
   Alert,
+  Grid,
+  Chip,
+  Divider,
+  ListItem,
+  CircularProgress,
+  Tabs,
+  Tab,
+  Tooltip,
   Accordion,
   AccordionSummary,
   AccordionDetails,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Grid,
-  Fade
+  Collapse,
+  Container,
+  DialogContentText
 } from '@mui/material';
 import {
-  ArrowBack as ArrowBackIcon,
   Add as AddIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
+  Save as SaveIcon,
+  ArrowBack as ArrowBackIcon,
   DragIndicator as DragIndicatorIcon,
   ExpandMore as ExpandMoreIcon,
-  Description as DescriptionIcon,
-  AccessTime as AccessTimeIcon,
   Person as PersonIcon,
-  Save as SaveIcon,
-  Visibility as VisibilityIcon,
+  AccessTime as AccessTimeIcon,
+  Description as DescriptionIcon,
   Download as DownloadIcon,
+  Visibility as VisibilityIcon,
   Close as CloseIcon,
-  ZoomIn as ZoomInIcon,
-  ZoomOut as ZoomOutIcon
+  Launch as LaunchIcon,
+  Link as LinkIcon,
+  PictureAsPdf as PdfIcon,
+  Image as ImageIcon,
+  VideoLibrary as VideoIcon,
+  Audiotrack as AudioIcon,
+  InsertDriveFile as FileIcon,
+  ExpandLess as ExpandLessIcon,
+  Description as DocumentIcon
 } from '@mui/icons-material';
-import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
+import { AuthContext } from '../../contexts/AuthContext';
+import procedimientosService from '../../assets/services/procedimientos.service';
+import ConfirmDialog from '../common/ConfirmDialog';
+import PasoDocumentosManager from './PasoDocumentosManager';
+import { CSS } from '@dnd-kit/utilities';
+
+// Asegúrate de instalar estas dependencias
+// npm install @dnd-kit/core @dnd-kit/sortable @dnd-kit/utilities @dnd-kit/modifiers
+import { 
+  DndContext, 
+  closestCenter, 
+  KeyboardSensor, 
+  PointerSensor, 
+  useSensor, 
+  useSensors
 } from '@dnd-kit/core';
 import {
-  arrayMove,
   SortableContext,
-  sortableKeyboardCoordinates,
-  useSortable,
-  verticalListSortingStrategy
+  verticalListSortingStrategy,
+  useSortable
 } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
-import procedimientosService from '../../assets/services/procedimientos.service';
-import { AuthContext } from '../../contexts/AuthContext';
-import ConfirmDialog from '../common/ConfirmDialog';
-import DocumentPreview from '../common/DocumentPreview';
-import axios from 'axios';
+import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
 
-const SortablePasoItem = ({ paso, index, isAdminOrSuperAdmin, handleOpenPasoForm, handleDeletePaso }) => {
+// Componente para elementos arrastrables
+const SortablePasoItem = ({ paso, index, isAdminOrSuperAdmin, handleOpenPasoForm, handleDeletePaso, procedimientoId }) => {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: paso.id.toString()
+  });
+  
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 5 : 1,
+    backgroundColor: isDragging ? 'rgba(0, 0, 0, 0.05)' : 'inherit',
+    position: 'relative',
+    zIndex: isDragging ? 1 : 0
+  };
+  
+  const [expanded, setExpanded] = useState(false);
+  
+  const handleToggleExpand = () => {
+    setExpanded(!expanded);
+  };
+  
+  return (
+    <ListItem 
+      ref={setNodeRef}
+      style={style}
+      sx={{ 
+        display: 'block', 
+        p: 0, 
+        borderBottom: '1px solid rgba(0, 0, 0, 0.12)',
+        '&:last-child': { borderBottom: 'none' }
+      }}
+    >
+      <Box sx={{ display: 'flex', alignItems: 'center', p: 2 }}>
+        {isAdminOrSuperAdmin && (
+          <Box sx={{ mr: 1, cursor: 'grab' }} {...attributes} {...listeners}>
+            <DragIndicatorIcon color="action" />
+          </Box>
+        )}
+        
+        <Box 
+          sx={{ 
+            display: 'flex', 
+            flexDirection: 'column', 
+            flexGrow: 1, 
+            cursor: 'pointer'
+          }}
+          onClick={handleToggleExpand}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
+            <Chip 
+              label={`Paso ${index + 1}`}
+              size="small"
+              color="primary"
+              sx={{ mr: 1.5 }}
+            />
+            <Typography variant="subtitle1">{paso.titulo}</Typography>
+          </Box>
+          
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            {paso.responsable && (
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <PersonIcon fontSize="small" color="action" sx={{ mr: 0.5 }} />
+                <Typography variant="body2" color="text.secondary">
+                  {paso.responsable}
+                </Typography>
+              </Box>
+            )}
+            
+            {paso.tiempo_estimado && (
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <AccessTimeIcon fontSize="small" color="action" sx={{ mr: 0.5 }} />
+                <Typography variant="body2" color="text.secondary">
+                  {paso.tiempo_estimado}
+                </Typography>
+              </Box>
+            )}
+            
+            {paso.documentos && paso.documentos.length > 0 && (
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <DescriptionIcon fontSize="small" color="action" sx={{ mr: 0.5 }} />
+                <Typography variant="body2" color="text.secondary">
+                  {paso.documentos.length} {paso.documentos.length === 1 ? 'documento' : 'documentos'}
+                </Typography>
+              </Box>
+            )}
+          </Box>
+        </Box>
+        
+        {isAdminOrSuperAdmin && (
+          <Box>
+            <Tooltip title="Editar paso">
+              <IconButton 
+                size="small" 
+                color="primary"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleOpenPasoForm(paso);
+                }}
+              >
+                <EditIcon />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Eliminar paso">
+              <IconButton 
+                size="small" 
+                color="error"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDeletePaso(paso.id);
+                }}
+                sx={{ 
+                  bgcolor: 'rgba(211, 47, 47, 0.08)',
+                  '&:hover': { bgcolor: 'rgba(211, 47, 47, 0.15)' } 
+                }}
+              >
+                <DeleteIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Box>
+        )}
+      </Box>
+      
+      <Accordion 
+        expanded={expanded}
+        onChange={() => setExpanded(!expanded)}
+        disableGutters
+        elevation={0}
+        sx={{ 
+          borderTop: expanded ? '1px solid rgba(0, 0, 0, 0.12)' : 'none',
+          '&:before': { display: 'none' },
+          backgroundColor: 'rgba(0, 0, 0, 0.02)',
+        }}
+      >
+        <AccordionDetails sx={{ px: 2, pt: 0 }}>
+          <Box sx={{ ml: 7 }}>
+            <Typography variant="body1" color="text.secondary" paragraph>
+              {paso.descripcion}
+            </Typography>
+            
+            {paso.documentos && paso.documentos.length > 0 && (
+              <Box sx={{ mt: 2 }}>
+                <Typography variant="subtitle2" gutterBottom>
+                  Documentos:
+                </Typography>
+                <Box component="ul" sx={{ pl: 2 }}>
+                  {paso.documentos.map((docPaso) => (
+                    <Box 
+                      component="li"
+                      key={docPaso.id}
+                      sx={{ 
+                        mb: 1,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between'
+                      }}
+                    >
+                      <Typography variant="body2">
+                        {docPaso.documento_detalle.nombre}
+                      </Typography>
+                      
+                      <Box>
+                        {docPaso.documento_detalle.archivo_url && (
+                          <Tooltip title="Ver documento">
+                            <IconButton 
+                              size="small"
+                              href={docPaso.documento_detalle.archivo_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              <VisibilityIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                        
+                        {docPaso.documento_detalle.url && (
+                          <Tooltip title="Ir a URL">
+                            <IconButton 
+                              size="small"
+                              href={docPaso.documento_detalle.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              <LaunchIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                      </Box>
+                    </Box>
+                  ))}
+                </Box>
+              </Box>
+            )}
+            
+            {/* Gestión de documentos para Admin/SuperAdmin */}
+            {isAdminOrSuperAdmin && (
+              <Box sx={{ mt: 2 }}>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<EditIcon />}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleOpenPasoForm(paso);
+                  }}
+                >
+                  Gestionar documentos
+                </Button>
+              </Box>
+            )}
+          </Box>
+        </AccordionDetails>
+      </Accordion>
+    </ListItem>
+  );
+};
+
+// Añadir esto justo antes del componente PasoItem
+
+// Componente SortableItem para elementos arrastrables con @dnd-kit
+const SortableItem = ({ children, id }) => {
   const {
     attributes,
     listeners,
     setNodeRef,
     transform,
     transition,
-  } = useSortable({ id: paso.id.toString() });
+    isDragging
+  } = useSortable({ id });
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-  };
-
-  // Estado para controlar la expansión del acordeón
-  const [expanded, setExpanded] = useState(false);
-  
-  // Estado para el documento seleccionado
-  const [selectedDocument, setSelectedDocument] = useState(null);
-  // Estado para controlar si el visualizador está abierto
-  const [previewOpen, setPreviewOpen] = useState(false);
-  
-  const handleAccordionChange = () => {
-    setExpanded(!expanded);
-  };
-
-  // Función para abrir el visualizador con el documento
-  const handleOpenDocumentoModal = (docPaso) => {
-    console.log("Documento a mostrar:", docPaso);
-    
-    // Verificar que tenemos la estructura correcta
-    const documentoParaPreview = {
-      // Asegurar que tenemos los campos necesarios
-      nombre: docPaso.documento_detalle?.nombre,
-      archivo_url: docPaso.documento_detalle?.archivo_url,
-      // Incluir todo el objeto por si acaso
-      documento_detalle: docPaso.documento_detalle
-    };
-    
-    console.log("Documento formateado para preview:", documentoParaPreview);
-    setSelectedDocument(documentoParaPreview);
-    setPreviewOpen(true);
-  };
-
-  // Función para cerrar el visualizador
-  const handleCloseDocumentoModal = () => {
-    setPreviewOpen(false);
-    setSelectedDocument(null);
-  };
-
-  // Reemplazar la implementación actual de handleDownloadDocumento
-
-  // Función para descargar directamente
-  const handleDownloadDocumento = (url, nombre) => {
-    if (!url) return;
-    
-    // Mostrar un pequeño indicador de carga
-    const loadingIndicator = document.createElement('div');
-    loadingIndicator.style.position = 'fixed';
-    loadingIndicator.style.top = '50%';
-    loadingIndicator.style.left = '50%';
-    loadingIndicator.style.transform = 'translate(-50%, -50%)';
-    loadingIndicator.style.background = 'rgba(0,0,0,0.7)';
-    loadingIndicator.style.color = 'white';
-    loadingIndicator.style.padding = '15px 20px';
-    loadingIndicator.style.borderRadius = '5px';
-    loadingIndicator.style.zIndex = '9999';
-    loadingIndicator.textContent = 'Descargando...';
-    document.body.appendChild(loadingIndicator);
-    
-    // Hacer la solicitud con axios para obtener el blob
-    axios({
-        url: url,
-        method: 'GET',
-        responseType: 'blob',
-        headers: {
-            'Content-Type': 'application/octet-stream'
-        }
-    })
-    .then(response => {
-        // Crear un blob
-        const contentType = response.headers['content-type'] || 'application/octet-stream';
-        const blob = new Blob([response.data], { type: contentType });
-        
-        // Usar enfoque de FileSaver.js
-        const a = document.createElement('a');
-        const objectUrl = window.URL.createObjectURL(blob);
-        a.href = objectUrl;
-        a.download = nombre || 'documento';
-        a.style.display = 'none';
-        document.body.appendChild(a);
-        a.click();
-        
-        // Limpiar
-        setTimeout(() => {
-            document.body.removeChild(a);
-            window.URL.revokeObjectURL(objectUrl);
-            document.body.removeChild(loadingIndicator);
-        }, 100);
-    })
-    .catch(error => {
-        console.error('Error al descargar el documento:', error);
-        document.body.removeChild(loadingIndicator);
-        
-        // Intentar método alternativo
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = nombre || 'documento'; // Esto fuerza la descarga en navegadores modernos
-        a.target = '_blank'; // Abrir en nueva pestaña como plan B
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-    });
+    opacity: isDragging ? 0.5 : 1,
+    position: 'relative',
+    zIndex: isDragging ? 1000 : 1
   };
 
   return (
-    <>
-      <ListItem
-        ref={setNodeRef}
-        style={style}
-        divider={true}
-        sx={{ 
-          bgcolor: 'background.paper',
-          borderRadius: 1,
-          mb: 1,
-          p: 0,
-          display: 'block'  // Cambiar a block para evitar problemas de layout
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+      {children}
+    </div>
+  );
+};
+
+// Modificar el componente PasoItem para mejorar el diseño del acordeón
+
+const PasoItem = ({ paso, onEdit, onDelete, onViewDocuments, isAdminOrSuperAdmin }) => {
+  const [expanded, setExpanded] = useState(false);
+  
+  const handleToggle = () => {
+    setExpanded(!expanded);
+  };
+
+  // Función para renderizar el icono según el tipo de documento
+  const getDocumentoIcon = (documento) => {
+    if (!documento.archivo_url && documento.url) {
+      return <LinkIcon fontSize="small" color="primary" />;
+    }
+    
+    const extension = documento.extension?.toLowerCase();
+    
+    if (extension === 'pdf') {
+      return <PdfIcon fontSize="small" color="error" />;
+    } else if (['jpg', 'jpeg', 'png', 'gif', 'svg'].includes(extension)) {
+      return <ImageIcon fontSize="small" color="success" />;
+    } else if (['mp4', 'avi', 'mov', 'wmv'].includes(extension)) {
+      return <VideoIcon fontSize="small" color="secondary" />;
+    } else if (['mp3', 'wav', 'ogg'].includes(extension)) {
+      return <AudioIcon fontSize="small" color="info" />;
+    } else {
+      return <FileIcon fontSize="small" color="action" />;
+    }
+  };
+
+  return (
+    <Paper 
+      elevation={2} 
+      sx={{
+        mb: 2,
+        borderRadius: 2,
+        overflow: 'hidden',
+        border: expanded ? '1px solid #3f51b5' : '1px solid #e0e0e0',
+        transition: 'all 0.3s ease',
+        '&:hover': {
+          boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
+          borderColor: '#bbdefb'
+        }
+      }}
+    >
+      <Box
+        onClick={handleToggle}
+        sx={{
+          p: 2,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          cursor: 'pointer',
+          bgcolor: expanded ? 'rgba(63, 81, 181, 0.08)' : 'white',
+          transition: 'background-color 0.3s ease',
         }}
       >
-        <Box sx={{ 
-          display: 'flex', 
-          alignItems: 'flex-start',
-          p: 2
-        }}>
-          {isAdminOrSuperAdmin && (
-            <Box sx={{ mr: 1, pt: 0.5 }} {...attributes} {...listeners}>
-              <DragIndicatorIcon sx={{ cursor: 'grab' }} />
-            </Box>
-          )}
-          
-          <Box sx={{ flexGrow: 1 }}>
-            <Typography variant="subtitle1" fontWeight="medium">
-              {`${paso.numero}. ${paso.titulo}`}
+        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          <Typography variant="h6" component="div" color="primary" sx={{ fontWeight: 'bold', mr: 2 }}>
+            {paso.numero}
+          </Typography>
+          <Box>
+            <Typography variant="h6" sx={{ fontWeight: expanded ? 'bold' : 'medium' }}>
+              {paso.titulo}
             </Typography>
-            
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', mt: 0.5, gap: 2 }}>
-              {paso.responsable && (
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  <PersonIcon fontSize="small" sx={{ mr: 0.5, color: 'text.secondary' }} />
-                  <Typography variant="body2" color="text.secondary">
-                    {paso.responsable}
-                  </Typography>
-                </Box>
-              )}
-              
-              {paso.tiempo_estimado && (
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  <AccessTimeIcon fontSize="small" sx={{ mr: 0.5, color: 'text.secondary' }} />
-                  <Typography variant="body2" color="text.secondary">
-                    {paso.tiempo_estimado}
-                  </Typography>
-                </Box>
-              )}
-            </Box>
-            
-            <Box sx={{ mt: 1 }}>
-              <Accordion 
-                expanded={expanded}
-                onChange={handleAccordionChange}
-                elevation={0}
-                disableGutters
+            <Typography variant="caption" color="text.secondary">
+              {paso.tiempo_estimado ? `Tiempo estimado: ${paso.tiempo_estimado}` : ''}
+              {paso.tiempo_estimado && paso.responsable ? ' · ' : ''}
+              {paso.responsable ? `Responsable: ${paso.responsable}` : ''}
+            </Typography>
+          </Box>
+        </Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          {isAdminOrSuperAdmin && (
+            <>
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit(paso);
+                }}
+                color="primary"
                 sx={{ 
-                  '&:before': { display: 'none' },
-                  bgcolor: 'background.paper'
+                  bgcolor: 'rgba(63, 81, 181, 0.08)',
+                  '&:hover': { bgcolor: 'rgba(63, 81, 181, 0.15)' } 
                 }}
               >
-                <AccordionSummary 
-                  expandIcon={<ExpandMoreIcon />}
-                  sx={{ 
-                    p: 0, 
-                    minHeight: 0,
-                    '& .MuiAccordionSummary-content': { 
-                      m: 0,
-                      '&.Mui-expanded': { m: 0 }
-                    } 
-                  }}
-                >
-                  <Typography variant="body2" color="primary" sx={{ fontWeight: 'medium' }}>
-                    {expanded ? 'Ocultar descripción' : 'Ver descripción'}
-                  </Typography>
-                </AccordionSummary>
-                
-                <AccordionDetails sx={{ px: 0, pt: 1, pb: 0 }}>
-                  <Typography variant="body2" paragraph sx={{ whiteSpace: 'pre-line' }}>
-                    {paso.descripcion}
-                  </Typography>
-                  
-                  {/* Documentos asociados */}
-                  {paso.documentos && paso.documentos.length > 0 && (
-                    <Box sx={{ mt: 2, mb: 1 }}>
-                      <Typography variant="body2" fontWeight="medium" sx={{ mb: 1 }}>
-                        Documentos asociados:
-                      </Typography>
-                      
-                      <Box sx={{ 
-                        display: 'flex', 
-                        flexDirection: 'column',
-                        gap: 1, 
-                        pl: 1
-                      }}>
-                        {paso.documentos.map((docPaso) => (
-                          <Box 
-                            key={docPaso.id} 
-                            sx={{ 
-                              display: 'flex', 
-                              alignItems: 'center',
-                              p: 1,
-                              borderRadius: 1,
-                              bgcolor: 'background.default'
-                            }}
-                          >
-                            <DescriptionIcon fontSize="small" sx={{ mr: 1, color: 'info.main' }} />
-                            <Box sx={{ flexGrow: 1 }}>
-                              <Typography variant="body2" fontWeight="medium">
-                                {docPaso.documento_detalle?.nombre || 'Documento'}
-                              </Typography>
-                              {docPaso.documento_detalle?.descripcion && (
-                                <Typography variant="caption" color="text.secondary">
-                                  {docPaso.documento_detalle.descripcion}
-                                </Typography>
-                              )}
-                            </Box>
-                            <Box>
-                              {docPaso.documento_detalle?.archivo_url && (
-                                <>
-                                  <Tooltip title="Ver documento">
-                                    <IconButton 
-                                      size="small" 
-                                      color="primary"
-                                      onClick={() => handleOpenDocumentoModal(docPaso)}
-                                    >
-                                      <VisibilityIcon fontSize="small" />
-                                    </IconButton>
-                                  </Tooltip>
-                                  <Tooltip title="Descargar documento">
-                                    <IconButton 
-                                      size="small" 
-                                      color="primary"
-                                      onClick={() => handleDownloadDocumento(
-                                        docPaso.documento_detalle.archivo_url,
-                                        docPaso.documento_detalle.nombre || 'documento'
-                                      )}
-                                      sx={{ ml: 0.5 }}
-                                    >
-                                      <DownloadIcon fontSize="small" />
-                                    </IconButton>
-                                  </Tooltip>
-                                </>
-                              )}
-                            </Box>
-                          </Box>
-                        ))}
-                      </Box>
-                    </Box>
-                  )}
-                </AccordionDetails>
-              </Accordion>
+                <EditIcon fontSize="small" />
+              </IconButton>
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete(paso.id); // Asegúrate de pasar solo el ID, no el objeto completo
+                }}
+                color="error"
+                sx={{ 
+                  bgcolor: 'rgba(211, 47, 47, 0.08)',
+                  '&:hover': { bgcolor: 'rgba(211, 47, 47, 0.15)' } 
+                }}
+              >
+                <DeleteIcon fontSize="small" />
+              </IconButton>
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onViewDocuments(paso);
+                }}
+                color="info"
+                sx={{ 
+                  bgcolor: 'rgba(2, 136, 209, 0.08)',
+                  '&:hover': { bgcolor: 'rgba(2, 136, 209, 0.15)' } 
+                }}
+              >
+                <DocumentIcon fontSize="small" />
+              </IconButton>
+            </>
+          )}
+          <IconButton size="small">
+            {expanded ? (
+              <ExpandLessIcon fontSize="small" />
+            ) : (
+              <ExpandMoreIcon fontSize="small" />
+            )}
+          </IconButton>
+        </Box>
+      </Box>
+
+      {/* Contenido expandido */}
+      <Collapse in={expanded} timeout="auto" unmountOnExit>
+        <Box sx={{ p: 3, bgcolor: '#f9f9f9', borderTop: '1px solid #e0e0e0' }}>
+          {/* Descripción */}
+          <Typography 
+            variant="body1" 
+            sx={{ 
+              mb: 2, 
+              whiteSpace: 'pre-line',
+              color: 'text.primary',
+              lineHeight: 1.6 
+            }}
+          >
+            {paso.descripcion || 'Sin descripción'}
+          </Typography>
+
+          {/* Documentos asociados */}
+          {paso.documentos && paso.documentos.length > 0 && (
+            <Box sx={{ mt: 3 }}>
+              <Typography variant="subtitle2" color="primary" sx={{ mb: 1, fontWeight: 'bold' }}>
+                Documentos asociados:
+              </Typography>
+              <Box 
+                sx={{ 
+                  display: 'flex', 
+                  flexWrap: 'wrap', 
+                  gap: 1,
+                  mt: 1
+                }}
+              >
+                {paso.documentos.map((docPaso) => (
+                  <Chip
+                    key={docPaso.id}
+                    icon={getDocumentoIcon(docPaso.documento_detalle)}
+                    label={docPaso.documento_detalle.nombre}
+                    onClick={() => {
+                      if (docPaso.documento_detalle.archivo_url) {
+                        window.open(docPaso.documento_detalle.archivo_url, '_blank');
+                      } else if (docPaso.documento_detalle.url) {
+                        window.open(docPaso.documento_detalle.url, '_blank');
+                      }
+                    }}
+                    variant="outlined"
+                    color="primary"
+                    size="small"
+                    sx={{ 
+                      borderRadius: '16px',
+                      p: 0.5,
+                      '&:hover': {
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                      }
+                    }}
+                  />
+                ))}
+              </Box>
             </Box>
-          </Box>
-          
+          )}
+
+          {/* Botón para gestionar documentos (solo para admin) */}
           {isAdminOrSuperAdmin && (
-            <Box>
-              <Tooltip title="Editar">
-                <IconButton 
-                  size="small"
-                  onClick={() => handleOpenPasoForm(paso)}
-                  sx={{ mr: 0.5 }}
-                >
-                  <EditIcon />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title="Eliminar">
-                <IconButton 
-                  size="small"
-                  onClick={() => handleDeletePaso(paso)}
-                  color="error"
-                >
-                  <DeleteIcon />
-                </IconButton>
-              </Tooltip>
+            <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<DocumentIcon />}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onViewDocuments(paso);
+                }}
+                sx={{
+                  textTransform: 'none',
+                  borderRadius: '20px',
+                  px: 2
+                }}
+              >
+                Gestionar documentos
+              </Button>
             </Box>
           )}
         </Box>
-      </ListItem>
-
-      {/* Reemplazar el Dialog actual con nuestro nuevo componente DocumentPreview */}
-      <DocumentPreview 
-        open={previewOpen} 
-        onClose={handleCloseDocumentoModal} 
-        document={selectedDocument} 
-      />
-    </>
+      </Collapse>
+    </Paper>
   );
 };
 
 const PasosManager = () => {
-  const { procedimientoId } = useParams();
-  console.log("Parámetros de ruta:", useParams());
+  const { procedimientoId } = useParams(); // Obtener ID de la URL
   const navigate = useNavigate();
   const { currentUser } = useContext(AuthContext);
   const isAdminOrSuperAdmin = ['Admin', 'SuperAdmin'].includes(currentUser?.tipo_usuario);
   
   const [procedimiento, setProcedimiento] = useState(null);
   const [pasos, setPasos] = useState([]);
-  const [documentos, setDocumentos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [documentosDialogOpen, setDocumentosDialogOpen] = useState(false);
   const [pasoActual, setPasoActual] = useState(null);
   const [formData, setFormData] = useState({
     titulo: '',
     descripcion: '',
     tiempo_estimado: '',
-    responsable: '',
-    documentos_ids: []
+    responsable: ''
+  });
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success'
   });
   const [confirmDialog, setConfirmDialog] = useState({
     open: false,
@@ -403,68 +562,83 @@ const PasosManager = () => {
     content: '',
     onConfirm: null
   });
-  const [snackbar, setSnackbar] = useState({
-    open: false,
-    message: '',
-    severity: 'success'
+
+  // Añadir estado para errores de validación
+  const [formErrors, setFormErrors] = useState({
+    titulo: false,
+    descripcion: false
   });
 
-  // Configuración de sensores para dnd-kit
+  // Configurar keyboard cooridnates getter para DnD
+  const keyboardCoordinatesGetter = (event, { context }) => {
+    const { active, droppableContainers } = context;
+    if (!active || !droppableContainers.length) return;
+
+    const activeId = active.id;
+    const activeIndex = pasos.findIndex(p => p.id.toString() === activeId);
+    
+    if (activeIndex < 0) return;
+    
+    const activeNode = document.querySelector(`[data-id="${activeId}"]`);
+    if (!activeNode) return;
+    
+    const rect = activeNode.getBoundingClientRect();
+    
+    return {
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2
+    };
+  };
+
+  // Configurar sensors para DnD
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 5, // Requiere un desplazamiento mínimo de 5px para activarse
+        distance: 8,
       },
     }),
     useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
+      coordinateGetter: keyboardCoordinatesGetter
     })
   );
 
-  // Cargar datos iniciales
+  // Efecto para cargar datos iniciales
   useEffect(() => {
     const fetchData = async () => {
       try {
-        setLoading(true);
-        
-        // Verifica que el ID está definido
         if (!procedimientoId) {
-          console.error("ID de procedimiento no definido");
-          setSnackbar({
-            open: true,
-            message: 'Error: ID de procedimiento no encontrado',
-            severity: 'error'
-          });
-          setLoading(false);
+          console.log("ID de procedimiento no definido");
           return;
         }
         
         console.log("Obteniendo datos para procedimiento:", procedimientoId);
         
-        const [procedimientoRes, pasosRes, documentosRes] = await Promise.all([
+        const [procedimientoRes, pasosRes] = await Promise.all([
           procedimientosService.getProcedimiento(procedimientoId),
-          procedimientosService.getPasos(procedimientoId),  // Usa el ID del procedimiento
-          procedimientosService.getDocumentos()
+          procedimientosService.getPasos(procedimientoId)
         ]);
-        
-        console.log("Procedimiento:", procedimientoRes.data);
-        console.log("Pasos (respuesta completa):", pasosRes);
-        console.log("Pasos (datos):", pasosRes.data);
+
+        console.log("Datos de procedimiento:", procedimientoRes.data);
+        console.log("Datos de pasos:", pasosRes.data);
         
         setProcedimiento(procedimientoRes.data);
         
-        // Verifica la estructura de la respuesta y extrae los pasos correctamente
-        // La API puede devolver directamente un array o un objeto con propiedad 'results'
-        const pasosData = Array.isArray(pasosRes.data) 
-          ? pasosRes.data 
-          : (pasosRes.data.results || []);
+        // Manejar diferentes estructuras de respuesta para pasos
+        let pasosData = [];
+        if (Array.isArray(pasosRes.data)) {
+          pasosData = pasosRes.data;
+        } else if (pasosRes.data.results && Array.isArray(pasosRes.data.results)) {
+          pasosData = pasosRes.data.results;
+        }
         
-        console.log("Pasos después de procesamiento:", pasosData);
+        // Filtrar los pasos para asegurarnos que son de este procedimiento
+        const pasosFiltrados = pasosData.filter(paso => 
+          parseInt(paso.procedimiento) === parseInt(procedimientoId)
+        );
         
-        setPasos(pasosData);
-        setDocumentos(documentosRes.data.results || documentosRes.data);
+        setPasos(pasosFiltrados.sort((a, b) => a.numero - b.numero));
       } catch (error) {
-        console.error('Error al cargar los datos:', error);
+        console.error("Error al cargar datos:", error);
         setSnackbar({
           open: true,
           message: 'Error al cargar los datos del procedimiento',
@@ -474,37 +648,65 @@ const PasosManager = () => {
         setLoading(false);
       }
     };
-
+    
     fetchData();
   }, [procedimientoId]);
 
+  // Manejar el cambio de orden mediante drag and drop
   const handleDragEnd = async (event) => {
     const { active, over } = event;
     
-    // Si no hay cambio, regresamos
-    if (!over || active.id === over.id) return;
+    if (!over || active.id === over.id) {
+      return;
+    }
     
-    // Encontrar los índices actuales
+    // Encontrar los índices originales
     const oldIndex = pasos.findIndex(paso => paso.id.toString() === active.id);
     const newIndex = pasos.findIndex(paso => paso.id.toString() === over.id);
     
-    // Actualizar el orden en el estado
-    const updatedPasos = arrayMove(pasos, oldIndex, newIndex);
+    if (oldIndex === -1 || newIndex === -1) return;
     
-    // Actualizar números de los pasos
-    const reorderedPasos = updatedPasos.map((paso, idx) => ({
+    // Crear una copia del array para manipular
+    const newPasos = [...pasos];
+    
+    // Remover el elemento arrastrado
+    const [movedItem] = newPasos.splice(oldIndex, 1);
+    
+    // Insertar en la nueva posición
+    newPasos.splice(newIndex, 0, movedItem);
+    
+    // Actualizar el estado en la UI primero (optimistic update)
+    const reorderedPasos = newPasos.map((paso, idx) => ({
       ...paso,
       numero: idx + 1
     }));
-    
     setPasos(reorderedPasos);
     
-    // Actualizar en el servidor
     try {
-      for (const paso of reorderedPasos) {
+      // NUEVA SOLUCIÓN: Usar números temporales muy altos en lugar de negativos
+      
+      // Obtener el número más alto actual para evitar conflictos
+      const maxNumero = Math.max(...pasos.map(p => p.numero || 0)) + 1000;
+      
+      // 1. Primera pasada: Asignar números temporales muy altos (que no existan en la BD)
+      for (let i = 0; i < reorderedPasos.length; i++) {
+        const paso = reorderedPasos[i];
         await procedimientosService.updatePaso(paso.id, {
-          numero: paso.numero,
-          procedimiento: procedimientoId  // Cambiar id por procedimientoId
+          titulo: paso.titulo,
+          descripcion: paso.descripcion,
+          procedimiento: paso.procedimiento,
+          numero: maxNumero + i  // Usar un número muy alto temporal único
+        });
+      }
+      
+      // 2. Segunda pasada: Asignar los números finales deseados
+      for (let i = 0; i < reorderedPasos.length; i++) {
+        const paso = reorderedPasos[i];
+        await procedimientosService.updatePaso(paso.id, {
+          titulo: paso.titulo,
+          descripcion: paso.descripcion,
+          procedimiento: paso.procedimiento,
+          numero: i + 1  // Números finales secuenciales
         });
       }
       
@@ -515,161 +717,308 @@ const PasosManager = () => {
       });
     } catch (error) {
       console.error('Error al actualizar el orden:', error);
+      
+      // Mostrar mensaje de error más detallado
+      let errorMessage = 'Error al actualizar el orden de los pasos';
+      if (error.response && error.response.data) {
+        // Extraer los detalles del error
+        const errorData = error.response.data;
+        const errorDetails = [];
+        
+        for (const field in errorData) {
+          if (Array.isArray(errorData[field])) {
+            errorDetails.push(`${field.charAt(0).toUpperCase() + field.slice(1)}: ${errorData[field].join(', ')}`);
+          } else if (typeof errorData[field] === 'string') {
+            errorDetails.push(`${field}: ${errorData[field]}`);
+          }
+        }
+        
+        if (errorDetails.length > 0) {
+          errorMessage += ': ' + errorDetails.join('; ');
+        } else if (error.response.data.detail) {
+          errorMessage += ': ' + error.response.data.detail;
+        } else if (error.response.data.non_field_errors) {
+          errorMessage += ': ' + error.response.data.non_field_errors.join(', ');
+        }
+      }
+      
       setSnackbar({
         open: true,
-        message: 'Error al actualizar el orden de los pasos',
+        message: errorMessage,
         severity: 'error'
       });
+      
+      // Recargar los datos originales en caso de error
+      try {
+        const pasosRes = await procedimientosService.getPasos(procedimientoId);
+        const pasosData = Array.isArray(pasosRes.data) 
+          ? pasosRes.data 
+          : (pasosRes.data.results || []);
+        
+        const pasosFiltrados = pasosData.filter(paso => 
+          parseInt(paso.procedimiento) === parseInt(procedimientoId)
+        );
+        
+        setPasos(pasosFiltrados.sort((a, b) => a.numero - b.numero));
+      } catch (reloadError) {
+        console.error("Error al recargar los pasos después del error:", reloadError);
+      }
     }
   };
-  
+
+  // Navegación de regreso a la lista de procedimientos
+  const handleBackToProcedimientos = () => {
+    navigate('/dashboard/procedimientos');
+  };
+
+  // Abrir formulario para crear o editar un paso
   const handleOpenPasoForm = (paso = null) => {
+    setPasoActual(paso);
+    
     if (paso) {
-      setPasoActual(paso);
       setFormData({
         titulo: paso.titulo,
         descripcion: paso.descripcion,
         tiempo_estimado: paso.tiempo_estimado || '',
-        responsable: paso.responsable || '',
-        documentos_ids: paso.documentos?.map(doc => doc.documento) || []
+        responsable: paso.responsable || ''
       });
     } else {
-      setPasoActual(null);
       setFormData({
         titulo: '',
         descripcion: '',
         tiempo_estimado: '',
-        responsable: '',
-        documentos_ids: []
+        responsable: ''
       });
     }
+    
     setDialogOpen(true);
   };
-  
-  const handleClosePasoForm = () => {
-    setDialogOpen(false);
-    setPasoActual(null);
-  };
-  
+
+  // Modificar la función handleClosePasoForm para limpiar errores
+
+const handleClosePasoForm = () => {
+  setDialogOpen(false);
+  setPasoActual(null);
+  // Limpiar errores al cerrar el formulario
+  setFormErrors({
+    titulo: false,
+    descripcion: false
+  });
+};
+
+  // Manejar cambios en el formulario
   const handleChange = (e) => {
     const { name, value } = e.target;
+    
     setFormData(prev => ({
       ...prev,
       [name]: value
     }));
-  };
-  
-  const handleDocumentosChange = (event) => {
-    setFormData({
-      ...formData,
-      documentos_ids: event.target.value
-    });
-  };
-  
-  const handleSubmitPaso = async (e) => {
-    e.preventDefault();
     
-    try {
-      if (pasoActual) {
-        // Actualizar paso existente
-        await procedimientosService.updatePaso(pasoActual.id, {
-          ...formData,
-          procedimiento: procedimientoId  // Cambiar id por procedimientoId
-        });
-        
-        setSnackbar({
-          open: true,
-          message: 'Paso actualizado correctamente',
-          severity: 'success'
-        });
-      } else {
-        // Crear nuevo paso
-        const nuevoNumero = pasos.length + 1;
-        await procedimientosService.createPaso({
-          ...formData,
-          procedimiento: procedimientoId,  // Cambiar id por procedimientoId
-          numero: nuevoNumero
-        });
-        
-        setSnackbar({
-          open: true,
-          message: 'Paso creado correctamente',
-          severity: 'success'
-        });
-      }
-      
-      // Recargar pasos
-      const response = await procedimientosService.getPasos(procedimientoId);  // Cambiar id por procedimientoId
-      setPasos(response.data.results || response.data);
-      
-      handleClosePasoForm();
-    } catch (error) {
-      console.error('Error al guardar el paso:', error);
-      setSnackbar({
-        open: true,
-        message: `Error al ${pasoActual ? 'actualizar' : 'crear'} el paso`,
-        severity: 'error'
-      });
+    // Actualizar errores si el campo está siendo corregido
+    if (formErrors[name] && value.trim()) {
+      setFormErrors(prev => ({
+        ...prev,
+        [name]: false
+      }));
     }
   };
-  
-  const handleDeletePaso = (paso) => {
-    setConfirmDialog({
-      open: true,
-      title: 'Eliminar paso',
-      content: `¿Está seguro de que desea eliminar el paso "${paso.titulo}"?`,
-      onConfirm: async () => {
-        try {
-          await procedimientosService.deletePaso(paso.id);
-          
-          // Recargar pasos
-          const response = await procedimientosService.getPasos(procedimientoId);  // Cambiar id por procedimientoId
-          setPasos(response.data.results || response.data);
-          
-          setSnackbar({
-            open: true,
-            message: 'Paso eliminado correctamente',
-            severity: 'success'
-          });
-        } catch (error) {
-          console.error('Error al eliminar el paso:', error);
-          setSnackbar({
-            open: true,
-            message: 'Error al eliminar el paso',
-            severity: 'error'
-          });
-        } finally {
-          setConfirmDialog({ ...confirmDialog, open: false });
-        }
-      }
-    });
+
+  // Corregir la función handleSubmitPaso
+
+const handleSubmitPaso = async () => {
+  // Validar campos requeridos
+  const errors = {
+    titulo: !formData.titulo.trim(),
+    descripcion: !formData.descripcion.trim()
   };
   
+  // Actualizar estado de errores
+  setFormErrors(errors);
+  
+  // Si hay errores, detener el envío del formulario
+  if (Object.values(errors).some(error => error)) {
+    setSnackbar({
+      open: true,
+      message: 'Por favor, completa los campos requeridos',
+      severity: 'warning'
+    });
+    return;
+  }
+  
+  try {
+    if (pasoActual) {
+      // Actualizar paso existente
+      await procedimientosService.updatePaso(pasoActual.id, {
+        ...formData,
+        procedimiento: procedimientoId,
+        numero: pasoActual.numero
+      });
+      
+      setSnackbar({
+        open: true,
+        message: 'Paso actualizado correctamente',
+        severity: 'success'
+      });
+    } else {
+      // Crear nuevo paso
+      const nextNumber = pasos.length > 0 
+        ? Math.max(...pasos.map(p => p.numero)) + 1 
+        : 1;
+      
+      await procedimientosService.createPaso({
+        ...formData,
+        procedimiento: procedimientoId,
+        numero: nextNumber
+      });
+      
+      setSnackbar({
+        open: true,
+        message: 'Paso creado correctamente',
+        severity: 'success'
+      });
+    }
+    
+    // Recargar pasos
+    const response = await procedimientosService.getPasos(procedimientoId);
+    
+    // Manejar diferentes respuestas posibles
+    let pasosData = [];
+    if (Array.isArray(response.data)) {
+      pasosData = response.data;
+    } else if (response.data.results && Array.isArray(response.data.results)) {
+      pasosData = response.data.results;
+    }
+    
+    // Filtrar los pasos del procedimiento actual y ordenarlos
+    const pasosFiltrados = pasosData
+      .filter(paso => parseInt(paso.procedimiento) === parseInt(procedimientoId))
+      .sort((a, b) => a.numero - b.numero);
+    
+    setPasos(pasosFiltrados);
+    
+    // Limpiar los errores y cerrar el formulario
+    setFormErrors({
+      titulo: false,
+      descripcion: false
+    });
+    handleClosePasoForm();
+  } catch (error) {
+    console.error('Error al guardar el paso:', error);
+    
+    // Extraer mensajes de error si están disponibles
+    let errorMessage = 'Error al guardar el paso';
+    
+    if (error.response && error.response.data) {
+      // Construir un mensaje más detallado
+      const errorData = error.response.data;
+      const errorDetails = [];
+      
+      for (const field in errorData) {
+        if (Array.isArray(errorData[field])) {
+          errorDetails.push(`${field.charAt(0).toUpperCase() + field.slice(1)}: ${errorData[field].join(', ')}`);
+        }
+      }
+      
+      if (errorDetails.length > 0) {
+        errorMessage += ': ' + errorDetails.join('; ');
+      }
+    }
+    
+    setSnackbar({
+      open: true,
+      message: errorMessage,
+      severity: 'error'
+    });
+  }
+};
+
+  // Corregir la función handleDeletePaso
+
+// Manejar eliminación de paso
+const handleDeletePaso = (paso) => {
+  // Verificar si recibimos un ID o un objeto paso completo
+  const pasoId = typeof paso === 'object' ? paso.id : paso;
+  
+  setConfirmDialog({
+    open: true,
+    title: 'Eliminar paso',
+    content: '¿Está seguro de que desea eliminar este paso?',
+    onConfirm: async () => {
+      try {
+        // Asegurar que estamos pasando el ID como número o string, no como objeto
+        await procedimientosService.deletePaso(pasoId);
+        
+        // Recargar pasos
+        const response = await procedimientosService.getPasos(procedimientoId);
+        
+        // Procesar los datos según la estructura de respuesta
+        let pasosData = [];
+        if (Array.isArray(response.data)) {
+          pasosData = response.data;
+        } else if (response.data.results && Array.isArray(response.data.results)) {
+          pasosData = response.data.results;
+        }
+        
+        // Filtrar los pasos del procedimiento actual y ordenarlos
+        const pasosFiltrados = pasosData
+          .filter(paso => parseInt(paso.procedimiento) === parseInt(procedimientoId))
+          .sort((a, b) => a.numero - b.numero);
+        
+        setPasos(pasosFiltrados);
+        
+        setSnackbar({
+          open: true,
+          message: 'Paso eliminado correctamente',
+          severity: 'success'
+        });
+      } catch (error) {
+        console.error('Error al eliminar el paso:', error);
+        setSnackbar({
+          open: true,
+          message: `Error al eliminar el paso: ${error.response?.data?.detail || error.message}`,
+          severity: 'error'
+        });
+      }
+    }
+  });
+};
+
+  // Cerrar snackbar
   const handleSnackbarClose = () => {
     setSnackbar({ ...snackbar, open: false });
   };
-  
-  const handleBackToProcedimientos = () => {
-    navigate('/dashboard/procedimientos');
+
+  // Función para manejar la visualización de documentos
+  const handleViewDocuments = (paso) => {
+    navigate(`/dashboard/procedimientos/${procedimientoId}/pasos/${paso.id}/documentos`);
   };
-  
-  if (loading) {
-    return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
-        <CircularProgress />
-      </Box>
-    );
-  }
-  
+
   return (
-    <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Box display="flex" alignItems="center">
-          <IconButton onClick={handleBackToProcedimientos} sx={{ mr: 2 }}>
-            <ArrowBackIcon />
-          </IconButton>
-          <Typography variant="h5" component="h1">
-            Pasos del Procedimiento
+    <Container maxWidth="lg" sx={{ mt: 4, mb: 8 }}>
+      {/* Encabezado con título y acciones */}
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center',
+        mb: 4
+      }}>
+        <Box>
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<ArrowBackIcon />}
+            onClick={handleBackToProcedimientos}
+            sx={{ mb: 2 }}
+          >
+            Volver a procedimientos
+          </Button>
+          <Typography variant="h4" component="h1" gutterBottom>
+            {procedimiento?.nombre || 'Cargando...'}
+          </Typography>
+          <Typography variant="subtitle1" color="textSecondary">
+            {procedimiento?.tipo_nombre || ''}
+            {procedimiento && ` • Versión ${procedimiento.version || '1.0'}`}
           </Typography>
         </Box>
         
@@ -679,45 +1028,25 @@ const PasosManager = () => {
             color="primary"
             startIcon={<AddIcon />}
             onClick={() => handleOpenPasoForm()}
+            sx={{ 
+              borderRadius: '20px',
+              px: 3,
+              py: 1
+            }}
           >
-            Añadir Paso
+            Nuevo paso
           </Button>
         )}
       </Box>
-      
-      <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
-        <Typography variant="h6" gutterBottom>
-          {procedimiento?.nombre}
-        </Typography>
-        <Typography variant="body2" color="text.secondary" paragraph>
-          {procedimiento?.descripcion}
-        </Typography>
-        <Box display="flex" flexWrap="wrap" gap={1}>
-          <Chip 
-            label={`Tipo: ${procedimiento?.tipo_detalle?.nombre}`} 
-            color="primary" 
-            variant="outlined" 
-          />
-          <Chip 
-            label={`Estado: ${procedimiento?.estado}`} 
-            color={
-              procedimiento?.estado === 'BORRADOR' ? 'warning' : 
-              procedimiento?.estado === 'VIGENTE' ? 'success' : 'error'
-            }
-            variant="outlined" 
-          />
-          <Chip 
-            label={`Versión: ${procedimiento?.version}`} 
-            color="secondary" 
-            variant="outlined" 
-          />
+
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+          <CircularProgress />
         </Box>
-      </Paper>
-      
-      {pasos.length === 0 ? (
-        <Paper elevation={3} sx={{ p: 3, textAlign: 'center' }}>
-          <Typography variant="body1" color="text.secondary" paragraph>
-            Este procedimiento no tiene pasos definidos
+      ) : pasos.length === 0 ? (
+        <Paper sx={{ p: 4, textAlign: 'center', borderRadius: 2 }}>
+          <Typography variant="h6" color="textSecondary" gutterBottom>
+            No hay pasos definidos
           </Typography>
           {isAdminOrSuperAdmin && (
             <Button
@@ -725,158 +1054,180 @@ const PasosManager = () => {
               color="primary"
               startIcon={<AddIcon />}
               onClick={() => handleOpenPasoForm()}
+              sx={{ mt: 2 }}
             >
-              Añadir Primer Paso
+              Añadir el primer paso
             </Button>
           )}
         </Paper>
       ) : (
-        <Paper elevation={3} sx={{ mb: 3, overflow: 'hidden' }}>
-          <DndContext 
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext
+            items={pasos.map(paso => paso.id.toString())}
+            strategy={verticalListSortingStrategy}
           >
-            <SortableContext 
-              items={pasos.map(paso => paso.id.toString())}
-              strategy={verticalListSortingStrategy}
-            >
-              <List sx={{ p: 0 }}>
-                {pasos.map((paso, index) => (
-                  <SortablePasoItem 
-                    key={paso.id} 
-                    paso={paso} 
-                    index={index}
+            <Box sx={{ mt: 2 }}>
+              {pasos.map((paso) => (
+                <SortableItem key={paso.id} id={paso.id.toString()}>
+                  <PasoItem
+                    paso={paso}
+                    onEdit={handleOpenPasoForm}
+                    onDelete={handleDeletePaso}
+                    onViewDocuments={handleViewDocuments}
                     isAdminOrSuperAdmin={isAdminOrSuperAdmin}
-                    handleOpenPasoForm={handleOpenPasoForm}
-                    handleDeletePaso={handleDeletePaso}
                   />
-                ))}
-              </List>
-            </SortableContext>
-          </DndContext>
-        </Paper>
+                </SortableItem>
+              ))}
+            </Box>
+          </SortableContext>
+        </DndContext>
       )}
-      
-      {/* Dialog para crear/editar paso */}
-      <Dialog 
-        open={dialogOpen} 
+
+      {/* Dialog para crear/editar pasos */}
+      <Dialog
+        open={dialogOpen}
         onClose={handleClosePasoForm}
         maxWidth="md"
         fullWidth
       >
         <DialogTitle>
-          {pasoActual ? `Editar Paso ${pasoActual.numero}` : 'Nuevo Paso'}
+          {pasoActual ? 'Editar Paso' : 'Nuevo Paso'}
         </DialogTitle>
         <DialogContent>
-          <Box component="form" onSubmit={handleSubmitPaso} sx={{ mt: 2 }}>
+          <Box sx={{ mt: 2 }}>
+            <TextField
+              label="Título"
+              name="titulo"
+              value={formData.titulo}
+              onChange={handleChange}
+              fullWidth
+              margin="normal"
+              variant="outlined"
+              required
+              error={formErrors.titulo}
+              helperText={formErrors.titulo ? "El título es obligatorio" : ""}
+              onBlur={() => {
+                // Validar al perder el foco
+                if (!formData.titulo.trim()) {
+                  setFormErrors(prev => ({ ...prev, titulo: true }));
+                } else {
+                  setFormErrors(prev => ({ ...prev, titulo: false }));
+                }
+              }}
+            />
+            <TextField
+              label="Descripción"
+              name="descripcion"
+              value={formData.descripcion}
+              onChange={handleChange}
+              fullWidth
+              margin="normal"
+              multiline
+              rows={4}
+              variant="outlined"
+              required
+              error={formErrors.descripcion}
+              helperText={formErrors.descripcion ? "La descripción es obligatoria" : ""}
+              onBlur={() => {
+                // Validar al perder el foco
+                if (!formData.descripcion.trim()) {
+                  setFormErrors(prev => ({ ...prev, descripcion: true }));
+                } else {
+                  setFormErrors(prev => ({ ...prev, descripcion: false }));
+                }
+              }}
+            />
             <Grid container spacing={2}>
-              <Grid item xs={12}>
+              <Grid item xs={12} sm={6}>
                 <TextField
-                  label="Título"
-                  name="titulo"
-                  value={formData.titulo}
-                  onChange={handleChange}
-                  fullWidth
-                  required
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  label="Descripción"
-                  name="descripcion"
-                  value={formData.descripcion}
-                  onChange={handleChange}
-                  fullWidth
-                  multiline
-                  rows={4}
-                  required
-                />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  label="Tiempo estimado (opcional)"
+                  label="Tiempo estimado"
                   name="tiempo_estimado"
                   value={formData.tiempo_estimado}
                   onChange={handleChange}
                   fullWidth
-                  placeholder="Ej: 30 minutos, 2 horas"
+                  margin="normal"
+                  variant="outlined"
+                  placeholder="Ej: 15 minutos"
                 />
               </Grid>
-              <Grid item xs={12} md={6}>
+              <Grid item xs={12} sm={6}>
                 <TextField
-                  label="Responsable (opcional)"
+                  label="Responsable"
                   name="responsable"
                   value={formData.responsable}
                   onChange={handleChange}
                   fullWidth
-                  placeholder="Ej: Jefe de Sección, Oficial de Guardia"
+                  margin="normal"
+                  variant="outlined"
+                  placeholder="Ej: Jefe de sección"
                 />
-              </Grid>
-              <Grid item xs={12}>
-                <FormControl fullWidth>
-                  <InputLabel id="documentos-label">Documentos asociados</InputLabel>
-                  <Select
-                    labelId="documentos-label"
-                    multiple
-                    value={formData.documentos_ids}
-                    onChange={handleDocumentosChange}
-                    label="Documentos asociados"
-                    renderValue={(selected) => (
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                        {selected.map((value) => {
-                          const doc = documentos.find(d => d.id === value);
-                          return (
-                            <Chip key={value} label={doc ? doc.nombre : value} />
-                          );
-                        })}
-                      </Box>
-                    )}
-                  >
-                    {documentos.map((doc) => (
-                      <MenuItem key={doc.id} value={doc.id}>
-                        {doc.nombre}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
               </Grid>
             </Grid>
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleClosePasoForm}>Cancelar</Button>
+          <Button onClick={handleClosePasoForm} color="inherit">
+            Cancelar
+          </Button>
           <Button 
-            variant="contained" 
             onClick={handleSubmitPaso} 
-            startIcon={<SaveIcon />}
+            color="primary" 
+            variant="contained"
           >
             Guardar
           </Button>
         </DialogActions>
       </Dialog>
-      
-      {/* Diálogo de confirmación */}
-      <ConfirmDialog
-        open={confirmDialog.open}
-        title={confirmDialog.title}
-        content={confirmDialog.content}
-        onConfirm={confirmDialog.onConfirm}
-        onCancel={() => setConfirmDialog({ ...confirmDialog, open: false })}
-      />
-      
+
       {/* Snackbar para notificaciones */}
       <Snackbar
         open={snackbar.open}
         autoHideDuration={6000}
-        onClose={handleSnackbarClose}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
       >
-        <Alert onClose={handleSnackbarClose} severity={snackbar.severity}>
+        <Alert 
+          onClose={() => setSnackbar({ ...snackbar, open: false })} 
+          severity={snackbar.severity}
+        >
           {snackbar.message}
         </Alert>
       </Snackbar>
-    </Box>
+
+      {/* Dialog de confirmación para eliminar */}
+      <Dialog
+        open={confirmDialog.open}
+        onClose={() => setConfirmDialog({ ...confirmDialog, open: false })}
+      >
+        <DialogTitle>{confirmDialog.title}</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {confirmDialog.content}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button 
+            onClick={() => setConfirmDialog({ ...confirmDialog, open: false })} 
+            color="inherit"
+          >
+            Cancelar
+          </Button>
+          <Button 
+            onClick={() => {
+              confirmDialog.onConfirm();
+              setConfirmDialog({ ...confirmDialog, open: false });
+            }} 
+            color="error" 
+            variant="contained"
+          >
+            Eliminar
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Container>
   );
 };
 

@@ -55,21 +55,74 @@ class Paso(models.Model):
         ordering = ['procedimiento', 'numero']
         unique_together = ['procedimiento', 'numero']
 
+import os
+from django.utils.text import slugify
+from datetime import datetime
+
+def documento_upload_path(instance, filename):
+    """
+    Determina la ruta de almacenamiento para los documentos, organizándolos en estructura:
+    documentos/procedimiento_X/paso_Y/nombrearchivo
+    """
+    # Obtener procedimiento_id
+    procedimiento_id = None
+    
+    # Si es un documento directamente asociado a un procedimiento
+    if hasattr(instance, 'procedimiento_id') and instance.procedimiento_id:
+        procedimiento_id = instance.procedimiento_id
+    
+    # Si el documento está asociado a un paso
+    paso_id = None
+    if hasattr(instance, 'paso_set'):
+        # Buscar el primer paso que tenga este documento (mediante la relación M2M)
+        pasos = instance.paso_set.all()
+        if pasos.exists():
+            paso = pasos.first()
+            paso_id = paso.id
+            procedimiento_id = paso.procedimiento_id
+    
+    # Limpiar el nombre del archivo
+    name, ext = os.path.splitext(filename)
+    safe_name = slugify(name)
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    safe_filename = f"{safe_name}_{timestamp}{ext}"
+    
+    # Determinar la ruta según los IDs disponibles
+    if procedimiento_id and paso_id:
+        return os.path.join('documentos', f'procedimiento_{procedimiento_id}', f'paso_{paso_id}', safe_filename)
+    elif procedimiento_id:
+        return os.path.join('documentos', f'procedimiento_{procedimiento_id}', safe_filename)
+    else:
+        return os.path.join('documentos', 'general', safe_filename)
+
 class Documento(models.Model):
-    nombre = models.CharField(max_length=200)
+    nombre = models.CharField(max_length=255)
     descripcion = models.TextField(blank=True, null=True)
-    archivo = models.FileField(upload_to='documentos/', blank=True, null=True)
-    url = models.URLField(blank=True, null=True, help_text="URL externa si el documento no está alojado en el sistema")
+    archivo = models.FileField(upload_to=documento_upload_path, blank=True, null=True) # Usar la función personalizada
+    url = models.URLField(blank=True, null=True)
+    procedimiento = models.ForeignKey(Procedimiento, on_delete=models.CASCADE, blank=True, null=True)
     fecha_creacion = models.DateTimeField(auto_now_add=True)
     fecha_actualizacion = models.DateTimeField(auto_now=True)
-    
-    def __str__(self):
-        return self.nombre
     
     class Meta:
         verbose_name = "Documento"
         verbose_name_plural = "Documentos"
-        ordering = ['nombre']
+        ordering = ['-fecha_actualizacion']
+    
+    def __str__(self):
+        return self.nombre
+    
+    @property
+    def extension(self):
+        if self.archivo and hasattr(self.archivo, 'name'):
+            return os.path.splitext(self.archivo.name)[1].lstrip('.').upper()
+        return None
+    
+    @property
+    def archivo_url(self):
+        if self.archivo and hasattr(self.archivo, 'url'):
+            return self.archivo.url
+        return None
 
 class DocumentoPaso(models.Model):
     paso = models.ForeignKey(Paso, on_delete=models.CASCADE, related_name='documentos')

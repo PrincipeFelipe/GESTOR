@@ -1,15 +1,14 @@
 import api from './api';
 
-// Corregir la URL base - quitar el /api/ porque ya se incluye en api.js
-const BASE_URL = '/procedimientos';  // Quitar el /api/
+// Corregir la URL base eliminando el prefijo '/api' duplicado
+const BASE_URL = '/procedimientos';
 
-// Procedimientos
+// El resto del código permanece igual
 const getProcedimientos = (params) => {
   return api.get(`${BASE_URL}/procedimientos/`, { params });
 };
 
 const getProcedimiento = (id) => {
-  console.log(`Solicitando procedimiento con ID: ${id}`);
   return api.get(`${BASE_URL}/procedimientos/${id}/`);
 };
 
@@ -52,7 +51,6 @@ const deleteTipoProcedimiento = (id) => {
 
 // Pasos
 const getPasos = (procedimientoId) => {
-  console.log("Obteniendo pasos para procedimiento:", procedimientoId);
   return api.get(`${BASE_URL}/pasos/`, { 
     params: { procedimiento: procedimientoId } 
   });
@@ -70,7 +68,19 @@ const updatePaso = (id, data) => {
   return api.put(`${BASE_URL}/pasos/${id}/`, data);
 };
 
+// Revisar la función deletePaso
 const deletePaso = (id) => {
+  // Asegurarnos de que id es un valor primitivo, no un objeto
+  if (typeof id === 'object' && id !== null) {
+    console.error('Se recibió un objeto en lugar de un ID:', id);
+    id = id.id; // Intentar extraer el ID si es un objeto
+  }
+  
+  // Verificar que tenemos un ID válido
+  if (!id) {
+    return Promise.reject(new Error('ID de paso no válido'));
+  }
+  
   return api.delete(`${BASE_URL}/pasos/${id}/`);
 };
 
@@ -84,12 +94,12 @@ const getDocumento = (id) => {
 };
 
 const createDocumento = (data) => {
-  // Para manejar archivos
+  // Para manejar la subida de archivos con FormData
   const formData = new FormData();
   
   Object.keys(data).forEach(key => {
-    if (key === 'archivo' && data[key] !== null) {
-      formData.append(key, data[key], data[key].name);
+    if (key === 'archivo' && data[key] instanceof File) {
+      formData.append(key, data[key]);
     } else if (data[key] !== null && data[key] !== undefined) {
       formData.append(key, data[key]);
     }
@@ -103,12 +113,12 @@ const createDocumento = (data) => {
 };
 
 const updateDocumento = (id, data) => {
-  // Para manejar archivos
+  // Similar a createDocumento, para manejar archivos
   const formData = new FormData();
   
   Object.keys(data).forEach(key => {
-    if (key === 'archivo' && data[key] !== null && data[key] instanceof File) {
-      formData.append(key, data[key], data[key].name);
+    if (key === 'archivo' && data[key] instanceof File) {
+      formData.append(key, data[key]);
     } else if (data[key] !== null && data[key] !== undefined) {
       formData.append(key, data[key]);
     }
@@ -126,14 +136,28 @@ const deleteDocumento = (id) => {
 };
 
 // Historial
-const getHistorialProcedimiento = (procedimientoId) => {
+const getHistorial = (procedimientoId) => {
   return api.get(`${BASE_URL}/historial/`, {
     params: { procedimiento: procedimientoId }
   });
 };
 
-// En el servicio
+// Documentos de un paso específico
+const getPasoDocumentos = (pasoId) => {
+  return api.get(`${BASE_URL}/pasos/${pasoId}/`);
+};
 
+const addDocumentoPaso = (pasoId, documentoId, data = {}) => {
+  return api.post(`${BASE_URL}/pasos/${pasoId}/documentos/`, {
+    documento: documentoId,
+    orden: data.orden || 1,
+    notas: data.notas || ''
+  });
+};
+
+const removeDocumentoPaso = (pasoId, documentoPasoId) => {
+  return api.delete(`${BASE_URL}/pasos/${pasoId}/documentos/${documentoPasoId}/`);
+};
 
 const procedimientosService = {
   getProcedimientos,
@@ -142,24 +166,30 @@ const procedimientosService = {
   updateProcedimiento,
   deleteProcedimiento,
   crearNuevaVersion,
+  
   getTiposProcedimiento,
   getTipoProcedimiento,
   createTipoProcedimiento,
   updateTipoProcedimiento,
   deleteTipoProcedimiento,
+  
   getPasos,
   getPaso,
   createPaso,
   updatePaso,
   deletePaso,
+  
   getDocumentos,
   getDocumento,
   createDocumento,
   updateDocumento,
   deleteDocumento,
-  getHistorialProcedimiento
+  
+  getPasoDocumentos,
+  addDocumentoPaso,
+  removeDocumentoPaso,
+  
+  getHistorial
 };
-
-
 
 export default procedimientosService;
