@@ -939,12 +939,20 @@ const handleSubmitPaso = async () => {
   }
 };
 
-  // Corregir la función handleDeletePaso
+  // Reemplazar la función handleDeletePaso con esta versión mejorada
 
 // Manejar eliminación de paso
 const handleDeletePaso = (paso) => {
   // Verificar si recibimos un ID o un objeto paso completo
   const pasoId = typeof paso === 'object' ? paso.id : paso;
+  const pasoAEliminar = pasos.find(p => p.id === pasoId);
+  
+  if (!pasoAEliminar) {
+    console.error('No se encontró el paso a eliminar');
+    return;
+  }
+  
+  const numeroEliminado = pasoAEliminar.numero;
   
   setConfirmDialog({
     open: true,
@@ -952,10 +960,10 @@ const handleDeletePaso = (paso) => {
     content: '¿Está seguro de que desea eliminar este paso?',
     onConfirm: async () => {
       try {
-        // Asegurar que estamos pasando el ID como número o string, no como objeto
+        // 1. Primero eliminar el paso
         await procedimientosService.deletePaso(pasoId);
         
-        // Recargar pasos
+        // 2. Recargar la lista actual de pasos (sin el eliminado)
         const response = await procedimientosService.getPasos(procedimientoId);
         
         // Procesar los datos según la estructura de respuesta
@@ -966,12 +974,65 @@ const handleDeletePaso = (paso) => {
           pasosData = response.data.results;
         }
         
-        // Filtrar los pasos del procedimiento actual y ordenarlos
+        // Filtrar solo los pasos de este procedimiento
         const pasosFiltrados = pasosData
           .filter(paso => parseInt(paso.procedimiento) === parseInt(procedimientoId))
           .sort((a, b) => a.numero - b.numero);
         
-        setPasos(pasosFiltrados);
+        // 3. Identificar pasos que necesitan actualización (los que tienen número mayor al eliminado)
+        const pasosParaActualizar = pasosFiltrados.filter(p => p.numero > numeroEliminado);
+        
+        // 4. Actualizar temporalmente el estado para feedback inmediato
+        const pasosActualizados = pasosFiltrados.map(p => {
+          if (p.numero > numeroEliminado) {
+            return { ...p, numero: p.numero - 1 };
+          }
+          return p;
+        });
+        setPasos(pasosActualizados.sort((a, b) => a.numero - b.numero));
+        
+        // 5. Realizar las actualizaciones en el backend
+        // Primero asignar números temporales altos para evitar conflictos
+        const maxNumero = Math.max(...pasosFiltrados.map(p => p.numero || 0)) + 1000;
+        
+        // Primera pasada: asignar números temporales
+        for (let i = 0; i < pasosParaActualizar.length; i++) {
+          const paso = pasosParaActualizar[i];
+          await procedimientosService.updatePaso(paso.id, {
+            titulo: paso.titulo,
+            descripcion: paso.descripcion,
+            procedimiento: paso.procedimiento,
+            numero: maxNumero + i  // Número temporal alto
+          });
+        }
+        
+        // Segunda pasada: asignar números finales
+        for (let i = 0; i < pasosParaActualizar.length; i++) {
+          const paso = pasosParaActualizar[i];
+          const nuevoNumero = paso.numero - 1; // Decrementar en 1
+          
+          await procedimientosService.updatePaso(paso.id, {
+            titulo: paso.titulo,
+            descripcion: paso.descripcion,
+            procedimiento: paso.procedimiento,
+            numero: nuevoNumero
+          });
+        }
+        
+        // 6. Recargar para asegurarnos de tener el estado correcto
+        const finalResponse = await procedimientosService.getPasos(procedimientoId);
+        let finalPasosData = [];
+        if (Array.isArray(finalResponse.data)) {
+          finalPasosData = finalResponse.data;
+        } else if (finalResponse.data.results && Array.isArray(finalResponse.data.results)) {
+          finalPasosData = finalResponse.data.results;
+        }
+        
+        const finalPasosFiltrados = finalPasosData
+          .filter(paso => parseInt(paso.procedimiento) === parseInt(procedimientoId))
+          .sort((a, b) => a.numero - b.numero);
+        
+        setPasos(finalPasosFiltrados);
         
         setSnackbar({
           open: true,
