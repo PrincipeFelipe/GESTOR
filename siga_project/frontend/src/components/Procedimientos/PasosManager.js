@@ -569,6 +569,12 @@ const PasosManager = () => {
     descripcion: false
   });
 
+  // Añadir este estado al componente PasosManager
+
+  // Estado para gestión de documentos en modal
+  const [documentosDialogOpen, setDocumentosDialogOpen] = useState(false);
+  const [pasoSeleccionado, setPasoSeleccionado] = useState(null);
+
   // Configurar keyboard cooridnates getter para DnD
   const keyboardCoordinatesGetter = (event, { context }) => {
     const { active, droppableContainers } = context;
@@ -989,10 +995,14 @@ const handleDeletePaso = (paso) => {
     setSnackbar({ ...snackbar, open: false });
   };
 
-  // Función para manejar la visualización de documentos
-  const handleViewDocuments = (paso) => {
-    navigate(`/dashboard/procedimientos/${procedimientoId}/pasos/${paso.id}/documentos`);
-  };
+  // Modificar la función handleViewDocuments
+
+// Función para manejar la visualización de documentos
+const handleViewDocuments = (paso) => {
+  // En lugar de navegar, abrir el modal
+  setPasoSeleccionado(paso);
+  setDocumentosDialogOpen(true);
+};
 
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 8 }}>
@@ -1227,6 +1237,32 @@ const handleDeletePaso = (paso) => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Modal para gestión de documentos */}
+      {pasoSeleccionado && (
+        <Dialog
+          open={documentosDialogOpen}
+          onClose={() => setDocumentosDialogOpen(false)}
+          maxWidth="lg"
+          fullWidth
+        >
+          <DialogTitle>
+            Gestionar documentos - {pasoSeleccionado.titulo}
+          </DialogTitle>
+          <DialogContent>
+            <PasoDocumentosManager 
+              pasoId={pasoSeleccionado.id} 
+              procedimientoId={procedimientoId} 
+              embedded={true} // Indicar que está embebido en un modal
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setDocumentosDialogOpen(false)} color="primary">
+              Cerrar
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
     </Container>
   );
 };

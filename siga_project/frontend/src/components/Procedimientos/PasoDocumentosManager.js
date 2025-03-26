@@ -31,17 +31,22 @@ import {
   Image as ImageIcon,
   PictureAsPdf as PdfIcon,
   Movie as VideoIcon,
-  AudioFile as AudioIcon
+  AudioFile as AudioIcon,
+  ArrowBack as ArrowBackIcon
 } from '@mui/icons-material';
 import { AuthContext } from '../../contexts/AuthContext';
 import DocumentoForm from './DocumentoForm';
 import procedimientosService from '../../assets/services/procedimientos.service';
 // Añadir esta importación para el objeto api
 import api from '../../assets/services/api';
+import { useNavigate } from 'react-router-dom';
 
-const PasoDocumentosManager = ({ pasoId, procedimientoId }) => {
+// Modificar el componente para que pueda trabajar embebido
+
+const PasoDocumentosManager = ({ pasoId, procedimientoId, embedded = false }) => {
   const { currentUser } = useContext(AuthContext);
   const isAdminOrSuperAdmin = ['Admin', 'SuperAdmin'].includes(currentUser?.tipo_usuario);
+  const navigate = useNavigate();
   
   const [documentosPaso, setDocumentosPaso] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -212,8 +217,24 @@ const fetchPasoDocumentos = async () => {
     }
   };
 
+  // Si está embebido, no mostrar el botón de volver
+  const handleBack = () => {
+    if (embedded) return;
+    navigate(`/dashboard/procedimientos/${procedimientoId}/pasos`);
+  };
+
   return (
     <Box sx={{ mt: 2 }}>
+      {!embedded && (
+        <Button
+          variant="outlined"
+          startIcon={<ArrowBackIcon />}
+          onClick={handleBack}
+          sx={{ mb: 2 }}
+        >
+          Volver a pasos
+        </Button>
+      )}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h6">
           Documentos del paso

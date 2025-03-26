@@ -28,6 +28,7 @@ import PasosManager from './components/Procedimientos/PasosManager';
 import TiposProcedimiento from './components/Procedimientos/TiposProcedimiento';
 import DocumentosList from './components/Procedimientos/DocumentosList';
 import ProcedimientoView from './components/Procedimientos/ProcedimientoView';
+import PasoDocumentosManager from './components/Procedimientos/PasoDocumentosManager';
 
 const App = () => {
   return (
@@ -51,14 +52,14 @@ const App = () => {
               <Route path="unidades" element={<div>Unidades</div>} />
               <Route path="empleos" element={<div>Empleos</div>} />
               
-              {/* Rutas de Procedimientos - reordenadas */}
+              {/* Rutas de Procedimientos - reordenadas para resolver conflictos de rutas */}
               <Route path="procedimientos" element={<ProcedimientosList />} />
               <Route path="procedimientos/nuevo" element={<ProcedimientoForm />} />
               <Route path="procedimientos/tipos" element={<TiposProcedimiento />} />
               <Route path="procedimientos/documentos" element={<DocumentosList />} />
-              {/* Rutas con parámetros después de las específicas */}
               <Route path="procedimientos/:procedimientoId/editar" element={<ProcedimientoForm />} />
               <Route path="procedimientos/:procedimientoId/pasos" element={<PasosManager />} />
+              <Route path="procedimientos/:procedimientoId/pasos/:pasoId/documentos" element={<PasoDocumentosManager />} />
               <Route path="procedimientos/:procedimientoId" element={<ProcedimientoView />} />
               
               {/* Rutas de Perfil */}
