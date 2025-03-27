@@ -42,10 +42,15 @@ import procedimientosService from '../../assets/services/procedimientos.service'
 // Añadir esta importación para el objeto api
 import api from '../../assets/services/api';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
-// Modificar el componente para que pueda trabajar embebido
-
-const PasoDocumentosManager = ({ pasoId, procedimientoId, embedded = false }) => {
+// Actualizar el componente para aceptar y usar el callback:
+const PasoDocumentosManager = ({ 
+  pasoId, 
+  procedimientoId, 
+  embedded = false,
+  onDocumentosChange // Nueva prop para manejar cambios
+}) => {
   const { currentUser } = useContext(AuthContext);
   const isAdminOrSuperAdmin = ['Admin', 'SuperAdmin'].includes(currentUser?.tipo_usuario);
   const navigate = useNavigate();
@@ -124,29 +129,48 @@ const fetchPasoDocumentos = async () => {
     setOpenDocumentoForm(false);
   };
 
-  const handleSubmitDocumento = async (data) => {
-    try {
-      if (data.id) {
-        // Actualizar documento existente
-        await procedimientosService.updateDocumento(data.id, data);
-      } else {
-        // Crear nuevo documento
-        const response = await procedimientosService.createDocumento({
-          ...data,
-          procedimiento: procedimientoId
-        });
-        
-        // Asociar el documento al paso
-        await procedimientosService.addDocumentoPaso(pasoId, response.data.id);
-      }
+  // Modificar la función handleSubmitDocumento para notificar cambios:
+const handleSubmitDocumento = async (data) => {
+  try {
+    if (data.id) {
+      // Actualizar documento existente
+      await procedimientosService.updateDocumento(data.id, data);
+    } else {
+      // Crear nuevo documento
+      const response = await procedimientosService.createDocumento({
+        ...data,
+        procedimiento: procedimientoId
+      });
       
-      // Recargar documentos
-      await fetchPasoDocumentos();
-      
-    } catch (error) {
-      console.error("Error al guardar documento:", error);
+      // Asociar el documento al paso
+      await procedimientosService.addDocumentoPaso(pasoId, response.data.id);
     }
-  };
+    
+    // Recargar documentos
+    await fetchPasoDocumentos();
+    
+    // Notificar al componente padre sobre el cambio
+    notificarCambios();
+    
+    // Cerrar el formulario de documento
+    handleCloseDocumentoForm();
+    
+    // Mostrar notificación de éxito
+    setSnackbar({
+      open: true,
+      message: data.id ? 'Documento actualizado correctamente' : 'Documento añadido correctamente',
+      severity: 'success'
+    });
+    
+  } catch (error) {
+    console.error("Error al guardar documento:", error);
+    setSnackbar({
+      open: true,
+      message: `Error al guardar documento: ${error.message}`,
+      severity: 'error'
+    });
+  }
+};
 
   // Modificar el handleConfirmDeleteOpen:
 const handleConfirmDeleteOpen = (documentoPaso) => {
@@ -165,6 +189,13 @@ const handleConfirmDeleteOpen = (documentoPaso) => {
   const handleConfirmDeleteClose = () => {
     setOpenConfirmDelete(false);
     setDocumentoToDelete(null);
+  };
+
+  // Notificar cambios al componente padre
+  const notificarCambios = () => {
+    if (typeof onDocumentosChange === 'function') {
+      onDocumentosChange();
+    }
   };
 
   // Modificar la función handleDeleteDocumento:
@@ -191,6 +222,10 @@ const handleDeleteDocumento = async () => {
     
     // Recargar documentos
     await fetchPasoDocumentos();
+    
+    // Notificar al componente padre sobre el cambio
+    notificarCambios();
+    
   } catch (error) {
     console.error("Error al eliminar documento:", error);
     setSnackbar({
@@ -209,25 +244,41 @@ const handleDeleteDocumento = async () => {
     setOpenNotasDialog(true);
   };
 
-  const handleSaveNotas = async () => {
-    if (!currentDocumentoPasoId) return;
+  // Modificar también la función handleSaveNotas para notificar cambios:
+const handleSaveNotas = async () => {
+  if (!currentDocumentoPasoId) return;
+  
+  try {
+    // Actualizar notas del documento en el paso
+    await procedimientosService.updatePasoDocumento(
+      pasoId,
+      currentDocumentoPasoId,
+      { notas: currentNotas }
+    );
     
-    try {
-      // Actualizar notas del documento en el paso
-      await procedimientosService.updatePasoDocumento(
-        pasoId,
-        currentDocumentoPasoId,
-        { notas: currentNotas }
-      );
-      
-      // Recargar documentos
-      await fetchPasoDocumentos();
-    } catch (error) {
-      console.error("Error al guardar notas:", error);
-    } finally {
-      setOpenNotasDialog(false);
-    }
-  };
+    // Recargar documentos
+    await fetchPasoDocumentos();
+    
+    // Notificar al componente padre sobre el cambio
+    notificarCambios();
+    
+    // Mostrar notificación de éxito
+    setSnackbar({
+      open: true,
+      message: 'Notas actualizadas correctamente',
+      severity: 'success'
+    });
+  } catch (error) {
+    console.error("Error al guardar notas:", error);
+    setSnackbar({
+      open: true,
+      message: `Error al guardar notas: ${error.message}`,
+      severity: 'error'
+    });
+  } finally {
+    setOpenNotasDialog(false);
+  }
+};
 
   const getIconByFileType = (documento) => {
     // Si es una URL, mostrar icono de enlace
@@ -250,6 +301,79 @@ const handleDeleteDocumento = async () => {
       return <FileIcon color="action" />;
     }
   };
+
+  // Añadir esta función para descargas directas (similar a la de PasosManager)
+const handleDirectDownload = async (e, documentoUrl) => {
+  e.preventDefault();
+  e.stopPropagation();
+  
+  try {
+    // Obtener el nombre del archivo desde la URL
+    const fileName = documentoUrl.split('/').pop();
+    
+    // Determinar la URL completa
+    let fullUrl = documentoUrl;
+    if (!fullUrl.startsWith('http')) {
+      // Si es una URL relativa
+      if (fullUrl.startsWith('/api/media')) {
+        fullUrl = fullUrl.replace('/api/media', '/media');
+      }
+      if (!fullUrl.startsWith('/')) {
+        fullUrl = '/' + fullUrl;
+      }
+      const baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+      fullUrl = baseUrl + fullUrl;
+    }
+    
+    // Mostrar indicador de carga
+    const button = e.currentTarget;
+    const originalInnerHTML = button.innerHTML;
+    button.disabled = true;
+    button.innerHTML = '<span class="MuiCircularProgress-root MuiCircularProgress-indeterminate MuiCircularProgress-colorPrimary" style="width: 18px; height: 18px;" role="progressbar"></span>';
+    
+    // Descargar archivo
+    const response = await axios({
+      url: fullUrl,
+      method: 'GET',
+      responseType: 'blob',
+      headers: {
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
+    });
+    
+    // Crear blob URL y enlace de descarga
+    const blob = new Blob([response.data], {
+      type: response.headers['content-type'] || 'application/octet-stream'
+    });
+    const blobUrl = URL.createObjectURL(blob);
+    
+    const link = document.createElement('a');
+    link.style.display = 'none';
+    link.href = blobUrl;
+    link.download = fileName;
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    setTimeout(() => {
+      URL.revokeObjectURL(blobUrl);
+    }, 200);
+    
+    // Restaurar botón
+    setTimeout(() => {
+      button.disabled = false;
+      button.innerHTML = originalInnerHTML;
+    }, 1000);
+    
+  } catch (error) {
+    console.error('Error al descargar el documento:', error);
+    e.currentTarget.disabled = false;
+    e.currentTarget.innerHTML = '<svg class="MuiSvgIcon-root MuiSvgIcon-fontSizeSmall" focusable="false" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12h2v5h16v-5h2v5a2 2 0 01-2 2H4a2 2 0 01-2-2v-5zm10-7.41l3.88 3.88 1.41-1.42L12 2.59 6.71 7.88l1.41 1.42L12 5.41z"></path></svg>';
+  }
+};
 
   // Si está embebido, no mostrar el botón de volver
   const handleBack = () => {
@@ -379,13 +503,12 @@ const handleDeleteDocumento = async () => {
                         </IconButton>
                       </Tooltip>
                     ) : (
+                      // Reemplazar el botón de descarga
                       <Tooltip title="Descargar">
                         <IconButton 
                           edge="end" 
                           aria-label="descargar"
-                          href={docPaso.documento_detalle.archivo_url}
-                          target="_blank"
-                          download
+                          onClick={(e) => handleDirectDownload(e, docPaso.documento_detalle.archivo_url)}
                           size="small"
                         >
                           <DownloadIcon fontSize="small" />

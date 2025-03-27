@@ -106,15 +106,6 @@ const BifurcacionesManager = ({ bifurcaciones = [], pasos = [], onChange, pasoAc
 
   return (
     <Box sx={{ mt: 3 }}>
-      <Typography variant="subtitle1" gutterBottom fontWeight="medium">
-        Bifurcaciones del flujo
-      </Typography>
-      
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Define condiciones para dirigir el flujo a pasos específicos. Si no hay bifurcaciones, 
-        el flujo continuará al siguiente paso secuencial.
-        {readonly && onBifurcacionClick && " Haz clic en una bifurcación para ir directamente a ese paso."}
-      </Typography>
 
       {/* Lista de bifurcaciones existentes */}
       {bifurcaciones.length > 0 && (
@@ -254,14 +245,6 @@ const BifurcacionesManager = ({ bifurcaciones = [], pasos = [], onChange, pasoAc
         </Button>
       )}
 
-      {bifurcaciones.length > 0 && (
-        <Box sx={{ mt: 2, p: 2, bgcolor: 'rgba(0, 0, 0, 0.04)', borderRadius: 1 }}>
-          <Typography variant="body2" color="text.secondary">
-            <strong>Nota:</strong> Las bifurcaciones se evaluarán en el orden mostrado. 
-            Si ninguna condición se cumple, el proceso seguirá al siguiente paso secuencial.
-          </Typography>
-        </Box>
-      )}
     </Box>
   );
 };

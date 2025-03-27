@@ -705,7 +705,7 @@ const handleDirectDownload = async (e, documentoUrl) => {
           {paso.bifurcaciones && paso.bifurcaciones.length > 0 && (
             <Box sx={{ mt: 3 }}>
               <Typography variant="subtitle2" color="primary" sx={{ mb: 1, fontWeight: 'bold' }}>
-                Bifurcaciones del flujo:
+                Siguientes pasos:
               </Typography>
               <BifurcacionesManager
                 bifurcaciones={paso.bifurcaciones}
@@ -1108,10 +1108,36 @@ const handleSubmitPaso = async () => {
       });
     } else {
       // Crear nuevo paso
-      const nextNumber = pasos.length > 0 
-        ? Math.max(...pasos.map(p => p.numero)) + 1 
-        : 1;
       
+      // 1. Primero, obtener todos los pasos actualizados del servidor
+      const pasosActualesResponse = await procedimientosService.getPasos(procedimientoId);
+      let pasosActuales = [];
+      
+      if (Array.isArray(pasosActualesResponse.data)) {
+        pasosActuales = pasosActualesResponse.data;
+      } else if (pasosActualesResponse.data.results && Array.isArray(pasosActualesResponse.data.results)) {
+        pasosActuales = pasosActualesResponse.data.results;
+      }
+      
+      // Filtrar solo los pasos de este procedimiento
+      const pasosProcedimiento = pasosActuales
+        .filter(paso => parseInt(paso.procedimiento) === parseInt(procedimientoId));
+      
+      // 2. Calcular el próximo número disponible
+      let nextNumber = 1;
+      if (pasosProcedimiento.length > 0) {
+        // Encontrar el número más alto y sumar 1
+        nextNumber = Math.max(...pasosProcedimiento.map(p => parseInt(p.numero))) + 1;
+        
+        // Verificamos que no exista ya un paso con ese número
+        while (pasosProcedimiento.some(p => parseInt(p.numero) === nextNumber)) {
+          nextNumber++;
+        }
+      }
+      
+      console.log("Creando paso con número:", nextNumber);
+      
+      // 3. Crear el paso con el número calculado
       const newPaso = await procedimientosService.createPaso({
         ...formData,
         procedimiento: procedimientoId,
@@ -1337,6 +1363,38 @@ const handleBifurcacionesChange = (nuevasBifurcaciones) => {
       document.removeEventListener('pasoNavigation', handlePasoNavigation);
     };
   }, []);
+
+  // Añadir esta función en el componente PasosManager:
+const handleDocumentosChange = async () => {
+  try {
+    if (pasoSeleccionado && pasoSeleccionado.id) {
+      console.log("Actualizando documentos del paso:", pasoSeleccionado.id);
+      
+      // Recargar datos del paso específico
+      const response = await procedimientosService.getPaso(pasoSeleccionado.id);
+      const pasoActualizado = response.data;
+      
+      // Actualizar el paso en la lista de pasos
+      setPasos(prevPasos => 
+        prevPasos.map(paso => 
+          paso.id === pasoActualizado.id ? pasoActualizado : paso
+        )
+      );
+      
+      // Actualizar también el pasoSeleccionado para reflejar los cambios en el modal
+      setPasoSeleccionado(pasoActualizado);
+      
+      console.log("Documentos actualizados correctamente");
+    }
+  } catch (error) {
+    console.error("Error al actualizar los documentos del paso:", error);
+    setSnackbar({
+      open: true,
+      message: "Error al actualizar la lista de documentos",
+      severity: "error"
+    });
+  }
+};
 
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 8 }}>
@@ -1606,6 +1664,7 @@ const handleBifurcacionesChange = (nuevasBifurcaciones) => {
               pasoId={pasoSeleccionado.id} 
               procedimientoId={procedimientoId} 
               embedded={true} // Indicar que está embebido en un modal
+              onDocumentosChange={handleDocumentosChange} // Añadir esta prop
             />
           </DialogContent>
           <DialogActions>
