@@ -27,7 +27,9 @@ import {
   AccordionDetails,
   Collapse,
   Container,
-  DialogContentText
+  DialogContentText,
+  ListItemIcon,
+  ListItemText
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -59,6 +61,7 @@ import procedimientosService from '../../assets/services/procedimientos.service'
 import ConfirmDialog from '../common/ConfirmDialog';
 import PasoDocumentosManager from './PasoDocumentosManager';
 import { CSS } from '@dnd-kit/utilities';
+import axios from 'axios';
 
 // Asegúrate de instalar estas dependencias
 // npm install @dnd-kit/core @dnd-kit/sortable @dnd-kit/utilities @dnd-kit/modifiers
@@ -79,6 +82,9 @@ import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
 
 // Añadir la importación del nuevo componente
 import BifurcacionesManager from './BifurcacionesManager';
+
+// Añadir estas líneas en las importaciones al inicio del archivo
+import DocumentPreview from '../common/DocumentPreview';
 
 // Componente para elementos arrastrables
 const SortablePasoItem = ({ paso, index, isAdminOrSuperAdmin, handleOpenPasoForm, handleDeletePaso, procedimientoId }) => {
@@ -365,6 +371,99 @@ const PasoItem = ({
     }
   };
 
+  // Añadir estos estados para el modal de previsualización
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewDocument, setPreviewDocument] = useState({
+    url: '',
+    name: ''
+  });
+
+  // Añadir esta función para abrir el modal de previsualización
+  const handlePreviewDocument = (documento) => {
+    setPreviewDocument({
+      url: documento.archivo_url,
+      name: documento.nombre
+    });
+    setPreviewOpen(true);
+  };
+
+  // Dentro del componente PasoItem, añade esta función para manejar descargas directas:
+const handleDirectDownload = async (e, documentoUrl) => {
+  e.preventDefault();
+  e.stopPropagation();
+  
+  try {
+    // Obtener el nombre del archivo desde la URL
+    const fileName = documentoUrl.split('/').pop();
+    
+    // Determinar la URL completa
+    let fullUrl = documentoUrl;
+    if (!fullUrl.startsWith('http')) {
+      // Si es una URL relativa
+      if (fullUrl.startsWith('/api/media')) {
+        fullUrl = fullUrl.replace('/api/media', '/media');
+      }
+      if (!fullUrl.startsWith('/')) {
+        fullUrl = '/' + fullUrl;
+      }
+      const baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+      fullUrl = baseUrl + fullUrl;
+    }
+    
+    // Mostrar un indicador de carga temporalmente en el botón
+    const button = e.currentTarget;
+    const originalInnerHTML = button.innerHTML;
+    button.disabled = true;
+    button.innerHTML = '<span class="MuiCircularProgress-root MuiCircularProgress-indeterminate MuiCircularProgress-colorPrimary" style="width: 18px; height: 18px;" role="progressbar"></span>';
+    
+    // Descargar el archivo con axios
+    const response = await axios({
+      url: fullUrl,
+      method: 'GET',
+      responseType: 'blob',
+      headers: {
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
+    });
+    
+    // Crear un blob URL
+    const blob = new Blob([response.data], {
+      type: response.headers['content-type'] || 'application/octet-stream'
+    });
+    const blobUrl = URL.createObjectURL(blob);
+    
+    // Crear un elemento <a> para la descarga
+    const link = document.createElement('a');
+    link.style.display = 'none';
+    link.href = blobUrl;
+    link.download = fileName;
+    
+    // Añadir al DOM, hacer clic y eliminar
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    // Liberar el blob URL después de un breve retraso
+    setTimeout(() => {
+      URL.revokeObjectURL(blobUrl);
+    }, 200);
+    
+    // Restaurar el botón
+    setTimeout(() => {
+      button.disabled = false;
+      button.innerHTML = originalInnerHTML;
+    }, 1000);
+    
+  } catch (error) {
+    console.error('Error al descargar el documento:', error);
+    // Restaurar el botón en caso de error
+    e.currentTarget.disabled = false;
+    e.currentTarget.innerHTML = '<svg class="MuiSvgIcon-root MuiSvgIcon-fontSizeSmall" focusable="false" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"></path></svg>';
+  }
+};
+
   return (
     <Paper 
       id={`paso-${paso.id}`} // Añadir id para poder hacer scroll
@@ -495,45 +594,110 @@ const PasoItem = ({
             {paso.descripcion || 'Sin descripción'}
           </Typography>
 
-          {/* Documentos asociados */}
+          {/* Documentos asociados - Versión mejorada */}
           {paso.documentos && paso.documentos.length > 0 && (
             <Box sx={{ mt: 3 }}>
-              <Typography variant="subtitle2" color="primary" sx={{ mb: 1, fontWeight: 'bold' }}>
+              <Typography variant="subtitle2" color="primary" sx={{ mb: 2, fontWeight: 'bold', display: 'flex', alignItems: 'center' }}>
+                <DescriptionIcon fontSize="small" sx={{ mr: 1 }} />
                 Documentos asociados:
               </Typography>
-              <Box 
-                sx={{ 
-                  display: 'flex', 
-                  flexWrap: 'wrap', 
-                  gap: 1,
-                  mt: 1
-                }}
-              >
+              
+              <List sx={{ 
+                bgcolor: 'background.paper', 
+                borderRadius: 1, 
+                overflow: 'hidden',
+                border: '1px solid rgba(0, 0, 0, 0.12)'
+              }}>
                 {paso.documentos.map((docPaso) => (
-                  <Chip
-                    key={docPaso.id}
-                    icon={getDocumentoIcon(docPaso.documento_detalle)}
-                    label={docPaso.documento_detalle.nombre}
-                    onClick={() => {
-                      if (docPaso.documento_detalle.archivo_url) {
-                        window.open(docPaso.documento_detalle.archivo_url, '_blank');
-                      } else if (docPaso.documento_detalle.url) {
-                        window.open(docPaso.documento_detalle.url, '_blank');
-                      }
-                    }}
-                    variant="outlined"
-                    color="primary"
-                    size="small"
-                    sx={{ 
-                      borderRadius: '16px',
-                      p: 0.5,
-                      '&:hover': {
-                        boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-                      }
-                    }}
-                  />
+                  <React.Fragment key={docPaso.id}>
+                    <ListItem
+                      divider
+                      sx={{
+                        '&:hover': { bgcolor: 'rgba(0, 0, 0, 0.04)' },
+                        transition: 'background-color 0.2s'
+                      }}
+                    >
+                      <ListItemIcon>
+                        {getDocumentoIcon(docPaso.documento_detalle)}
+                      </ListItemIcon>
+                      
+                      <ListItemText
+                        primary={
+                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                            <Typography variant="body2" fontWeight="medium">
+                              {docPaso.documento_detalle.nombre}
+                            </Typography>
+                            {docPaso.documento_detalle.extension && (
+                              <Chip 
+                                label={docPaso.documento_detalle.extension.toUpperCase()} 
+                                size="small" 
+                                variant="outlined"
+                                sx={{ ml: 1, height: 20, fontSize: '0.7rem' }}
+                              />
+                            )}
+                          </Box>
+                        }
+                        secondary={
+                          <>
+                            {docPaso.notas && (
+                              <Typography variant="caption" color="text.secondary" display="block">
+                                {docPaso.notas}
+                              </Typography>
+                            )}
+                            {docPaso.documento_detalle.fecha_creacion && (
+                              <Typography variant="caption" color="text.secondary" display="block" sx={{ fontSize: '0.7rem', mt: 0.5 }}>
+                                Añadido: {new Date(docPaso.documento_detalle.fecha_creacion).toLocaleDateString()}
+                              </Typography>
+                            )}
+                          </>
+                        }
+                      />
+                      
+                      <Box sx={{ display: 'flex' }}>
+                        {docPaso.documento_detalle.archivo_url && (
+                          <>
+                            <Tooltip title="Visualizar">
+                              <IconButton
+                                size="small"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handlePreviewDocument(docPaso.documento_detalle);
+                                }}
+                                sx={{ mr: 1 }}
+                              >
+                                <VisibilityIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                            
+                            <Tooltip title="Descargar">
+                              <IconButton
+                                size="small"
+                                onClick={(e) => handleDirectDownload(e, docPaso.documento_detalle.archivo_url)}
+                              >
+                                <DownloadIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </>
+                        )}
+                        
+                        {docPaso.documento_detalle.url && (
+                          <Tooltip title="Abrir enlace externo">
+                            <IconButton
+                              size="small"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                window.open(docPaso.documento_detalle.url, '_blank');
+                              }}
+                            >
+                              <LaunchIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                      </Box>
+                    </ListItem>
+                  </React.Fragment>
                 ))}
-              </Box>
+              </List>
             </Box>
           )}
 
@@ -580,6 +744,14 @@ const PasoItem = ({
           )}
         </Box>
       </Collapse>
+
+      {/* Modal de previsualización de documentos */}
+      <DocumentPreview
+        open={previewOpen}
+        onClose={() => setPreviewOpen(false)}
+        documentUrl={previewDocument.url}
+        documentName={previewDocument.name}
+      />
     </Paper>
   );
 };
@@ -795,8 +967,7 @@ const PasosManager = () => {
         } else if (error.response.data.detail) {
           errorMessage += ': ' + error.response.data.detail;
         } else if (error.response.data.non_field_errors) {
-          errorMessage += ': ' + error.response.data.non_field_errors.join(', ');
-        }
+          errorMessage += ': ' + error.response.data.non_field_errors.join(', ')}
       }
       
       setSnackbar({
@@ -1449,4 +1620,3 @@ const handleBifurcacionesChange = (nuevasBifurcaciones) => {
 };
 
 export default PasosManager;
-
