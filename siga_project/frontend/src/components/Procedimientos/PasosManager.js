@@ -51,7 +51,8 @@ import {
   Audiotrack as AudioIcon,
   InsertDriveFile as FileIcon,
   ExpandLess as ExpandLessIcon,
-  Description as DocumentIcon
+  Description as DocumentIcon,
+  ArrowForward as ArrowForwardIcon
 } from '@mui/icons-material';
 import { AuthContext } from '../../contexts/AuthContext';
 import procedimientosService from '../../assets/services/procedimientos.service';
@@ -75,6 +76,9 @@ import {
   useSortable
 } from '@dnd-kit/sortable';
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
+
+// Añadir la importación del nuevo componente
+import BifurcacionesManager from './BifurcacionesManager';
 
 // Componente para elementos arrastrables
 const SortablePasoItem = ({ paso, index, isAdminOrSuperAdmin, handleOpenPasoForm, handleDeletePaso, procedimientoId }) => {
@@ -320,14 +324,25 @@ const SortableItem = ({ children, id }) => {
   );
 };
 
-// Modificar el componente PasoItem para mejorar el diseño del acordeón
+// Modificar la definición del componente PasoItem
 
-const PasoItem = ({ paso, onEdit, onDelete, onViewDocuments, isAdminOrSuperAdmin }) => {
-  const [expanded, setExpanded] = useState(false);
+const PasoItem = ({ 
+  paso, 
+  onEdit, 
+  onDelete, 
+  onViewDocuments, 
+  isAdminOrSuperAdmin, 
+  pasos,
+  expanded,  // Nueva prop para controlar la expansión
+  onToggle   // Nueva prop para manejar el toggle
+}) => {
+  // Ya no necesitamos el estado local de expansión
+  // const [expanded, setExpanded] = useState(false);
   
-  const handleToggle = () => {
-    setExpanded(!expanded);
-  };
+  // Ya no necesitamos esta función
+  // const handleToggle = () => {
+  //   setExpanded(!expanded);
+  // };
 
   // Función para renderizar el icono según el tipo de documento
   const getDocumentoIcon = (documento) => {
@@ -352,6 +367,7 @@ const PasoItem = ({ paso, onEdit, onDelete, onViewDocuments, isAdminOrSuperAdmin
 
   return (
     <Paper 
+      id={`paso-${paso.id}`} // Añadir id para poder hacer scroll
       elevation={2} 
       sx={{
         mb: 2,
@@ -366,7 +382,7 @@ const PasoItem = ({ paso, onEdit, onDelete, onViewDocuments, isAdminOrSuperAdmin
       }}
     >
       <Box
-        onClick={handleToggle}
+        onClick={onToggle}  // Usar la función proporcionada por el padre
         sx={{
           p: 2,
           display: 'flex',
@@ -378,11 +394,25 @@ const PasoItem = ({ paso, onEdit, onDelete, onViewDocuments, isAdminOrSuperAdmin
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
-          <Typography variant="h6" component="div" color="primary" sx={{ fontWeight: 'bold', mr: 2 }}>
-            {paso.numero}
-          </Typography>
+          <Box sx={{ mr: 2, minWidth: '36px', textAlign: 'center' }}>
+            <Typography 
+              variant="body2" 
+              sx={{ 
+                fontWeight: 'bold',
+                color: 'primary.main',
+                bgcolor: 'rgba(63, 81, 181, 0.1)',
+                borderRadius: '50%',
+                width: '24px',
+                height: '24px',
+                lineHeight: '24px',
+                display: 'inline-block'
+              }}
+            >
+              {paso.numero}
+            </Typography>
+          </Box>
           <Box>
-            <Typography variant="h6" sx={{ fontWeight: expanded ? 'bold' : 'medium' }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 'medium' }}>
               {paso.titulo}
             </Typography>
             <Typography variant="caption" color="text.secondary">
@@ -507,6 +537,26 @@ const PasoItem = ({ paso, onEdit, onDelete, onViewDocuments, isAdminOrSuperAdmin
             </Box>
           )}
 
+          {/* Bifurcaciones */}
+          {paso.bifurcaciones && paso.bifurcaciones.length > 0 && (
+            <Box sx={{ mt: 3 }}>
+              <Typography variant="subtitle2" color="primary" sx={{ mb: 1, fontWeight: 'bold' }}>
+                Bifurcaciones del flujo:
+              </Typography>
+              <BifurcacionesManager
+                bifurcaciones={paso.bifurcaciones}
+                pasos={pasos}
+                readonly={true}
+                onBifurcacionClick={(pasoDestino) => {
+                  // Este ID nos permitirá identificar el paso a expandir
+                  document.dispatchEvent(new CustomEvent('pasoNavigation', {
+                    detail: { pasoId: pasoDestino.id }
+                  }));
+                }}
+              />
+            </Box>
+          )}
+
           {/* Botón para gestionar documentos (solo para admin) */}
           {isAdminOrSuperAdmin && (
             <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
@@ -549,7 +599,8 @@ const PasosManager = () => {
     titulo: '',
     descripcion: '',
     tiempo_estimado: '',
-    responsable: ''
+    responsable: '',
+    bifurcaciones: [] // Nueva propiedad para manejar bifurcaciones
   });
   const [snackbar, setSnackbar] = useState({
     open: false,
@@ -777,28 +828,30 @@ const PasosManager = () => {
     navigate('/dashboard/procedimientos');
   };
 
-  // Abrir formulario para crear o editar un paso
-  const handleOpenPasoForm = (paso = null) => {
-    setPasoActual(paso);
-    
-    if (paso) {
-      setFormData({
-        titulo: paso.titulo,
-        descripcion: paso.descripcion,
-        tiempo_estimado: paso.tiempo_estimado || '',
-        responsable: paso.responsable || ''
-      });
-    } else {
-      setFormData({
-        titulo: '',
-        descripcion: '',
-        tiempo_estimado: '',
-        responsable: ''
-      });
-    }
-    
-    setDialogOpen(true);
-  };
+  // Modificar la función handleOpenPasoForm para incluir bifurcaciones
+const handleOpenPasoForm = (paso = null) => {
+  setPasoActual(paso);
+  
+  if (paso) {
+    setFormData({
+      titulo: paso.titulo,
+      descripcion: paso.descripcion,
+      tiempo_estimado: paso.tiempo_estimado || '',
+      responsable: paso.responsable || '',
+      bifurcaciones: paso.bifurcaciones || [] // Cargar bifurcaciones existentes
+    });
+  } else {
+    setFormData({
+      titulo: '',
+      descripcion: '',
+      tiempo_estimado: '',
+      responsable: '',
+      bifurcaciones: []
+    });
+  }
+  
+  setDialogOpen(true);
+};
 
   // Modificar la función handleClosePasoForm para limpiar errores
 
@@ -830,7 +883,7 @@ const handleClosePasoForm = () => {
     }
   };
 
-  // Corregir la función handleSubmitPaso
+  // Reemplazar la función handleSubmitPaso por esta versión mejorada
 
 const handleSubmitPaso = async () => {
   // Validar campos requeridos
@@ -850,6 +903,22 @@ const handleSubmitPaso = async () => {
       severity: 'warning'
     });
     return;
+  }
+  
+  // Validar bifurcaciones - asegurarse que los pasos destino existan
+  if (formData.bifurcaciones && formData.bifurcaciones.length > 0) {
+    const bifurcacionesInvalidas = formData.bifurcaciones.filter(
+      b => !pasos.some(p => p.id === parseInt(b.paso_destino))
+    );
+    
+    if (bifurcacionesInvalidas.length > 0) {
+      setSnackbar({
+        open: true,
+        message: 'Algunas bifurcaciones tienen pasos destino inválidos',
+        severity: 'warning'
+      });
+      return;
+    }
   }
   
   try {
@@ -872,7 +941,7 @@ const handleSubmitPaso = async () => {
         ? Math.max(...pasos.map(p => p.numero)) + 1 
         : 1;
       
-      await procedimientosService.createPaso({
+      const newPaso = await procedimientosService.createPaso({
         ...formData,
         procedimiento: procedimientoId,
         numero: nextNumber
@@ -885,49 +954,41 @@ const handleSubmitPaso = async () => {
       });
     }
     
-    // Recargar pasos
-    const response = await procedimientosService.getPasos(procedimientoId);
-    
-    // Manejar diferentes respuestas posibles
+    // Recargar pasos después de crear/actualizar
+    const pasosRes = await procedimientosService.getPasos(procedimientoId);
     let pasosData = [];
-    if (Array.isArray(response.data)) {
-      pasosData = response.data;
-    } else if (response.data.results && Array.isArray(response.data.results)) {
-      pasosData = response.data.results;
+    if (Array.isArray(pasosRes.data)) {
+      pasosData = pasosRes.data;
+    } else if (pasosRes.data.results && Array.isArray(pasosRes.data.results)) {
+      pasosData = pasosRes.data.results;
     }
     
-    // Filtrar los pasos del procedimiento actual y ordenarlos
     const pasosFiltrados = pasosData
       .filter(paso => parseInt(paso.procedimiento) === parseInt(procedimientoId))
       .sort((a, b) => a.numero - b.numero);
     
     setPasos(pasosFiltrados);
     
-    // Limpiar los errores y cerrar el formulario
-    setFormErrors({
-      titulo: false,
-      descripcion: false
-    });
+    // Cerrar formulario
     handleClosePasoForm();
   } catch (error) {
     console.error('Error al guardar el paso:', error);
     
-    // Extraer mensajes de error si están disponibles
+    // Extraer mensajes de error del servidor
     let errorMessage = 'Error al guardar el paso';
     
     if (error.response && error.response.data) {
-      // Construir un mensaje más detallado
-      const errorData = error.response.data;
+      // Construir un mensaje detallado con todos los errores
       const errorDetails = [];
       
-      for (const field in errorData) {
-        if (Array.isArray(errorData[field])) {
-          errorDetails.push(`${field.charAt(0).toUpperCase() + field.slice(1)}: ${errorData[field].join(', ')}`);
+      for (const field in error.response.data) {
+        if (Array.isArray(error.response.data[field])) {
+          errorDetails.push(`${field.charAt(0).toUpperCase() + field.slice(1)}: ${error.response.data[field].join(', ')}`);
         }
       }
       
       if (errorDetails.length > 0) {
-        errorMessage += ': ' + errorDetails.join('; ');
+        errorMessage = `Error al guardar: ${errorDetails.join('; ')}`;
       }
     }
     
@@ -1065,6 +1126,47 @@ const handleViewDocuments = (paso) => {
   setDocumentosDialogOpen(true);
 };
 
+  // Añadir una función para manejar cambios en bifurcaciones
+const handleBifurcacionesChange = (nuevasBifurcaciones) => {
+  setFormData(prev => ({
+    ...prev,
+    bifurcaciones: nuevasBifurcaciones
+  }));
+};
+
+  // Añadir este estado al componente PasosManager
+
+  // Nuevo estado para controlar qué pasos están expandidos
+  const [expandedPasos, setExpandedPasos] = useState({});
+  
+  // Efecto para escuchar eventos de navegación entre pasos
+  useEffect(() => {
+    const handlePasoNavigation = (event) => {
+      const { pasoId } = event.detail;
+      
+      // Cerrar todos los pasos y abrir solo el de destino
+      const nuevoEstado = {};
+      nuevoEstado[pasoId] = true;
+      setExpandedPasos(nuevoEstado);
+      
+      // Scroll hasta el paso de destino
+      setTimeout(() => {
+        const elemento = document.getElementById(`paso-${pasoId}`);
+        if (elemento) {
+          elemento.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 100);
+    };
+    
+    // Registrar el listener para el evento personalizado
+    document.addEventListener('pasoNavigation', handlePasoNavigation);
+    
+    return () => {
+      // Limpiar el listener cuando se desmonte el componente
+      document.removeEventListener('pasoNavigation', handlePasoNavigation);
+    };
+  }, []);
+
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 8 }}>
       {/* Encabezado con título y acciones */}
@@ -1146,10 +1248,18 @@ const handleViewDocuments = (paso) => {
                 <SortableItem key={paso.id} id={paso.id.toString()}>
                   <PasoItem
                     paso={paso}
+                    pasos={pasos} // Añadir esta línea para pasar la lista de pasos
                     onEdit={handleOpenPasoForm}
                     onDelete={handleDeletePaso}
                     onViewDocuments={handleViewDocuments}
                     isAdminOrSuperAdmin={isAdminOrSuperAdmin}
+                    expanded={expandedPasos[paso.id] || false}
+                    onToggle={() => {
+                      setExpandedPasos(prev => ({
+                        ...prev,
+                        [paso.id]: !prev[paso.id]
+                      }));
+                    }}
                   />
                 </SortableItem>
               ))}
@@ -1238,6 +1348,16 @@ const handleViewDocuments = (paso) => {
                 />
               </Grid>
             </Grid>
+            
+            <Divider sx={{ my: 3 }} />
+            
+            {/* Componente para gestionar bifurcaciones */}
+            <BifurcacionesManager 
+              bifurcaciones={formData.bifurcaciones || []} 
+              pasos={pasos}
+              onChange={handleBifurcacionesChange}
+              pasoActual={pasoActual}
+            />
           </Box>
         </DialogContent>
         <DialogActions>

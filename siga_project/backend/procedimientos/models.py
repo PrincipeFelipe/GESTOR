@@ -40,11 +40,12 @@ class Procedimiento(models.Model):
 
 class Paso(models.Model):
     procedimiento = models.ForeignKey(Procedimiento, on_delete=models.CASCADE, related_name='pasos')
-    numero = models.PositiveIntegerField()
+    numero = models.IntegerField()
     titulo = models.CharField(max_length=200)
     descripcion = models.TextField()
-    tiempo_estimado = models.CharField(max_length=50, blank=True, null=True, help_text="Ejemplo: '30 minutos', '2 horas'")
-    responsable = models.CharField(max_length=100, blank=True, null=True, help_text="Cargo o rol responsable de ejecutar este paso")
+    tiempo_estimado = models.CharField(max_length=100, blank=True, null=True)
+    responsable = models.CharField(max_length=100, blank=True, null=True)
+    bifurcaciones = models.JSONField(default=list, blank=True)  # Añadir este campo
     
     def __str__(self):
         return f"{self.procedimiento.nombre} - Paso {self.numero}: {self.titulo}"
@@ -52,7 +53,7 @@ class Paso(models.Model):
     class Meta:
         verbose_name = "Paso"
         verbose_name_plural = "Pasos"
-        ordering = ['procedimiento', 'numero']
+        ordering = ['numero']
         unique_together = ['procedimiento', 'numero']
 
 import os

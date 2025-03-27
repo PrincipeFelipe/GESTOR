@@ -46,7 +46,8 @@ class PasoSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Paso
-        fields = ['id', 'procedimiento', 'numero', 'titulo', 'descripcion', 'tiempo_estimado', 'responsable', 'documentos', 'documentos_ids']
+        fields = ['id', 'procedimiento', 'numero', 'titulo', 'descripcion', 
+                 'tiempo_estimado', 'responsable', 'documentos', 'documentos_ids', 'bifurcaciones']
     
     def create(self, validated_data):
         documentos_data = validated_data.pop('documentos_list', [])
