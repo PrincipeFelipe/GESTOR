@@ -155,8 +155,11 @@ const addDocumentoPaso = (pasoId, documentoId, data = {}) => {
   });
 };
 
-const removeDocumentoPaso = (pasoId, documentoPasoId) => {
-  return api.delete(`${BASE_URL}/pasos/${pasoId}/documentos/${documentoPasoId}/`);
+// Modificar la función removeDocumentoPaso:
+const removeDocumentoPaso = (pasoId, documentoPasoId, options = {}) => {
+  // Si debemos eliminar el archivo físico, añadir el parámetro a la URL
+  const params = options.eliminar_archivo ? '?eliminar_archivo=true' : '';
+  return api.delete(`${BASE_URL}/pasos/${pasoId}/documentos/${documentoPasoId}/${params}`);
 };
 
 const procedimientosService = {

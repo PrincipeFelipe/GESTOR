@@ -4,6 +4,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
+import os  # Añadir esta importación
 # Corregir nombre del modelo aquí
 from .models import TipoProcedimiento, Procedimiento, Paso, Documento, HistorialProcedimiento, DocumentoPaso
 from .serializers import (
@@ -168,13 +169,52 @@ class PasoViewSet(viewsets.ModelViewSet):
     def eliminar_documento(self, request, pk=None, documento_id=None):
         """Eliminar un documento específico de un paso"""
         try:
-            paso_documento = DocumentoPaso.objects.get(paso_id=pk, id=documento_id)  # Cambiado a DocumentoPaso
-            paso_documento.delete()
+            # Obtener la relación paso-documento
+            paso_documento = DocumentoPaso.objects.get(paso_id=pk, id=documento_id)
+            
+            # Obtener el documento asociado
+            documento = paso_documento.documento
+            
+            # Verificar si debemos eliminar el archivo físico
+            eliminar_archivo = request.query_params.get('eliminar_archivo', 'false').lower() == 'true'
+            
+            if eliminar_archivo and documento.archivo:
+                # Si este documento solo está relacionado con este paso, eliminar el archivo físico
+                if DocumentoPaso.objects.filter(documento=documento).count() <= 1:
+                    try:
+                        archivo_path = documento.archivo.path
+                        if os.path.exists(archivo_path):
+                            os.remove(archivo_path)
+                    except Exception as e:
+                        # Loguear el error pero continuar con la eliminación del registro
+                        import logging
+                        logger = logging.getLogger(__name__)
+                        logger.error(f"Error al eliminar el archivo físico: {str(e)}")
+                    
+                    # Eliminar el documento del sistema después de eliminar el archivo
+                    documento.delete()
+                else:
+                    # Solo eliminar la relación si hay otras relaciones
+                    paso_documento.delete()
+            else:
+                # Solo eliminar la relación
+                paso_documento.delete()
+                
             return Response(status=status.HTTP_204_NO_CONTENT)
-        except DocumentoPaso.DoesNotExist:  # Cambiado a DocumentoPaso
+        except DocumentoPaso.DoesNotExist:
             return Response(
                 {"error": "El documento no está asociado a este paso"}, 
                 status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            # Añadir respuesta para otros errores
+            import traceback
+            return Response(
+                {
+                    "error": f"Error al eliminar el documento: {str(e)}",
+                    "trace": traceback.format_exc()
+                }, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
 class HistorialProcedimientoViewSet(viewsets.ReadOnlyModelViewSet):

@@ -17,7 +17,9 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  TextField
+  TextField,
+  Snackbar,
+  Alert
 } from '@mui/material';
 import {
   Description as DocumentIcon,
@@ -57,6 +59,12 @@ const PasoDocumentosManager = ({ pasoId, procedimientoId, embedded = false }) =>
   const [openNotasDialog, setOpenNotasDialog] = useState(false);
   const [currentNotas, setCurrentNotas] = useState('');
   const [currentDocumentoPasoId, setCurrentDocumentoPasoId] = useState(null);
+  const [confirmDeleteMessage, setConfirmDeleteMessage] = useState('');
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success'
+  });
 
   useEffect(() => {
     if (pasoId) {
@@ -140,34 +148,60 @@ const fetchPasoDocumentos = async () => {
     }
   };
 
-  const handleConfirmDeleteOpen = (documentoPaso) => {
-    setDocumentoToDelete(documentoPaso);
-    setOpenConfirmDelete(true);
-  };
+  // Modificar el handleConfirmDeleteOpen:
+const handleConfirmDeleteOpen = (documentoPaso) => {
+  setDocumentoToDelete(documentoPaso);
+  
+  // Personalizar mensaje dependiendo si tiene archivo físico
+  const tieneArchivo = documentoPaso.documento_detalle?.archivo_url;
+  const mensaje = tieneArchivo 
+    ? '¿Está seguro de que desea eliminar este documento? El archivo físico también será eliminado permanentemente del servidor.'
+    : '¿Está seguro de que desea eliminar este documento del paso?';
+    
+  setConfirmDeleteMessage(mensaje);
+  setOpenConfirmDelete(true);
+};
 
   const handleConfirmDeleteClose = () => {
     setOpenConfirmDelete(false);
     setDocumentoToDelete(null);
   };
 
-  const handleDeleteDocumento = async () => {
-    if (!documentoToDelete) return;
+  // Modificar la función handleDeleteDocumento:
+const handleDeleteDocumento = async () => {
+  if (!documentoToDelete) return;
+  
+  try {
+    // Verificar si el documento tiene un archivo físico
+    const tieneArchivo = documentoToDelete.documento_detalle?.archivo_url;
     
-    try {
-      // Eliminar la relación del documento con el paso
-      await procedimientosService.removeDocumentoPaso(
-        pasoId, 
-        documentoToDelete.id
-      );
-      
-      // Recargar documentos
-      await fetchPasoDocumentos();
-    } catch (error) {
-      console.error("Error al eliminar documento:", error);
-    } finally {
-      handleConfirmDeleteClose();
-    }
-  };
+    // Eliminar la relación del documento con el paso y opcionalmente el archivo físico
+    await procedimientosService.removeDocumentoPaso(
+      pasoId, 
+      documentoToDelete.id,
+      { eliminar_archivo: tieneArchivo ? true : false }  // Parámetro adicional
+    );
+    
+    // Notificar al usuario
+    setSnackbar({
+      open: true,
+      message: 'Documento eliminado correctamente',
+      severity: 'success'
+    });
+    
+    // Recargar documentos
+    await fetchPasoDocumentos();
+  } catch (error) {
+    console.error("Error al eliminar documento:", error);
+    setSnackbar({
+      open: true,
+      message: `Error al eliminar documento: ${error.message}`,
+      severity: 'error'
+    });
+  } finally {
+    handleConfirmDeleteClose();
+  }
+};
 
   const handleOpenNotasDialog = (documentoPaso) => {
     setCurrentDocumentoPasoId(documentoPaso.id);
@@ -383,8 +417,7 @@ const fetchPasoDocumentos = async () => {
         <DialogTitle>Eliminar documento</DialogTitle>
         <DialogContent>
           <Typography>
-            ¿Está seguro de que desea eliminar este documento del paso?
-            El documento seguirá disponible en el sistema, pero ya no estará asociado a este paso.
+            {confirmDeleteMessage}
           </Typography>
         </DialogContent>
         <DialogActions>
@@ -425,6 +458,22 @@ const fetchPasoDocumentos = async () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Snackbar para notificaciones */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={5000}
+        onClose={() => setSnackbar({...snackbar, open: false})}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert 
+          onClose={() => setSnackbar({...snackbar, open: false})} 
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };
