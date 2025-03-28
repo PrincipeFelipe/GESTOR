@@ -3,7 +3,6 @@ import api from './api';
 // Corregir la URL base eliminando el prefijo '/api' duplicado
 const BASE_URL = '/procedimientos';
 
-// El resto del código permanece igual
 const getProcedimientos = (params) => {
   return api.get(`${BASE_URL}/procedimientos/`, { params });
 };
@@ -176,6 +175,44 @@ const removeDocumentoPaso = (pasoId, documentoPasoId, options = {}) => {
   return api.delete(`${BASE_URL}/pasos/${pasoId}/documentos/${documentoPasoId}/${params}`);
 };
 
+// Añadir la función getNextAvailableNumber
+const getNextAvailableNumber = async (procedimientoId) => {
+  try {
+    // Obtener todos los pasos del procedimiento
+    const response = await getPasos(procedimientoId);
+    
+    // Procesar la respuesta según su estructura
+    let pasos = [];
+    if (Array.isArray(response.data)) {
+      pasos = response.data;
+    } else if (response.data.results && Array.isArray(response.data.results)) {
+      pasos = response.data.results;
+    }
+    
+    // Filtrar por el procedimiento específico y ordenar por número
+    const pasosFiltrados = pasos
+      .filter(paso => parseInt(paso.procedimiento) === parseInt(procedimientoId))
+      .map(paso => parseInt(paso.numero))
+      .sort((a, b) => a - b);
+    
+    // Encontrar el primer número disponible
+    let nextNumber = 1;
+    for (const numero of pasosFiltrados) {
+      if (numero > nextNumber) {
+        // Encontramos un hueco
+        break;
+      }
+      nextNumber = numero + 1;
+    }
+    
+    return nextNumber;
+  } catch (error) {
+    console.error("Error al calcular el siguiente número disponible:", error);
+    // En caso de error, intentar con un valor basado en timestamp
+    return Math.floor((Date.now() / 1000) % 10000);
+  }
+};
+
 const procedimientosService = {
   getProcedimientos,
   getProcedimiento,
@@ -206,7 +243,8 @@ const procedimientosService = {
   addDocumentoPaso,
   removeDocumentoPaso,
   
-  getHistorial
+  getHistorial,
+  getNextAvailableNumber
 };
 
 export default procedimientosService;

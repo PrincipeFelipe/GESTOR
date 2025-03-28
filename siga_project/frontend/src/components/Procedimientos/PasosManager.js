@@ -985,105 +985,126 @@ const handleSubmitPaso = async () => {
 
   // Reemplazar la función handleDeletePaso con esta versión mejorada
 
-// Manejar eliminación de paso
-const handleDeletePaso = (paso) => {
-  // Verificar si recibimos un ID o un objeto paso completo
-  const pasoId = typeof paso === 'object' ? paso.id : paso;
-  const pasoAEliminar = pasos.find(p => p.id === pasoId);
-  
-  if (!pasoAEliminar) {
-    console.error('No se encontró el paso a eliminar');
-    return;
-  }
-  
-  const numeroEliminado = pasoAEliminar.numero;
-  
+const handleDeletePaso = (pasoId) => {
   setConfirmDialog({
     open: true,
     title: 'Eliminar paso',
-    content: '¿Está seguro de que desea eliminar este paso?',
+    content: '¿Está seguro de que desea eliminar este paso? Esto actualizará la numeración de los pasos restantes y las referencias de las bifurcaciones.',
     onConfirm: async () => {
       try {
-        // 1. Primero eliminar el paso
+        setLoading(true);
+        
+        // 1. Obtener información del paso antes de eliminarlo
+        const pasoResponse = await procedimientosService.getPaso(pasoId);
+        const pasoAEliminar = pasoResponse.data;
+        const numeroEliminado = parseInt(pasoAEliminar.numero);
+        
+        console.log(`Eliminando paso ${pasoId} con número ${numeroEliminado}`);
+        
+        // 2. Obtener todos los pasos antes de eliminar para tener información completa
+        const allPasosBeforeDelete = await fetchAllPasos(procedimientoId);
+        const pasosFiltradosBeforeDelete = allPasosBeforeDelete
+          .filter(paso => parseInt(paso.procedimiento) === parseInt(procedimientoId))
+          .sort((a, b) => parseInt(a.numero) - parseInt(b.numero));
+          
+        // Guardar los pasos posteriores que requieren actualización
+        const pasosParaActualizar = pasosFiltradosBeforeDelete
+          .filter(p => parseInt(p.numero) > numeroEliminado);
+          
+        console.log(`${pasosParaActualizar.length} pasos requieren actualización de número`);
+        
+        // 3. Eliminar el paso
         await procedimientosService.deletePaso(pasoId);
         
-        // 2. Recargar la lista actual de pasos (sin el eliminado)
-        const response = await procedimientosService.getPasos(procedimientoId);
+        // 4. Actualizar bifurcaciones que apuntaban al paso eliminado o a pasos posteriores
+        const promesasActualizacionBifurcaciones = [];
         
-        // Procesar los datos según la estructura de respuesta
-        let pasosData = [];
-        if (Array.isArray(response.data)) {
-          pasosData = response.data;
-        } else if (response.data.results && Array.isArray(response.data.results)) {
-          pasosData = response.data.results;
-        }
-        
-        // Filtrar solo los pasos de este procedimiento
-        const pasosFiltrados = pasosData
-          .filter(paso => parseInt(paso.procedimiento) === parseInt(procedimientoId))
-          .sort((a, b) => a.numero - b.numero);
-        
-        // 3. Identificar pasos que necesitan actualización (los que tienen número mayor al eliminado)
-        const pasosParaActualizar = pasosFiltrados.filter(p => p.numero > numeroEliminado);
-        
-        // 4. Actualizar temporalmente el estado para feedback inmediato
-        const pasosActualizados = pasosFiltrados.map(p => {
-          if (p.numero > numeroEliminado) {
-            return { ...p, numero: p.numero - 1 };
-          }
-          return p;
-        });
-        setPasos(pasosActualizados.sort((a, b) => a.numero - b.numero));
-        
-        // 5. Realizar las actualizaciones en el backend
-        // Primero asignar números temporales altos para evitar conflictos
-        const maxNumero = Math.max(...pasosFiltrados.map(p => p.numero || 0)) + 1000;
-        
-        // Primera pasada: asignar números temporales
-        for (let i = 0; i < pasosParaActualizar.length; i++) {
-          const paso = pasosParaActualizar[i];
-          await procedimientosService.updatePaso(paso.id, {
-            titulo: paso.titulo,
-            descripcion: paso.descripcion,
-            procedimiento: paso.procedimiento,
-            numero: maxNumero + i  // Número temporal alto
-          });
-        }
-        
-        // Segunda pasada: asignar números finales
-        for (let i = 0; i < pasosParaActualizar.length; i++) {
-          const paso = pasosParaActualizar[i];
-          const nuevoNumero = paso.numero - 1; // Decrementar en 1
+        for (const paso of pasosFiltradosBeforeDelete) {
+          if (paso.id === parseInt(pasoId)) continue; // Saltar el paso eliminado
           
-          await procedimientosService.updatePaso(paso.id, {
-            titulo: paso.titulo,
-            descripcion: paso.descripcion,
-            procedimiento: paso.procedimiento,
-            numero: nuevoNumero
-          });
+          if (paso.bifurcaciones && paso.bifurcaciones.length > 0) {
+            let bifurcacionesActualizadas = false;
+            
+            // Crear una copia de las bifurcaciones para modificar
+            const nuevasBifurcaciones = [...paso.bifurcaciones];
+            
+            // Revisar cada bifurcación
+            for (let i = 0; i < nuevasBifurcaciones.length; i++) {
+              const bifurcacion = nuevasBifurcaciones[i];
+              const pasoDestinoId = parseInt(bifurcacion.paso_destino);
+              
+              // Si apunta al paso eliminado, eliminar esta bifurcación
+              if (pasoDestinoId === parseInt(pasoId)) {
+                console.log(`Eliminando bifurcación del paso ${paso.id} que apuntaba al paso eliminado ${pasoId}`);
+                nuevasBifurcaciones.splice(i, 1);
+                i--; // Ajustar el índice ya que eliminamos un elemento
+                bifurcacionesActualizadas = true;
+              }
+            }
+            
+            // Si hubo cambios en las bifurcaciones, actualizar el paso
+            if (bifurcacionesActualizadas) {
+              console.log(`Guardando bifurcaciones actualizadas para el paso ${paso.id}`);
+              promesasActualizacionBifurcaciones.push(
+                procedimientosService.updatePaso(paso.id, {
+                  ...paso,
+                  bifurcaciones: nuevasBifurcaciones
+                })
+              );
+            }
+          }
         }
         
-        // 6. Recargar para asegurarnos de tener el estado correcto
+        // 5. Actualización en dos fases para evitar conflictos de número único
+        
+        // Fase 1: Asignar números temporales altos
+        const promesasNumTemp = pasosParaActualizar.map(paso => 
+          procedimientosService.updatePaso(paso.id, {
+            ...paso,
+            numero: 10000 + parseInt(paso.numero) // Usar números temporales muy altos
+          })
+        );
+        
+        await Promise.all(promesasNumTemp);
+        console.log("Pasos actualizados con números temporales");
+        
+        // Fase 2: Asignar los números finales (decrementados en 1)
+        const promesasNumFinal = pasosParaActualizar.map(paso => 
+          procedimientosService.updatePaso(paso.id, {
+            ...paso,
+            numero: parseInt(paso.numero) - 1 // El número final es el original - 1
+          })
+        );
+        
+        await Promise.all(promesasNumFinal);
+        
+        // Esperar a que se completen todas las actualizaciones de bifurcaciones
+        await Promise.all(promesasActualizacionBifurcaciones);
+        
+        console.log("Todos los pasos y bifurcaciones actualizados correctamente");
+        
+        // 6. Cargar los datos finales actualizados
         const finalPasos = await fetchAllPasos(procedimientoId);
-
         const finalPasosFiltrados = finalPasos
           .filter(paso => parseInt(paso.procedimiento) === parseInt(procedimientoId))
-          .sort((a, b) => a.numero - b.numero);
-
+          .sort((a, b) => parseInt(a.numero) - parseInt(b.numero));
+        
         setPasos(finalPasosFiltrados);
         
         setSnackbar({
           open: true,
-          message: 'Paso eliminado correctamente',
+          message: 'Paso eliminado correctamente y numeración actualizada',
           severity: 'success'
         });
       } catch (error) {
-        console.error('Error al eliminar el paso:', error);
+        console.error("Error al eliminar el paso:", error);
         setSnackbar({
           open: true,
           message: `Error al eliminar el paso: ${error.response?.data?.detail || error.message}`,
           severity: 'error'
         });
+      } finally {
+        setLoading(false);
       }
     }
   });

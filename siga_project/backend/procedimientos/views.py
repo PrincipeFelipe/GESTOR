@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 import os  # Añadir esta importación
-from django.db import models  # Añadir esta importación
+from django.db import models, transaction  # Añadir esta importación
 # Corregir nombre del modelo aquí
 from .models import TipoProcedimiento, Procedimiento, Paso, Documento, HistorialProcedimiento, DocumentoPaso
 from .serializers import (
@@ -131,6 +131,57 @@ class PasoViewSet(viewsets.ModelViewSet):
         
         # Crear con número automático
         serializer.save(numero=max_numero + 1)
+    
+    def perform_destroy(self, instance):
+        """
+        Al eliminar un paso, actualizar la numeración de los pasos posteriores
+        y limpiar las referencias en bifurcaciones
+        """
+        procedimiento_id = instance.procedimiento.id
+        numero_eliminado = instance.numero
+        
+        # Comenzar una transacción para asegurar atomicidad
+        with transaction.atomic():
+            # 1. Encontrar pasos que necesitan actualización (número > al eliminado)
+            pasos_a_actualizar = Paso.objects.filter(
+                procedimiento=procedimiento_id, 
+                numero__gt=numero_eliminado
+            )
+            
+            # 2. Guardar IDs de pasos para actualizar referencias de bifurcaciones
+            paso_ids_a_actualizar = list(pasos_a_actualizar.values_list('id', flat=True))
+            paso_id_eliminado = instance.id
+            
+            # 3. Eliminar el paso primero
+            instance.delete()
+            
+            # 4. Actualizar numeración de pasos posteriores
+            for paso in pasos_a_actualizar:
+                paso.numero -= 1
+                paso.save()
+            
+            # 5. Buscar bifurcaciones que apuntan al paso eliminado o necesitan ajuste
+            # Para cada paso, revisar sus bifurcaciones
+            pasos_con_bifurcaciones = Paso.objects.filter(
+                procedimiento=procedimiento_id, 
+                bifurcaciones__isnull=False
+            )
+            
+            for paso in pasos_con_bifurcaciones:
+                bifurcaciones_modificadas = False
+                nuevas_bifurcaciones = []
+                
+                for bifurcacion in paso.bifurcaciones:
+                    # Si la bifurcación apunta al paso eliminado, omitirla
+                    if str(bifurcacion.get('paso_destino')) == str(paso_id_eliminado):
+                        bifurcaciones_modificadas = True
+                        continue  # No incluir esta bifurcación
+                        
+                    nuevas_bifurcaciones.append(bifurcacion)
+                
+                if bifurcaciones_modificadas:
+                    paso.bifurcaciones = nuevas_bifurcaciones
+                    paso.save()
     
     @action(detail=True, methods=['get', 'post', 'delete'], url_path='documentos')
     def documentos(self, request, pk=None):
