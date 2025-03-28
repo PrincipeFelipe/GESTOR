@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 import os  # Añadir esta importación
+from django.db import models  # Añadir esta importación
 # Corregir nombre del modelo aquí
 from .models import TipoProcedimiento, Procedimiento, Paso, Documento, HistorialProcedimiento, DocumentoPaso
 from .serializers import (
@@ -119,6 +120,17 @@ class PasoViewSet(viewsets.ModelViewSet):
     search_fields = ['titulo', 'descripcion']
     ordering_fields = ['numero', 'titulo']
     filterset_fields = ['procedimiento']
+    
+    def perform_create(self, serializer):
+        procedimiento_id = self.request.data.get('procedimiento')
+        
+        # Buscar el número más alto y sumar 1
+        max_numero = Paso.objects.filter(procedimiento=procedimiento_id).aggregate(
+            max_numero=models.Max('numero')
+        )['max_numero'] or 0
+        
+        # Crear con número automático
+        serializer.save(numero=max_numero + 1)
     
     @action(detail=True, methods=['get', 'post', 'delete'], url_path='documentos')
     def documentos(self, request, pk=None):

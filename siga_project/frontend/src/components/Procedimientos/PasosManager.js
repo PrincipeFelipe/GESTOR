@@ -86,224 +86,6 @@ import BifurcacionesManager from './BifurcacionesManager';
 // Añadir estas líneas en las importaciones al inicio del archivo
 import DocumentPreview from '../common/DocumentPreview';
 
-// Componente para elementos arrastrables
-const SortablePasoItem = ({ paso, index, isAdminOrSuperAdmin, handleOpenPasoForm, handleDeletePaso, procedimientoId }) => {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: paso.id.toString()
-  });
-  
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 5 : 1,
-    backgroundColor: isDragging ? 'rgba(0, 0, 0, 0.05)' : 'inherit',
-    position: 'relative',
-    zIndex: isDragging ? 1 : 0
-  };
-  
-  const [expanded, setExpanded] = useState(false);
-  
-  const handleToggleExpand = () => {
-    setExpanded(!expanded);
-  };
-  
-  return (
-    <ListItem 
-      ref={setNodeRef}
-      style={style}
-      sx={{ 
-        display: 'block', 
-        p: 0, 
-        borderBottom: '1px solid rgba(0, 0, 0, 0.12)',
-        '&:last-child': { borderBottom: 'none' }
-      }}
-    >
-      <Box sx={{ display: 'flex', alignItems: 'center', p: 2 }}>
-        {isAdminOrSuperAdmin && (
-          <Box sx={{ mr: 1, cursor: 'grab' }} {...attributes} {...listeners}>
-            <DragIndicatorIcon color="action" />
-          </Box>
-        )}
-        
-        <Box 
-          sx={{ 
-            display: 'flex', 
-            flexDirection: 'column', 
-            flexGrow: 1, 
-            cursor: 'pointer'
-          }}
-          onClick={handleToggleExpand}
-        >
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
-            <Chip 
-              label={`Paso ${index + 1}`}
-              size="small"
-              color="primary"
-              sx={{ mr: 1.5 }}
-            />
-            <Typography variant="subtitle1">{paso.titulo}</Typography>
-          </Box>
-          
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            {paso.responsable && (
-              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <PersonIcon fontSize="small" color="action" sx={{ mr: 0.5 }} />
-                <Typography variant="body2" color="text.secondary">
-                  {paso.responsable}
-                </Typography>
-              </Box>
-            )}
-            
-            {paso.tiempo_estimado && (
-              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <AccessTimeIcon fontSize="small" color="action" sx={{ mr: 0.5 }} />
-                <Typography variant="body2" color="text.secondary">
-                  {paso.tiempo_estimado}
-                </Typography>
-              </Box>
-            )}
-            
-            {paso.documentos && paso.documentos.length > 0 && (
-              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <DescriptionIcon fontSize="small" color="action" sx={{ mr: 0.5 }} />
-                <Typography variant="body2" color="text.secondary">
-                  {paso.documentos.length} {paso.documentos.length === 1 ? 'documento' : 'documentos'}
-                </Typography>
-              </Box>
-            )}
-          </Box>
-        </Box>
-        
-        {isAdminOrSuperAdmin && (
-          <Box>
-            <Tooltip title="Editar paso">
-              <IconButton 
-                size="small" 
-                color="primary"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleOpenPasoForm(paso);
-                }}
-              >
-                <EditIcon />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Eliminar paso">
-              <IconButton 
-                size="small" 
-                color="error"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleDeletePaso(paso.id);
-                }}
-                sx={{ 
-                  bgcolor: 'rgba(211, 47, 47, 0.08)',
-                  '&:hover': { bgcolor: 'rgba(211, 47, 47, 0.15)' } 
-                }}
-              >
-                <DeleteIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          </Box>
-        )}
-      </Box>
-      
-      <Accordion 
-        expanded={expanded}
-        onChange={() => setExpanded(!expanded)}
-        disableGutters
-        elevation={0}
-        sx={{ 
-          borderTop: expanded ? '1px solid rgba(0, 0, 0, 0.12)' : 'none',
-          '&:before': { display: 'none' },
-          backgroundColor: 'rgba(0, 0, 0, 0.02)',
-        }}
-      >
-        <AccordionDetails sx={{ px: 2, pt: 0 }}>
-          <Box sx={{ ml: 7 }}>
-            <Typography variant="body1" color="text.secondary" paragraph>
-              {paso.descripcion}
-            </Typography>
-            
-            {paso.documentos && paso.documentos.length > 0 && (
-              <Box sx={{ mt: 2 }}>
-                <Typography variant="subtitle2" gutterBottom>
-                  Documentos:
-                </Typography>
-                <Box component="ul" sx={{ pl: 2 }}>
-                  {paso.documentos.map((docPaso) => (
-                    <Box 
-                      component="li"
-                      key={docPaso.id}
-                      sx={{ 
-                        mb: 1,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between'
-                      }}
-                    >
-                      <Typography variant="body2">
-                        {docPaso.documento_detalle.nombre}
-                      </Typography>
-                      
-                      <Box>
-                        {docPaso.documento_detalle.archivo_url && (
-                          <Tooltip title="Ver documento">
-                            <IconButton 
-                              size="small"
-                              href={docPaso.documento_detalle.archivo_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                            >
-                              <VisibilityIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                        
-                        {docPaso.documento_detalle.url && (
-                          <Tooltip title="Ir a URL">
-                            <IconButton 
-                              size="small"
-                              href={docPaso.documento_detalle.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                            >
-                              <LaunchIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                      </Box>
-                    </Box>
-                  ))}
-                </Box>
-              </Box>
-            )}
-            
-            {/* Gestión de documentos para Admin/SuperAdmin */}
-            {isAdminOrSuperAdmin && (
-              <Box sx={{ mt: 2 }}>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  startIcon={<EditIcon />}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleOpenPasoForm(paso);
-                  }}
-                >
-                  Gestionar documentos
-                </Button>
-              </Box>
-            )}
-          </Box>
-        </AccordionDetails>
-      </Accordion>
-    </ListItem>
-  );
-};
-
-// Añadir esto justo antes del componente PasoItem
-
 // Componente SortableItem para elementos arrastrables con @dnd-kit
 const SortableItem = ({ children, id }) => {
   const {
@@ -330,8 +112,7 @@ const SortableItem = ({ children, id }) => {
   );
 };
 
-// Modificar la definición del componente PasoItem
-
+// En PasoItem, optimizamos el diseño visual y la experiencia de usuario
 const PasoItem = ({ 
   paso, 
   onEdit, 
@@ -339,46 +120,18 @@ const PasoItem = ({
   onViewDocuments, 
   isAdminOrSuperAdmin, 
   pasos,
-  expanded,  // Nueva prop para controlar la expansión
-  onToggle   // Nueva prop para manejar el toggle
+  expanded,
+  onToggle
 }) => {
-  // Ya no necesitamos el estado local de expansión
-  // const [expanded, setExpanded] = useState(false);
-  
-  // Ya no necesitamos esta función
-  // const handleToggle = () => {
-  //   setExpanded(!expanded);
-  // };
-
-  // Función para renderizar el icono según el tipo de documento
-  const getDocumentoIcon = (documento) => {
-    if (!documento.archivo_url && documento.url) {
-      return <LinkIcon fontSize="small" color="primary" />;
-    }
-    
-    const extension = documento.extension?.toLowerCase();
-    
-    if (extension === 'pdf') {
-      return <PdfIcon fontSize="small" color="error" />;
-    } else if (['jpg', 'jpeg', 'png', 'gif', 'svg'].includes(extension)) {
-      return <ImageIcon fontSize="small" color="success" />;
-    } else if (['mp4', 'avi', 'mov', 'wmv'].includes(extension)) {
-      return <VideoIcon fontSize="small" color="secondary" />;
-    } else if (['mp3', 'wav', 'ogg'].includes(extension)) {
-      return <AudioIcon fontSize="small" color="info" />;
-    } else {
-      return <FileIcon fontSize="small" color="action" />;
-    }
-  };
-
-  // Añadir estos estados para el modal de previsualización
+  // Estados para la visualización de documentos
   const [previewOpen, setPreviewOpen] = useState(false);
-  const [previewDocument, setPreviewDocument] = useState({
-    url: '',
-    name: ''
-  });
+  const [previewDocument, setPreviewDocument] = useState({ url: '', name: '' });
+  
+  // Determinar características del paso para estilización
+  const tieneBifurcaciones = paso.bifurcaciones && paso.bifurcaciones.length > 0;
+  const tieneDocumentos = paso.documentos && paso.documentos.length > 0;
 
-  // Añadir esta función para abrir el modal de previsualización
+  // Función para manejar la previsualización de documentos
   const handlePreviewDocument = (documento) => {
     setPreviewDocument({
       url: documento.archivo_url,
@@ -387,188 +140,165 @@ const PasoItem = ({
     setPreviewOpen(true);
   };
 
-  // Dentro del componente PasoItem, añade esta función para manejar descargas directas:
-const handleDirectDownload = async (e, documentoUrl) => {
-  e.preventDefault();
-  e.stopPropagation();
-  
-  try {
-    // Obtener el nombre del archivo desde la URL
-    const fileName = documentoUrl.split('/').pop();
+  // Función para descargar documentos directamente
+  const handleDirectDownload = (e, url) => {
+    e.stopPropagation();
+    window.open(url, '_blank');
+  };
+
+  // Función para renderizar el icono según el tipo de documento
+  const getDocumentoIcon = (documento) => {
+    if (!documento || !documento.extension) return <DocumentIcon fontSize="small" />;
     
-    // Determinar la URL completa
-    let fullUrl = documentoUrl;
-    if (!fullUrl.startsWith('http')) {
-      // Si es una URL relativa
-      if (fullUrl.startsWith('/api/media')) {
-        fullUrl = fullUrl.replace('/api/media', '/media');
-      }
-      if (!fullUrl.startsWith('/')) {
-        fullUrl = '/' + fullUrl;
-      }
-      const baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:8000';
-      fullUrl = baseUrl + fullUrl;
-    }
+    const extension = documento.extension?.toLowerCase();
     
-    // Mostrar un indicador de carga temporalmente en el botón
-    const button = e.currentTarget;
-    const originalInnerHTML = button.innerHTML;
-    button.disabled = true;
-    button.innerHTML = '<span class="MuiCircularProgress-root MuiCircularProgress-indeterminate MuiCircularProgress-colorPrimary" style="width: 18px; height: 18px;" role="progressbar"></span>';
+    if (extension === 'pdf') return <PdfIcon fontSize="small" color="error" />;
+    if (['jpg', 'jpeg', 'png', 'gif', 'svg'].includes(extension)) return <ImageIcon fontSize="small" color="success" />;
+    if (['mp4', 'avi', 'mov', 'wmv'].includes(extension)) return <VideoIcon fontSize="small" color="secondary" />;
+    if (['mp3', 'wav', 'ogg'].includes(extension)) return <AudioIcon fontSize="small" color="info" />;
     
-    // Descargar el archivo con axios
-    const response = await axios({
-      url: fullUrl,
-      method: 'GET',
-      responseType: 'blob',
-      headers: {
-        'Cache-Control': 'no-cache',
-        'Pragma': 'no-cache',
-        'Expires': '0'
-      }
-    });
-    
-    // Crear un blob URL
-    const blob = new Blob([response.data], {
-      type: response.headers['content-type'] || 'application/octet-stream'
-    });
-    const blobUrl = URL.createObjectURL(blob);
-    
-    // Crear un elemento <a> para la descarga
-    const link = document.createElement('a');
-    link.style.display = 'none';
-    link.href = blobUrl;
-    link.download = fileName;
-    
-    // Añadir al DOM, hacer clic y eliminar
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    // Liberar el blob URL después de un breve retraso
-    setTimeout(() => {
-      URL.revokeObjectURL(blobUrl);
-    }, 200);
-    
-    // Restaurar el botón
-    setTimeout(() => {
-      button.disabled = false;
-      button.innerHTML = originalInnerHTML;
-    }, 1000);
-    
-  } catch (error) {
-    console.error('Error al descargar el documento:', error);
-    // Restaurar el botón en caso de error
-    e.currentTarget.disabled = false;
-    e.currentTarget.innerHTML = '<svg class="MuiSvgIcon-root MuiSvgIcon-fontSizeSmall" focusable="false" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"></path></svg>';
-  }
-};
+    return <FileIcon fontSize="small" color="action" />;
+  };
 
   return (
     <Paper 
-      id={`paso-${paso.id}`} // Añadir id para poder hacer scroll
-      elevation={2} 
+      id={`paso-${paso.id}`}
+      elevation={expanded ? 3 : 1} 
       sx={{
-        mb: 2,
-        borderRadius: 2,
+        mb: 2.5,
+        borderRadius: '8px',
         overflow: 'hidden',
-        border: expanded ? '1px solid #3f51b5' : '1px solid #e0e0e0',
+        border: `1px solid ${expanded ? (tieneBifurcaciones ? '#9c27b0' : '#2196f3') : '#e0e0e0'}`,
         transition: 'all 0.3s ease',
         '&:hover': {
           boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
-          borderColor: '#bbdefb'
+          borderColor: tieneBifurcaciones ? '#9c27b0' : '#2196f3'
         }
       }}
     >
       <Box
-        onClick={onToggle}  // Usar la función proporcionada por el padre
+        onClick={onToggle}
         sx={{
-          p: 2,
+          p: 2.5,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           cursor: 'pointer',
-          bgcolor: expanded ? 'rgba(63, 81, 181, 0.08)' : 'white',
+          bgcolor: expanded ? (tieneBifurcaciones ? 'rgba(156, 39, 176, 0.08)' : 'rgba(33, 150, 243, 0.08)') : 'white',
           transition: 'background-color 0.3s ease',
+          borderBottom: expanded ? '1px solid rgba(0, 0, 0, 0.08)' : 'none',
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
-          <Box sx={{ mr: 2, minWidth: '36px', textAlign: 'center' }}>
-            <Typography 
-              variant="body2" 
-              sx={{ 
-                fontWeight: 'bold',
-                color: 'primary.main',
-                bgcolor: 'rgba(63, 81, 181, 0.1)',
-                borderRadius: '50%',
-                width: '24px',
-                height: '24px',
-                lineHeight: '24px',
-                display: 'inline-block'
-              }}
-            >
-              {paso.numero}
-            </Typography>
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            width: '36px', 
+            height: '36px', 
+            borderRadius: '50%', 
+            bgcolor: tieneBifurcaciones ? 'rgba(156, 39, 176, 0.1)' : 'rgba(33, 150, 243, 0.1)', 
+            marginRight: '16px',
+            color: tieneBifurcaciones ? 'secondary.main' : 'primary.main',
+            fontWeight: 'bold',
+            fontSize: '1rem'
+          }}>
+            {paso.numero}
           </Box>
+          
           <Box>
-            <Typography variant="subtitle1" sx={{ fontWeight: 'medium' }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 'medium', mb: 0.5 }}>
               {paso.titulo}
             </Typography>
-            <Typography variant="caption" color="text.secondary">
-              {paso.tiempo_estimado ? `Tiempo estimado: ${paso.tiempo_estimado}` : ''}
-              {paso.tiempo_estimado && paso.responsable ? ' · ' : ''}
-              {paso.responsable ? `Responsable: ${paso.responsable}` : ''}
-            </Typography>
+            
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+              {paso.tiempo_estimado && (
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <AccessTimeIcon fontSize="small" color="action" sx={{ mr: 0.5 }} />
+                  <Typography variant="body2" color="text.secondary">
+                    {paso.tiempo_estimado}
+                  </Typography>
+                </Box>
+              )}
+              
+              {paso.responsable && (
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <PersonIcon fontSize="small" color="action" sx={{ mr: 0.5 }} />
+                  <Typography variant="body2" color="text.secondary">
+                    {paso.responsable}
+                  </Typography>
+                </Box>
+              )}
+              
+              {tieneDocumentos && (
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <DescriptionIcon fontSize="small" color="info" sx={{ mr: 0.5 }} />
+                  <Typography variant="body2" color="text.secondary">
+                    {paso.documentos.length} {paso.documentos.length === 1 ? 'documento' : 'documentos'}
+                  </Typography>
+                </Box>
+              )}
+              
+              {tieneBifurcaciones && (
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <ArrowForwardIcon fontSize="small" color="secondary" sx={{ mr: 0.5 }} />
+                  <Typography variant="body2" color="text.secondary">
+                    {paso.bifurcaciones.length} {paso.bifurcaciones.length === 1 ? 'bifurcación' : 'bifurcaciones'}
+                  </Typography>
+                </Box>
+              )}
+            </Box>
           </Box>
         </Box>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        
+        <Box sx={{ display: 'flex', alignItems: 'center' }}>
           {isAdminOrSuperAdmin && (
-            <>
-              <IconButton
-                size="small"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onEdit(paso);
-                }}
-                color="primary"
-                sx={{ 
-                  bgcolor: 'rgba(63, 81, 181, 0.08)',
-                  '&:hover': { bgcolor: 'rgba(63, 81, 181, 0.15)' } 
-                }}
-              >
-                <EditIcon fontSize="small" />
-              </IconButton>
-              <IconButton
-                size="small"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDelete(paso.id); // Asegúrate de pasar solo el ID, no el objeto completo
-                }}
-                color="error"
-                sx={{ 
-                  bgcolor: 'rgba(211, 47, 47, 0.08)',
-                  '&:hover': { bgcolor: 'rgba(211, 47, 47, 0.15)' } 
-                }}
-              >
-                <DeleteIcon fontSize="small" />
-              </IconButton>
-              <IconButton
-                size="small"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onViewDocuments(paso);
-                }}
-                color="info"
-                sx={{ 
-                  bgcolor: 'rgba(2, 136, 209, 0.08)',
-                  '&:hover': { bgcolor: 'rgba(2, 136, 209, 0.15)' } 
-                }}
-              >
-                <DocumentIcon fontSize="small" />
-              </IconButton>
-            </>
+            <Box sx={{ display: 'flex', mr: 1 }}>
+              <Tooltip title="Editar paso">
+                <IconButton
+                  size="small"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEdit(paso);
+                  }}
+                  color="primary"
+                >
+                  <EditIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              
+              <Tooltip title="Eliminar paso">
+                <IconButton
+                  size="small"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete(paso.id);
+                  }}
+                  color="error"
+                >
+                  <DeleteIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              
+              <Tooltip title="Gestionar documentos">
+                <IconButton
+                  size="small"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onViewDocuments(paso);
+                  }}
+                  color="info"
+                >
+                  <DocumentIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </Box>
           )}
-          <IconButton size="small">
+          
+          <IconButton size="small" onClick={(e) => {
+            e.stopPropagation();
+            onToggle();
+          }}>
             {expanded ? (
               <ExpandLessIcon fontSize="small" />
             ) : (
@@ -578,10 +308,12 @@ const handleDirectDownload = async (e, documentoUrl) => {
         </Box>
       </Box>
 
-      {/* Contenido expandido */}
       <Collapse in={expanded} timeout="auto" unmountOnExit>
-        <Box sx={{ p: 3, bgcolor: '#f9f9f9', borderTop: '1px solid #e0e0e0' }}>
-          {/* Descripción */}
+        <Box sx={{ 
+          p: 3, 
+          bgcolor: 'rgba(250, 250, 250, 0.7)',
+        }}>
+          {/* Contenido de la descripción */}
           <Typography 
             variant="body1" 
             sx={{ 
@@ -594,149 +326,163 @@ const handleDirectDownload = async (e, documentoUrl) => {
             {paso.descripcion || 'Sin descripción'}
           </Typography>
 
-          {/* Documentos asociados - Versión mejorada */}
-          {paso.documentos && paso.documentos.length > 0 && (
+          {/* Documentos asociados con estilo mejorado */}
+          {tieneDocumentos && (
             <Box sx={{ mt: 3 }}>
               <Typography variant="subtitle2" color="primary" sx={{ mb: 2, fontWeight: 'bold', display: 'flex', alignItems: 'center' }}>
                 <DescriptionIcon fontSize="small" sx={{ mr: 1 }} />
                 Documentos asociados:
               </Typography>
               
-              <List sx={{ 
-                bgcolor: 'background.paper', 
-                borderRadius: 1, 
-                overflow: 'hidden',
-                border: '1px solid rgba(0, 0, 0, 0.12)'
-              }}>
-                {paso.documentos.map((docPaso) => (
-                  <React.Fragment key={docPaso.id}>
-                    <ListItem
-                      divider
-                      sx={{
-                        '&:hover': { bgcolor: 'rgba(0, 0, 0, 0.04)' },
-                        transition: 'background-color 0.2s'
-                      }}
-                    >
-                      <ListItemIcon>
-                        {getDocumentoIcon(docPaso.documento_detalle)}
-                      </ListItemIcon>
-                      
-                      <ListItemText
-                        primary={
-                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                            <Typography variant="body2" fontWeight="medium">
-                              {docPaso.documento_detalle.nombre}
+              <Paper variant="outlined" sx={{ overflow: 'hidden', borderRadius: '6px' }}>
+                <List disablePadding>
+                  {paso.documentos.map((docPaso, index) => (
+                    <React.Fragment key={docPaso.id}>
+                      {index > 0 && <Divider />}
+                      <ListItem sx={{
+                        py: 1.5,
+                        '&:hover': { bgcolor: 'rgba(0, 0, 0, 0.02)' }
+                      }}>
+                        <ListItemIcon>
+                          {getDocumentoIcon(docPaso.documento_detalle)}
+                        </ListItemIcon>
+                        
+                        <ListItemText
+                          primary={
+                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                              <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                {docPaso.documento_detalle.nombre}
+                              </Typography>
+                              {docPaso.documento_detalle.extension && (
+                                <Chip 
+                                  label={docPaso.documento_detalle.extension.toUpperCase()} 
+                                  size="small" 
+                                  variant="outlined"
+                                  sx={{ ml: 1, height: 20, fontSize: '0.7rem' }}
+                                />
+                              )}
+                            </Box>
+                          }
+                          secondary={docPaso.notas && (
+                            <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                              {docPaso.notas}
                             </Typography>
-                            {docPaso.documento_detalle.extension && (
-                              <Chip 
-                                label={docPaso.documento_detalle.extension.toUpperCase()} 
-                                size="small" 
-                                variant="outlined"
-                                sx={{ ml: 1, height: 20, fontSize: '0.7rem' }}
-                              />
-                            )}
-                          </Box>
-                        }
-                        secondary={
-                          <>
-                            {docPaso.notas && (
-                              <Typography variant="caption" color="text.secondary" display="block">
-                                {docPaso.notas}
-                              </Typography>
-                            )}
-                            {docPaso.documento_detalle.fecha_creacion && (
-                              <Typography variant="caption" color="text.secondary" display="block" sx={{ fontSize: '0.7rem', mt: 0.5 }}>
-                                Añadido: {new Date(docPaso.documento_detalle.fecha_creacion).toLocaleDateString()}
-                              </Typography>
-                            )}
-                          </>
-                        }
-                      />
-                      
-                      <Box sx={{ display: 'flex' }}>
-                        {docPaso.documento_detalle.archivo_url && (
-                          <>
-                            <Tooltip title="Visualizar">
+                          )}
+                        />
+                        
+                        <Box sx={{ display: 'flex' }}>
+                          {docPaso.documento_detalle.archivo_url && (
+                            <>
+                              <Tooltip title="Visualizar">
+                                <IconButton
+                                  size="small"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handlePreviewDocument(docPaso.documento_detalle);
+                                  }}
+                                  sx={{ mr: 0.5 }}
+                                >
+                                  <VisibilityIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                              
+                              <Tooltip title="Descargar">
+                                <IconButton
+                                  size="small"
+                                  onClick={(e) => handleDirectDownload(e, docPaso.documento_detalle.archivo_url)}
+                                  sx={{ mr: 0.5 }}
+                                >
+                                  <DownloadIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            </>
+                          )}
+                          
+                          {docPaso.documento_detalle.url && (
+                            <Tooltip title="Abrir enlace externo">
                               <IconButton
                                 size="small"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handlePreviewDocument(docPaso.documento_detalle);
+                                  window.open(docPaso.documento_detalle.url, '_blank');
                                 }}
-                                sx={{ mr: 1 }}
                               >
-                                <VisibilityIcon fontSize="small" />
+                                <LaunchIcon fontSize="small" />
                               </IconButton>
                             </Tooltip>
-                            
-                            <Tooltip title="Descargar">
-                              <IconButton
-                                size="small"
-                                onClick={(e) => handleDirectDownload(e, docPaso.documento_detalle.archivo_url)}
-                              >
-                                <DownloadIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          </>
-                        )}
-                        
-                        {docPaso.documento_detalle.url && (
-                          <Tooltip title="Abrir enlace externo">
-                            <IconButton
-                              size="small"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                window.open(docPaso.documento_detalle.url, '_blank');
-                              }}
-                            >
-                              <LaunchIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                      </Box>
-                    </ListItem>
-                  </React.Fragment>
-                ))}
-              </List>
+                          )}
+                        </Box>
+                      </ListItem>
+                    </React.Fragment>
+                  ))}
+                </List>
+              </Paper>
             </Box>
           )}
 
-          {/* Bifurcaciones */}
-          {paso.bifurcaciones && paso.bifurcaciones.length > 0 && (
+          {/* Bifurcaciones con estilo mejorado */}
+          {tieneBifurcaciones && (
             <Box sx={{ mt: 3 }}>
-              <Typography variant="subtitle2" color="primary" sx={{ mb: 1, fontWeight: 'bold' }}>
-                Siguientes pasos:
+              <Typography variant="subtitle2" color="secondary" sx={{ mb: 2, fontWeight: 'bold', display: 'flex', alignItems: 'center' }}>
+                <ArrowForwardIcon fontSize="small" sx={{ mr: 1 }} />
+                Siguientes pasos posibles:
               </Typography>
-              <BifurcacionesManager
-                bifurcaciones={paso.bifurcaciones}
-                pasos={pasos}
-                readonly={true}
-                onBifurcacionClick={(pasoDestino) => {
-                  // Este ID nos permitirá identificar el paso a expandir
-                  document.dispatchEvent(new CustomEvent('pasoNavigation', {
-                    detail: { pasoId: pasoDestino.id }
-                  }));
-                }}
-              />
+              
+              <Box>
+                {paso.bifurcaciones.map((bifurcacion, index) => {
+                  const pasoDestino = pasos.find(p => p.id === parseInt(bifurcacion.paso_destino));
+                  return (
+                    <Paper 
+                      key={index}
+                      variant="outlined"
+                      sx={{ 
+                        p: 1.5, 
+                        mb: 1, 
+                        display: 'flex',
+                        alignItems: 'center',
+                        borderLeft: '3px solid #9c27b0',
+                        cursor: 'pointer',
+                        '&:hover': {
+                          bgcolor: 'rgba(156, 39, 176, 0.05)'
+                        }
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (pasoDestino) {
+                          document.dispatchEvent(new CustomEvent('pasoNavigation', {
+                            detail: { pasoId: pasoDestino.id }
+                          }));
+                        }
+                      }}
+                    >
+                      <Typography variant="body2" sx={{ fontWeight: 'medium', flex: 1 }}>
+                        {bifurcacion.condicion}
+                      </Typography>
+                      
+                      <Box sx={{ display: 'flex', alignItems: 'center', ml: 2 }}>
+                        <ArrowForwardIcon fontSize="small" color="secondary" sx={{ mr: 1 }} />
+                        <Typography variant="body2">
+                          Ir al paso {pasoDestino ? pasoDestino.numero : '?'}: {pasoDestino ? pasoDestino.titulo : 'No encontrado'}
+                        </Typography>
+                      </Box>
+                    </Paper>
+                  );
+                })}
+              </Box>
             </Box>
           )}
 
-          {/* Botón para gestionar documentos (solo para admin) */}
+          {/* Botón para gestionar documentos */}
           {isAdminOrSuperAdmin && (
             <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
               <Button
                 variant="outlined"
-                size="small"
                 startIcon={<DocumentIcon />}
                 onClick={(e) => {
                   e.stopPropagation();
                   onViewDocuments(paso);
                 }}
-                sx={{
-                  textTransform: 'none',
-                  borderRadius: '20px',
-                  px: 2
-                }}
+                sx={{ textTransform: 'none' }}
               >
                 Gestionar documentos
               </Button>
@@ -744,8 +490,7 @@ const handleDirectDownload = async (e, documentoUrl) => {
           )}
         </Box>
       </Collapse>
-
-      {/* Modal de previsualización de documentos */}
+      
       <DocumentPreview
         open={previewOpen}
         onClose={() => setPreviewOpen(false)}
@@ -835,37 +580,27 @@ const PasosManager = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        setLoading(true);
         if (!procedimientoId) {
           console.log("ID de procedimiento no definido");
           return;
         }
         
-        console.log("Obteniendo datos para procedimiento:", procedimientoId);
-        
-        const [procedimientoRes, pasosRes] = await Promise.all([
+        const [procedimientoRes, allPasos] = await Promise.all([
           procedimientosService.getProcedimiento(procedimientoId),
-          procedimientosService.getPasos(procedimientoId)
+          fetchAllPasos(procedimientoId)
         ]);
 
-        console.log("Datos de procedimiento:", procedimientoRes.data);
-        console.log("Datos de pasos:", pasosRes.data);
-        
         setProcedimiento(procedimientoRes.data);
         
-        // Manejar diferentes estructuras de respuesta para pasos
-        let pasosData = [];
-        if (Array.isArray(pasosRes.data)) {
-          pasosData = pasosRes.data;
-        } else if (pasosRes.data.results && Array.isArray(pasosRes.data.results)) {
-          pasosData = pasosRes.data.results;
-        }
-        
         // Filtrar los pasos para asegurarnos que son de este procedimiento
-        const pasosFiltrados = pasosData.filter(paso => 
+        const pasosFiltrados = allPasos.filter(paso => 
           parseInt(paso.procedimiento) === parseInt(procedimientoId)
         );
         
+        console.log(`Total de pasos encontrados: ${pasosFiltrados.length}`);
         setPasos(pasosFiltrados.sort((a, b) => a.numero - b.numero));
+        
       } catch (error) {
         console.error("Error al cargar datos:", error);
         setSnackbar({
@@ -1109,61 +844,112 @@ const handleSubmitPaso = async () => {
     } else {
       // Crear nuevo paso
       
-      // 1. Primero, obtener todos los pasos actualizados del servidor
-      const pasosActualesResponse = await procedimientosService.getPasos(procedimientoId);
-      let pasosActuales = [];
-      
-      if (Array.isArray(pasosActualesResponse.data)) {
-        pasosActuales = pasosActualesResponse.data;
-      } else if (pasosActualesResponse.data.results && Array.isArray(pasosActualesResponse.data.results)) {
-        pasosActuales = pasosActualesResponse.data.results;
-      }
-      
-      // Filtrar solo los pasos de este procedimiento
-      const pasosProcedimiento = pasosActuales
-        .filter(paso => parseInt(paso.procedimiento) === parseInt(procedimientoId));
-      
-      // 2. Calcular el próximo número disponible
+      // 2. Calcular el próximo número disponible de forma más robusta
       let nextNumber = 1;
-      if (pasosProcedimiento.length > 0) {
-        // Encontrar el número más alto y sumar 1
-        nextNumber = Math.max(...pasosProcedimiento.map(p => parseInt(p.numero))) + 1;
+      if (pasos.length > 0) {
+        // Estrategia 1: Usar el máximo número existente + 1
+        const maxNumeroExistente = Math.max(...pasos.map(p => parseInt(p.numero) || 0));
+        nextNumber = maxNumeroExistente + 1;
         
-        // Verificamos que no exista ya un paso con ese número
-        while (pasosProcedimiento.some(p => parseInt(p.numero) === nextNumber)) {
-          nextNumber++;
+        console.log("Máximo número existente:", maxNumeroExistente);
+        console.log("Próximo número calculado (máx+1):", nextNumber);
+        
+        // Verificar si este número ya existe
+        if (pasos.some(p => parseInt(p.numero) === nextNumber)) {
+          console.warn("El número calculado ya existe, buscando el primer hueco...");
+          
+          // Estrategia 2: Buscar el primer hueco en la secuencia
+          const numerosOrdenados = [...pasos]
+            .map(p => parseInt(p.numero) || 0)
+            .filter(n => !isNaN(n))
+            .sort((a, b) => a - b);
+          
+          console.log("Números ordenados:", numerosOrdenados);
+          
+          // Encontrar el primer hueco
+          nextNumber = 1; // Empezamos desde 1
+          for (let i = 0; i < numerosOrdenados.length; i++) {
+            if (numerosOrdenados[i] !== nextNumber) {
+              break; // Encontramos un hueco
+            }
+            nextNumber++;
+          }
+          
+          console.log("Hueco encontrado en secuencia:", nextNumber);
+          
+          // Verificar si este número también está ocupado
+          if (pasos.some(p => parseInt(p.numero) === nextNumber)) {
+            console.error("Error crítico: número encontrado también está ocupado");
+            // Última opción: usar un timestamp para asegurar unicidad
+            nextNumber = Date.now() % 10000;
+            console.log("Usando timestamp como último recurso:", nextNumber);
+          }
         }
       }
       
-      console.log("Creando paso con número:", nextNumber);
-      
-      // 3. Crear el paso con el número calculado
-      const newPaso = await procedimientosService.createPaso({
-        ...formData,
-        procedimiento: procedimientoId,
-        numero: nextNumber
-      });
-      
-      setSnackbar({
-        open: true,
-        message: 'Paso creado correctamente',
-        severity: 'success'
-      });
+      console.log("Finalmente creando paso con número:", nextNumber);
+
+      // Verificar explícitamente antes de crear
+      const numeroDisponible = await verificarNumeroDisponible(procedimientoId, nextNumber);
+      if (!numeroDisponible) {
+        // Si no está disponible, usar un número muy alto basado en timestamp
+        nextNumber = Math.floor(Date.now() / 1000) % 1000000;
+        console.log("Número no disponible, usando alternativa:", nextNumber);
+      }
+
+      console.log("Intentando crear paso con número definitivo:", nextNumber);
+
+      // Crear el paso con el número verificado
+      try {
+        const newPaso = await procedimientosService.createPaso({
+          ...formData,
+          procedimiento: procedimientoId,
+          numero: nextNumber
+        });
+        
+        setSnackbar({
+          open: true,
+          message: 'Paso creado correctamente',
+          severity: 'success'
+        });
+      } catch (createError) {
+        console.error("Error específico al crear paso:", createError);
+        
+        // Si el error persiste, intentar con un último número aleatorio
+        if (createError.response?.data?.non_field_errors?.includes('Los campos procedimiento, numero deben formar un conjunto único')) {
+          const ultimoIntento = Math.floor(Math.random() * 100000) + 100000;
+          
+          console.log("Último intento con número aleatorio:", ultimoIntento);
+          
+          try {
+            const newPaso = await procedimientosService.createPaso({
+              ...formData,
+              procedimiento: procedimientoId,
+              numero: ultimoIntento
+            });
+            
+            setSnackbar({
+              open: true,
+              message: 'Paso creado correctamente (usando número alternativo)',
+              severity: 'success'
+            });
+          } catch (finalError) {
+            throw finalError; // Propagar el error si incluso el último intento falla
+          }
+        } else {
+          throw createError; // Propagar otros errores
+        }
+      }
     }
     
-    // Recargar pasos después de crear/actualizar
-    const pasosRes = await procedimientosService.getPasos(procedimientoId);
-    let pasosData = [];
-    if (Array.isArray(pasosRes.data)) {
-      pasosData = pasosRes.data;
-    } else if (pasosRes.data.results && Array.isArray(pasosRes.data.results)) {
-      pasosData = pasosRes.data.results;
-    }
+    // Recargar pasos después de crear/actualizar usando fetchAllPasos para obtener TODOS
+    const allPasos = await fetchAllPasos(procedimientoId);
     
-    const pasosFiltrados = pasosData
+    // Filtrar y ordenar los pasos del procedimiento actual
+    const pasosFiltrados = allPasos
       .filter(paso => parseInt(paso.procedimiento) === parseInt(procedimientoId))
       .sort((a, b) => a.numero - b.numero);
-    
+
     setPasos(pasosFiltrados);
     
     // Cerrar formulario
@@ -1278,18 +1064,12 @@ const handleDeletePaso = (paso) => {
         }
         
         // 6. Recargar para asegurarnos de tener el estado correcto
-        const finalResponse = await procedimientosService.getPasos(procedimientoId);
-        let finalPasosData = [];
-        if (Array.isArray(finalResponse.data)) {
-          finalPasosData = finalResponse.data;
-        } else if (finalResponse.data.results && Array.isArray(finalResponse.data.results)) {
-          finalPasosData = finalResponse.data.results;
-        }
-        
-        const finalPasosFiltrados = finalPasosData
+        const finalPasos = await fetchAllPasos(procedimientoId);
+
+        const finalPasosFiltrados = finalPasos
           .filter(paso => parseInt(paso.procedimiento) === parseInt(procedimientoId))
           .sort((a, b) => a.numero - b.numero);
-        
+
         setPasos(finalPasosFiltrados);
         
         setSnackbar({
@@ -1341,25 +1121,32 @@ const handleBifurcacionesChange = (nuevasBifurcaciones) => {
     const handlePasoNavigation = (event) => {
       const { pasoId } = event.detail;
       
-      // Cerrar todos los pasos y abrir solo el de destino
-      const nuevoEstado = {};
+      // Expandir solo el paso de destino
+      let nuevoEstado = {};
       nuevoEstado[pasoId] = true;
       setExpandedPasos(nuevoEstado);
       
-      // Scroll hasta el paso de destino
+      // Scroll suave y efecto visual
       setTimeout(() => {
         const elemento = document.getElementById(`paso-${pasoId}`);
         if (elemento) {
           elemento.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          
+          // Efecto de resaltado temporal
+          elemento.style.transition = 'box-shadow 0.5s ease';
+          elemento.style.boxShadow = '0 0 0 3px rgba(33, 150, 243, 0.3)';
+          
+          // Remover el resaltado después de un tiempo
+          setTimeout(() => {
+            elemento.style.boxShadow = '';
+          }, 2000);
         }
       }, 100);
     };
     
-    // Registrar el listener para el evento personalizado
     document.addEventListener('pasoNavigation', handlePasoNavigation);
     
     return () => {
-      // Limpiar el listener cuando se desmonte el componente
       document.removeEventListener('pasoNavigation', handlePasoNavigation);
     };
   }, []);
@@ -1396,22 +1183,153 @@ const handleDocumentosChange = async () => {
   }
 };
 
+// Optimización de fetchAllPasos para asegurar que se cargan TODOS los pasos
+const fetchAllPasos = async (procedimientoId) => {
+  let allPasos = [];
+  let nextPageUrl = null;
+  let page = 1;
+  let totalPages = 1;
+  
+  console.log("Iniciando carga de todos los pasos para el procedimiento:", procedimientoId);
+
+  try {
+    // Primero obtenemos la cantidad total sin paginación para verificar después
+    const countResponse = await procedimientosService.getPasos(procedimientoId, { 
+      page_size: 1,
+      pagination: true 
+    });
+    
+    let totalCount = 0;
+    if (countResponse.data.count) {
+      totalCount = countResponse.data.count;
+      totalPages = Math.ceil(totalCount / 100); // Usando page_size=100
+      console.log(`Se detectaron ${totalCount} pasos totales, requiere ${totalPages} páginas`);
+    }
+  } catch (countError) {
+    console.error("Error al obtener conteo de pasos:", countError);
+  }
+
+  // Intentar obtener todos los pasos sin paginación primero
+  try {
+    const noPaginationResponse = await procedimientosService.getPasos(procedimientoId, { 
+      pagination: false,
+      page_size: 1000
+    });
+    
+    if (Array.isArray(noPaginationResponse.data)) {
+      allPasos = noPaginationResponse.data;
+      console.log(`Éxito al cargar ${allPasos.length} pasos sin paginación`);
+      return allPasos;
+    }
+  } catch (error) {
+    console.log("No se pudo obtener sin paginación, procediendo a paginación manual");
+  }
+
+  // Si no funcionó cargar sin paginación, hacemos paginación manual
+  do {
+    try {
+      const response = await procedimientosService.getPasos(procedimientoId, { 
+        page,
+        page_size: 100 // Usar un tamaño de página grande
+      });
+      
+      // Obtener los datos según la estructura de respuesta
+      if (Array.isArray(response.data)) {
+        allPasos = [...allPasos, ...response.data];
+        nextPageUrl = null; // No hay más páginas
+      } else if (response.data.results && Array.isArray(response.data.results)) {
+        allPasos = [...allPasos, ...response.data.results];
+        nextPageUrl = response.data.next; // URL de la siguiente página si existe
+      }
+      
+      console.log(`Página ${page}/${totalPages || '?'} cargada, total acumulado: ${allPasos.length} pasos`);
+      page++;
+      
+    } catch (error) {
+      console.error(`Error al cargar la página ${page}:`, error);
+      nextPageUrl = null;
+    }
+  } while (nextPageUrl || page <= totalPages);
+
+  console.log(`Carga completada: ${allPasos.length} pasos obtenidos en total`);
+  return allPasos;
+};
+
+// Función para manejar la actualización después de guardar bifurcaciones
+const handleBifurcationSave = async () => {
+  try {
+    // Recargar todos los pasos para asegurar que las bifurcaciones estén actualizadas
+    const allPasos = await fetchAllPasos(procedimientoId);
+    
+    // Filtrar y ordenar los pasos del procedimiento actual
+    const pasosFiltrados = allPasos
+      .filter(paso => parseInt(paso.procedimiento) === parseInt(procedimientoId))
+      .sort((a, b) => a.numero - b.numero);
+    
+    setPasos(pasosFiltrados);
+    
+    setSnackbar({
+      open: true,
+      message: 'Bifurcaciones actualizadas correctamente',
+      severity: 'success'
+    });
+  } catch (error) {
+    console.error('Error al recargar los pasos:', error);
+    setSnackbar({
+      open: true,
+      message: 'Error al actualizar las bifurcaciones',
+      severity: 'error'
+    });
+  }
+};
+
+// Añadir esta función a PasosManager
+const verificarNumeroDisponible = async (procedimientoId, numero) => {
+  try {
+    // Intentar obtener un paso con este número específico
+    const response = await procedimientosService.getPasos(procedimientoId, {
+      numero: numero
+    });
+    
+    let existentes = [];
+    if (Array.isArray(response.data)) {
+      existentes = response.data;
+    } else if (response.data.results && Array.isArray(response.data.results)) {
+      existentes = response.data.results;
+    }
+    
+    // Filtrar por este procedimiento específico
+    const coincidencias = existentes.filter(
+      p => parseInt(p.procedimiento) === parseInt(procedimientoId) && 
+           parseInt(p.numero) === parseInt(numero)
+    );
+    
+    console.log(`Verificación explícita: número ${numero} ${coincidencias.length > 0 ? 'ya existe' : 'disponible'}`);
+    
+    return coincidencias.length === 0;
+  } catch (error) {
+    console.error("Error al verificar disponibilidad de número:", error);
+    return false; // En caso de error, asumir que no está disponible
+  }
+};
+
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 8 }}>
-      {/* Encabezado con título y acciones */}
+      {/* Encabezado con título y navegación */}
       <Box sx={{ 
         display: 'flex', 
+        flexDirection: { xs: 'column', md: 'row' },
         justifyContent: 'space-between', 
-        alignItems: 'center',
+        alignItems: { xs: 'flex-start', md: 'center' },
         mb: 4
       }}>
         <Box>
           <Button
-            variant="outlined"
-            size="small"
+            variant="text"
+            size="medium"
             startIcon={<ArrowBackIcon />}
             onClick={handleBackToProcedimientos}
-            sx={{ mb: 2 }}
+            sx={{ mb: 1 }}
           >
             Volver a procedimientos
           </Button>
@@ -1431,15 +1349,54 @@ const handleDocumentosChange = async () => {
             startIcon={<AddIcon />}
             onClick={() => handleOpenPasoForm()}
             sx={{ 
-              borderRadius: '20px',
+              borderRadius: '8px',
               px: 3,
-              py: 1
+              py: 1.2,
+              mt: { xs: 2, md: 0 },
+              boxShadow: '0 3px 5px rgba(0,0,0,0.1)'
             }}
           >
             Nuevo paso
           </Button>
         )}
       </Box>
+      
+      {/* Mostrar resumen de pasos */}
+      {!loading && pasos.length > 0 && (
+        <Box sx={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center', 
+          mb: 4, 
+          p: 2, 
+          bgcolor: 'background.paper',
+          borderRadius: '8px',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', mr: 3 }}>
+            <Typography variant="h5" color="primary">{pasos.length}</Typography>
+            <Typography variant="body2" color="textSecondary" sx={{ ml: 1 }}>pasos</Typography>
+          </Box>
+          
+          <Divider orientation="vertical" flexItem sx={{ mx: 2 }} />
+          
+          <Box sx={{ display: 'flex', alignItems: 'center', mr: 3 }}>
+            <Typography variant="h5" color="info.main">
+              {pasos.reduce((acc, paso) => acc + (paso.documentos?.length || 0), 0)}
+            </Typography>
+            <Typography variant="body2" color="textSecondary" sx={{ ml: 1 }}>documentos</Typography>
+          </Box>
+          
+          <Divider orientation="vertical" flexItem sx={{ mx: 2 }} />
+          
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <Typography variant="h5" color="secondary.main">
+              {pasos.reduce((acc, paso) => acc + (paso.bifurcaciones?.length || 0), 0)}
+            </Typography>
+            <Typography variant="body2" color="textSecondary" sx={{ ml: 1 }}>bifurcaciones</Typography>
+          </Box>
+        </Box>
+      )}
 
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
@@ -1474,29 +1431,40 @@ const handleDocumentosChange = async () => {
           >
             <Box sx={{ mt: 2 }}>
               {pasos.map((paso) => (
-                <SortableItem key={paso.id} id={paso.id.toString()}>
-                  <PasoItem
-                    paso={paso}
-                    pasos={pasos} // Añadir esta línea para pasar la lista de pasos
-                    onEdit={handleOpenPasoForm}
-                    onDelete={handleDeletePaso}
-                    onViewDocuments={handleViewDocuments}
-                    isAdminOrSuperAdmin={isAdminOrSuperAdmin}
-                    expanded={expandedPasos[paso.id] || false}
-                    onToggle={() => {
-                      setExpandedPasos(prev => ({
-                        ...prev,
-                        [paso.id]: !prev[paso.id]
-                      }));
-                    }}
-                  />
-                </SortableItem>
+                <Box
+                  key={paso.id}
+                  sx={{
+                    animation: 'fadeIn 0.5s ease',
+                    '@keyframes fadeIn': {
+                      '0%': { opacity: 0, transform: 'translateY(10px)' },
+                      '100%': { opacity: 1, transform: 'translateY(0)' }
+                    },
+                  }}
+                >
+                  <SortableItem id={paso.id.toString()}>
+                    <PasoItem
+                      paso={paso}
+                      pasos={pasos}
+                      onEdit={handleOpenPasoForm}
+                      onDelete={handleDeletePaso}
+                      onViewDocuments={handleViewDocuments}
+                      isAdminOrSuperAdmin={isAdminOrSuperAdmin}
+                      expanded={expandedPasos[paso.id] || false}
+                      onToggle={() => {
+                        setExpandedPasos(prev => ({
+                          ...prev,
+                          [paso.id]: !prev[paso.id]
+                        }));
+                      }}
+                    />
+                  </SortableItem>
+                </Box>
               ))}
             </Box>
           </SortableContext>
         </DndContext>
       )}
-
+      
       {/* Dialog para crear/editar pasos */}
       <Dialog
         open={dialogOpen}
@@ -1586,6 +1554,7 @@ const handleDocumentosChange = async () => {
               pasos={pasos}
               onChange={handleBifurcacionesChange}
               pasoActual={pasoActual}
+              onSave={handleBifurcationSave} // Añadir esta prop
             />
           </Box>
         </DialogContent>

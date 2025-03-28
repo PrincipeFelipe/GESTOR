@@ -50,18 +50,32 @@ const deleteTipoProcedimiento = (id) => {
 };
 
 // Pasos
-const getPasos = (procedimientoId) => {
-  return api.get(`${BASE_URL}/pasos/`, { 
-    params: { procedimiento: procedimientoId } 
-  });
+const getPasos = (procedimientoId, extraParams = {}) => {
+  const params = { 
+    procedimiento: procedimientoId,
+    page_size: 1000, // Asegurar que se carguen todos los pasos
+    pagination: false, // Añadir esta línea para deshabilitar la paginación
+    ...extraParams
+  };
+  
+  return api.get(`${BASE_URL}/pasos/`, { params });
 };
 
 const getPaso = (id) => {
   return api.get(`${BASE_URL}/pasos/${id}/`);
 };
 
-const createPaso = (data) => {
-  return api.post(`${BASE_URL}/pasos/`, data);
+const createPaso = async (data) => {
+  try {
+    console.log("Enviando datos para crear paso:", JSON.stringify(data));
+    const response = await api.post(`${BASE_URL}/pasos/`, data);
+    console.log("Respuesta al crear paso:", response.data);
+    return response;
+  } catch (error) {
+    console.error("Error en createPaso:", 
+      error.response?.data || error.message);
+    throw error;
+  }
 };
 
 const updatePaso = (id, data) => {
