@@ -8,24 +8,20 @@ import {
   Button
 } from '@mui/material';
 
-const ConfirmDialog = ({ open, title, content, onConfirm, onCancel }) => {
+const ConfirmDialog = ({ open, title, content, onConfirm, onClose }) => {
   return (
     <Dialog
       open={open}
-      onClose={onCancel}
-      aria-labelledby="confirm-dialog-title"
-      aria-describedby="confirm-dialog-description"
+      onClose={onClose}
     >
-      <DialogTitle id="confirm-dialog-title">
-        {title}
-      </DialogTitle>
+      <DialogTitle>{title}</DialogTitle>
       <DialogContent>
-        <DialogContentText id="confirm-dialog-description">
+        <DialogContentText>
           {content}
         </DialogContentText>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onCancel} color="primary">
+        <Button onClick={onClose} color="primary">
           Cancelar
         </Button>
         <Button onClick={onConfirm} color="error" autoFocus>

@@ -29,6 +29,7 @@ import TiposProcedimiento from './components/Procedimientos/TiposProcedimiento';
 import DocumentosList from './components/Procedimientos/DocumentosList';
 import ProcedimientoView from './components/Procedimientos/ProcedimientoView';
 import PasoDocumentosManager from './components/Procedimientos/PasoDocumentosManager';
+import UnidadesPage from './pages/UnidadesPage';
 
 const App = () => {
   return (
@@ -49,7 +50,7 @@ const App = () => {
             }>
               <Route index element={<Home />} />
               <Route path="usuarios" element={<UsersList />} />
-              <Route path="unidades" element={<div>Unidades</div>} />
+              <Route path="unidades" element={<UnidadesPage />} />
               <Route path="empleos" element={<div>Empleos</div>} />
               
               {/* Rutas de Procedimientos - reordenadas para resolver conflictos de rutas */}
