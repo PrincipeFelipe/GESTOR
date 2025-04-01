@@ -85,6 +85,7 @@ import BifurcacionesManager from './BifurcacionesManager';
 
 // Añadir estas líneas en las importaciones al inicio del archivo
 import DocumentPreview from '../common/DocumentPreview';
+import DocumentoForm from '../common/DocumentoForm';
 
 // Componente SortableItem para elementos arrastrables con @dnd-kit
 const SortableItem = ({ children, id }) => {
@@ -110,6 +111,20 @@ const SortableItem = ({ children, id }) => {
       {children}
     </div>
   );
+};
+
+// Función para renderizar el icono según el tipo de documento
+const getDocumentoIcon = (documento) => {
+  if (!documento || !documento.extension) return <DocumentIcon fontSize="small" />;
+  
+  const extension = documento.extension?.toLowerCase();
+  
+  if (extension === 'pdf') return <PdfIcon fontSize="small" color="error" />;
+  if (['jpg', 'jpeg', 'png', 'gif', 'svg'].includes(extension)) return <ImageIcon fontSize="small" color="success" />;
+  if (['mp4', 'avi', 'mov', 'wmv'].includes(extension)) return <VideoIcon fontSize="small" color="secondary" />;
+  if (['mp3', 'wav', 'ogg'].includes(extension)) return <AudioIcon fontSize="small" color="info" />;
+  
+  return <FileIcon fontSize="small" color="action" />;
 };
 
 // En PasoItem, optimizamos el diseño visual y la experiencia de usuario
@@ -144,20 +159,6 @@ const PasoItem = ({
   const handleDirectDownload = (e, url) => {
     e.stopPropagation();
     window.open(url, '_blank');
-  };
-
-  // Función para renderizar el icono según el tipo de documento
-  const getDocumentoIcon = (documento) => {
-    if (!documento || !documento.extension) return <DocumentIcon fontSize="small" />;
-    
-    const extension = documento.extension?.toLowerCase();
-    
-    if (extension === 'pdf') return <PdfIcon fontSize="small" color="error" />;
-    if (['jpg', 'jpeg', 'png', 'gif', 'svg'].includes(extension)) return <ImageIcon fontSize="small" color="success" />;
-    if (['mp4', 'avi', 'mov', 'wmv'].includes(extension)) return <VideoIcon fontSize="small" color="secondary" />;
-    if (['mp3', 'wav', 'ogg'].includes(extension)) return <AudioIcon fontSize="small" color="info" />;
-    
-    return <FileIcon fontSize="small" color="action" />;
   };
 
   return (
@@ -472,6 +473,66 @@ const PasoItem = ({
             </Box>
           )}
 
+          {/* Botón de "Siguiente paso" cuando no hay bifurcaciones */}
+          {!tieneBifurcaciones && paso.numero < pasos.length && (
+            <Box sx={{ mt: 3 }}>
+              <Typography variant="subtitle2" color="primary" sx={{ mb: 2, fontWeight: 'bold', display: 'flex', alignItems: 'center' }}>
+                <ArrowForwardIcon fontSize="small" sx={{ mr: 1 }} />
+                Siguiente paso:
+              </Typography>
+              
+              <Box>
+                {(() => {
+                  // Encontrar el paso con número inmediatamente superior
+                  const currentNumero = parseInt(paso.numero);
+                  const siguientePaso = pasos.find(p => parseInt(p.numero) === currentNumero + 1);
+                  
+                  if (siguientePaso) {
+                    return (
+                      <Paper 
+                        variant="outlined"
+                        sx={{ 
+                          p: 1.5, 
+                          mb: 1, 
+                          display: 'flex',
+                          alignItems: 'center',
+                          borderLeft: '3px solid #2196f3', // Color primario en lugar de secundario
+                          cursor: 'pointer',
+                          '&:hover': {
+                            bgcolor: 'rgba(33, 150, 243, 0.05)'
+                          }
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          document.dispatchEvent(new CustomEvent('pasoNavigation', {
+                            detail: { pasoId: siguientePaso.id }
+                          }));
+                        }}
+                      >
+                        <Typography variant="body2" sx={{ fontWeight: 'medium', flex: 1 }}>
+                          Continuar al siguiente paso
+                        </Typography>
+                        
+                        <Box sx={{ display: 'flex', alignItems: 'center', ml: 2 }}>
+                          <ArrowForwardIcon fontSize="small" color="primary" sx={{ mr: 1 }} />
+                          <Typography variant="body2">
+                            Ir al paso {siguientePaso.numero}: {siguientePaso.titulo}
+                          </Typography>
+                        </Box>
+                      </Paper>
+                    );
+                  } else {
+                    return (
+                      <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                        Este es el último paso del procedimiento.
+                      </Typography>
+                    );
+                  }
+                })()}
+              </Box>
+            </Box>
+          )}
+
           {/* Botón para gestionar documentos */}
           {isAdminOrSuperAdmin && (
             <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
@@ -576,6 +637,48 @@ const PasosManager = () => {
     })
   );
 
+  // Añadir este estado para gestionar la documentación general
+  const [showDocumentacion, setShowDocumentacion] = useState(false);
+  const [documentosGenerales, setDocumentosGenerales] = useState([]);
+  const [loadingDocumentos, setLoadingDocumentos] = useState(false);
+
+  // Añadir esta función para cargar la documentación general del procedimiento
+  const fetchDocumentosGenerales = async () => {
+    try {
+      setLoadingDocumentos(true);
+      // Usar el procedimientoId para obtener documentos asociados directamente al procedimiento
+      const response = await procedimientosService.getDocumentos({
+        procedimiento: procedimientoId,
+        paso__isnull: true // Solo documentos no asociados a pasos específicos
+      });
+      
+      let documentos = [];
+      if (Array.isArray(response.data)) {
+        documentos = response.data;
+      } else if (response.data.results && Array.isArray(response.data.results)) {
+        documentos = response.data.results;
+      }
+      
+      setDocumentosGenerales(documentos);
+      console.log("Documentos generales cargados:", documentos.length);
+    } catch (error) {
+      console.error("Error al cargar documentación general:", error);
+      setSnackbar({
+        open: true,
+        message: 'Error al cargar la documentación general',
+        severity: 'error'
+      });
+    } finally {
+      setLoadingDocumentos(false);
+    }
+  };
+
+  // Añadir esta función para gestionar documentos generales
+  const handleManageGeneralDocs = () => {
+    setShowDocumentacion(true);
+    fetchDocumentosGenerales();
+  };
+
   // Efecto para cargar datos iniciales
   useEffect(() => {
     const fetchData = async () => {
@@ -600,6 +703,9 @@ const PasosManager = () => {
         
         console.log(`Total de pasos encontrados: ${pasosFiltrados.length}`);
         setPasos(pasosFiltrados.sort((a, b) => a.numero - b.numero));
+        
+        // Añadir carga inicial de documentos generales
+        fetchDocumentosGenerales();
         
       } catch (error) {
         console.error("Error al cargar datos:", error);
@@ -1117,6 +1223,12 @@ const handleDeletePaso = (pasoId) => {
 
   // Modificar la función handleViewDocuments
 
+// Función para manejar la descarga directa de documentos
+const handleDirectDownload = (e, url) => {
+  e.stopPropagation();
+  window.open(url, '_blank');
+};
+
 // Función para manejar la visualización de documentos
 const handleViewDocuments = (paso) => {
   // En lugar de navegar, abrir el modal
@@ -1334,6 +1446,96 @@ const verificarNumeroDisponible = async (procedimientoId, numero) => {
   }
 };
 
+// Función para manejar la previsualización de documentos generales
+const [previewOpen, setPreviewOpen] = useState(false);
+const [previewDocument, setPreviewDocument] = useState({ url: '', name: '' });
+
+const handlePreviewGeneralDoc = (documento) => {
+  setPreviewDocument({
+    url: documento.archivo_url,
+    name: documento.nombre
+  });
+  setPreviewOpen(true);
+};
+
+// Función para añadir documento general
+const [generalDocFormOpen, setGeneralDocFormOpen] = useState(false);
+const [editingDoc, setEditingDoc] = useState(null);
+
+const handleAddGeneralDoc = (doc = null) => {
+  setEditingDoc(doc);
+  setGeneralDocFormOpen(true);
+};
+
+const handleCloseGeneralDocForm = () => {
+  setEditingDoc(null);
+  setGeneralDocFormOpen(false);
+};
+
+const handleSaveGeneralDoc = async (data) => {
+  try {
+    if (data.id) {
+      // Actualizar documento existente
+      await procedimientosService.updateDocumento(data.id, {
+        ...data,
+        procedimiento: procedimientoId
+      });
+    } else {
+      // Crear nuevo documento asociado al procedimiento
+      await procedimientosService.createDocumento({
+        ...data,
+        procedimiento: procedimientoId
+      });
+    }
+    
+    // Recargar documentos
+    fetchDocumentosGenerales();
+    
+    setSnackbar({
+      open: true,
+      message: data.id ? 'Documento actualizado correctamente' : 'Documento añadido correctamente',
+      severity: 'success'
+    });
+  } catch (error) {
+    console.error("Error al guardar documento:", error);
+    setSnackbar({
+      open: true,
+      message: 'Error al guardar el documento',
+      severity: 'error'
+    });
+  } finally {
+    handleCloseGeneralDocForm();
+  }
+};
+
+// Función para eliminar documento general
+const handleDeleteGeneralDoc = (doc) => {
+  setConfirmDialog({
+    open: true,
+    title: 'Eliminar documento',
+    content: `¿Está seguro de que desea eliminar el documento "${doc.nombre}"?`,
+    onConfirm: async () => {
+      try {
+        await procedimientosService.deleteDocumento(doc.id);
+        fetchDocumentosGenerales();
+        
+        setSnackbar({
+          open: true,
+          message: 'Documento eliminado correctamente',
+          severity: 'success'
+        });
+      } catch (error) {
+        console.error("Error al eliminar documento:", error);
+        setSnackbar({
+          open: true,
+          message: 'Error al eliminar el documento',
+          severity: 'error'
+        });
+      }
+    }
+  });
+};
+
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 8 }}>
       {/* Encabezado con título y navegación */}
@@ -1486,6 +1688,143 @@ const verificarNumeroDisponible = async (procedimientoId, numero) => {
         </DndContext>
       )}
       
+      {/* Sección de documentación general del procedimiento */}
+      <Paper 
+        sx={{ 
+          p: 2, 
+          mb: 3, 
+          borderRadius: 2, 
+          border: '1px solid #e0e0e0',
+          bgcolor: 'rgba(244, 246, 249, 0.8)'
+        }}
+      >
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: showDocumentacion ? 2 : 0 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <Typography variant="h6" component="h2" sx={{ mr: 1, display: 'flex', alignItems: 'center' }}>
+              <DescriptionIcon sx={{ mr: 1, color: 'primary.main' }} />
+              Documentación General
+            </Typography>
+            <Chip 
+              label={`${documentosGenerales.length} ${documentosGenerales.length === 1 ? 'documento' : 'documentos'}`} 
+              size="small" 
+              color="primary" 
+              variant="outlined"
+            />
+          </Box>
+          
+          <Box>
+            {isAdminOrSuperAdmin && (
+              <Button
+                size="small"
+                startIcon={<AddIcon />}
+                onClick={() => handleAddGeneralDoc()}
+                sx={{ mr: 1 }}
+              >
+                Añadir documento
+              </Button>
+            )}
+            <Button
+              size="small"
+              endIcon={showDocumentacion ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+              onClick={() => setShowDocumentacion(!showDocumentacion)}
+            >
+              {showDocumentacion ? 'Ocultar' : 'Mostrar'}
+            </Button>
+          </Box>
+        </Box>
+        
+        <Collapse in={showDocumentacion}>
+          <Box sx={{ mt: 2 }}>
+            {loadingDocumentos ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
+                <CircularProgress size={24} />
+              </Box>
+            ) : documentosGenerales.length === 0 ? (
+              <Typography variant="body2" color="text.secondary" sx={{ p: 2, textAlign: 'center' }}>
+                No hay documentación general asociada a este procedimiento.
+                {isAdminOrSuperAdmin && (
+                  <Button 
+                    size="small" 
+                    onClick={() => handleAddGeneralDoc()} 
+                    sx={{ ml: 1 }}
+                  >
+                    Añadir ahora
+                  </Button>
+                )}
+              </Typography>
+            ) : (
+              <List disablePadding>
+                {documentosGenerales.map((doc, index) => (
+                  <React.Fragment key={doc.id}>
+                    {index > 0 && <Divider />}
+                    <ListItem
+                      sx={{
+                        py: 1,
+                        '&:hover': { bgcolor: 'rgba(0, 0, 0, 0.02)' }
+                      }}
+                      secondaryAction={
+                        <Box>
+                          {doc.archivo_url && (
+                            <>
+                              <Tooltip title="Visualizar">
+                                <IconButton size="small" onClick={() => handlePreviewGeneralDoc(doc)} sx={{ mr: 0.5 }}>
+                                  <VisibilityIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                              <Tooltip title="Descargar">
+                                <IconButton size="small" onClick={(e) => handleDirectDownload(e, doc.archivo_url)} sx={{ mr: 0.5 }}>
+                                  <DownloadIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            </>
+                          )}
+                          {doc.url && (
+                            <Tooltip title="Abrir enlace">
+                              <IconButton size="small" onClick={(e) => { e.stopPropagation(); window.open(doc.url, '_blank'); }}>
+                                <LaunchIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                          {isAdminOrSuperAdmin && (
+                            <Tooltip title="Eliminar">
+                              <IconButton size="small" onClick={() => handleDeleteGeneralDoc(doc)} sx={{ ml: 0.5 }}>
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                        </Box>
+                      }
+                    >
+                      <ListItemIcon>
+                        {getDocumentoIcon(doc)}
+                      </ListItemIcon>
+                      <ListItemText
+                        primary={
+                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                            <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                              {doc.nombre}
+                            </Typography>
+                            {doc.extension && (
+                              <Chip 
+                                label={doc.extension.toUpperCase()} 
+                                size="small" 
+                                variant="outlined"
+                                sx={{ ml: 1, height: 20, fontSize: '0.7rem' }}
+                              />
+                            )}
+                          </Box>
+                        }
+                        secondary={doc.descripcion}
+                      />
+                    </ListItem>
+                  </React.Fragment>
+                ))}
+              </List>
+            )}
+          </Box>
+        </Collapse>
+      </Paper>
+
       {/* Dialog para crear/editar pasos */}
       <Dialog
         open={dialogOpen}
@@ -1664,6 +2003,23 @@ const verificarNumeroDisponible = async (procedimientoId, numero) => {
           </DialogActions>
         </Dialog>
       )}
+
+      {/* Modal para añadir documentos generales */}
+      <DocumentoForm
+        open={generalDocFormOpen}
+        onClose={handleCloseGeneralDocForm}
+        onSubmit={handleSaveGeneralDoc}
+        initialData={editingDoc}
+        procedimientoId={procedimientoId}
+      />
+
+      {/* Componente para previsualizar documentos */}
+      <DocumentPreview
+        open={previewOpen}
+        onClose={() => setPreviewOpen(false)}
+        documentUrl={previewDocument.url}
+        documentName={previewDocument.name}
+      />
     </Container>
   );
 };
