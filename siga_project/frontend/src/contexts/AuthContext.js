@@ -1,28 +1,50 @@
 // src/contexts/AuthContext.js
 import React, { createContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import authService from '../assets/services/auth.service';
+import { jwtDecode } from 'jwt-decode';
+import api from '../assets/services/api';
 import { registerNavigate } from '../assets/services/navigation.service';
-import api from '../assets/services/api'; // Ensure this is the correct path to your API service
 
 export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState(null);
+  const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Registrar la función navigate en el servicio de navegación
     registerNavigate(navigate);
 
     const initAuth = async () => {
       try {
-        const user = await authService.getCurrentUser();
-        setCurrentUser(user);
+        const token = localStorage.getItem('token');
+        
+        if (!token) {
+          setLoading(false);
+          return;
+        }
+        
+        api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        
+        try {
+          const decoded = jwtDecode(token);
+          
+          if (decoded && decoded.user_id) {
+            const response = await api.get(`/users/${decoded.user_id}/`);
+            
+            if (response && response.data) {
+              setUser(response.data);
+              console.log("Usuario cargado correctamente:", response.data);
+            }
+          }
+        } catch (decodeError) {
+          console.error("Error al decodificar token:", decodeError);
+          localStorage.removeItem('token');
+          localStorage.removeItem('refreshToken');
+        }
       } catch (err) {
-        console.error("Error al inicializar la autenticación:", err);
+        console.error("Error al inicializar autenticación:", err);
       } finally {
         setLoading(false);
       }
@@ -31,125 +53,61 @@ export const AuthProvider = ({ children }) => {
     initAuth();
   }, [navigate]);
 
-  useEffect(() => {
-    const checkLoggedIn = async () => {
-      const token = localStorage.getItem('authToken');
-      if (token) {
-        try {
-          // Verifica que el token sea válido
-          api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-          
-          // Obtén el user_id del token
-          const tokenData = JSON.parse(atob(token.split('.')[1]));
-          const userId = tokenData.user_id;
-          
-          // Obtén los datos completos del usuario
-          const userResponse = await authService.getUserDetails(userId);
-          const userDetails = userResponse.data;
-          
-          // Establece el usuario en el estado
-          setCurrentUser({
-            ...tokenData,
-            ...userDetails
-          });
-        } catch (error) {
-          console.error('Error al verificar sesión:', error);
-          localStorage.removeItem('authToken');
-          localStorage.removeItem('refreshToken');
-          setCurrentUser(null);
-        }
-      }
-    };
-    
-    checkLoggedIn();
-  }, []);
-
-  // Versión mockeada para probar
   const login = async (tip, password) => {
     try {
-      // Intenta el login normal
-      const response = await authService.login(tip, password);
+      setLoading(true);
+      const response = await api.post('/token/', { tip, password });
       
-      // SOLUCIÓN TEMPORAL: Usuario mockeado independientemente de la respuesta
-      const mockUser = {
-        id: 1,
-        nombre: "admin",
-        apellido1: "admin",
-        apellido2: "",
-        ref: "AA",
-        telefono: "",
-        email: "admin@siga.gc",
-        unidad: 1,
-        empleo: 1,
-        tip: "admin",
-        tipo_usuario: "SuperAdmin",
-        estado: true
-      };
+      if (response.data && response.data.access) {
+        localStorage.setItem('token', response.data.access);
+        localStorage.setItem('refreshToken', response.data.refresh);
+        
+        api.defaults.headers.common['Authorization'] = `Bearer ${response.data.access}`;
+        
+        const decoded = jwtDecode(response.data.access);
+        
+        if (decoded && decoded.user_id) {
+          const userResponse = await api.get(`/users/${decoded.user_id}/`);
+          
+          if (userResponse && userResponse.data) {
+            setUser(userResponse.data);
+            console.log("Usuario iniciado sesión:", userResponse.data);
+            
+            return {
+              success: true,
+              user: userResponse.data
+            };
+          }
+        }
+      }
       
-      setCurrentUser(mockUser);
-      
-      return response;
+      throw new Error('No se pudo obtener la información del usuario');
     } catch (error) {
       console.error('Error en login:', error);
-      
-      // PARA PRUEBAS: Simular login exitoso incluso con error
-      const mockUser = {
-        id: 1,
-        nombre: "admin",
-        apellido1: "admin",
-        apellido2: "",
-        ref: "AA",
-        telefono: "",
-        email: "admin@siga.gc",
-        unidad: 1,
-        empleo: 1,
-        tip: "admin",
-        tipo_usuario: "SuperAdmin",
-        estado: true
-      };
-      
-      // Comentar esta línea en producción y descomentar el throw error
-      setCurrentUser(mockUser);
-      navigate('/dashboard');
-      
-      // throw error; // Descomenta esta línea en producción
-    }
-  };
-
-  const register = async (userData) => {
-    try {
-      setLoading(true);
-      const user = await authService.register(userData);
-      setError(null);
-      return user;
-    } catch (err) {
-      setError(err.message || 'Error al registrarse');
-      throw err;
+      setError(error.message || 'Error de autenticación');
+      throw error;
     } finally {
       setLoading(false);
     }
   };
 
   const logout = () => {
-    if (!currentUser) return; // Evitar logout innecesario
-    
     console.log("Cerrando sesión...");
-    authService.logout();
-    setCurrentUser(null);
+    localStorage.removeItem('token');
+    localStorage.removeItem('refreshToken');
+    setUser(null);
+    delete api.defaults.headers.common['Authorization'];
     navigate('/login', { replace: true });
   };
 
-  const value = {
-    currentUser,
-    loading,
-    error,
-    login,
-    register,
-    logout
-  };
-
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider value={{
+      user,
+      loading,
+      error,
+      login,
+      logout
+    }}>
       {children}
     </AuthContext.Provider>
   );

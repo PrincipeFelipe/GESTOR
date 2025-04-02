@@ -56,19 +56,29 @@ const Login = () => {
       setIsLoading(true);
       setErrorMsg('');
       
-      // Pasar directamente tip y password como argumentos separados
-      await login(tip, password);
+      // Llamar a la función login del contexto
+      const result = await login(tip, password);
       
-      // Navegación controlada después de login exitoso
-      navigate('/dashboard', { replace: true });
-      return true;
+      if (result && result.success) {
+        console.log('Login exitoso, usuario:', result.user);
+        
+        // Usar setTimeout para asegurar que el estado se actualiza antes de navegar
+        setTimeout(() => {
+          console.log("Redirigiendo a dashboard...");
+          navigate('/dashboard', { replace: true });
+        }, 100);
+        
+        return true;
+      } else {
+        throw new Error('No se pudo iniciar sesión correctamente');
+      }
     } catch (error) {
       console.error("Error en el inicio de sesión:", error);
       
       // Extraer mensaje de error amigable
       if (error.response && error.response.data) {
         if (typeof error.response.data === 'object') {
-          // Formatear errores del objeto (tip: [...], password: [...])
+          // Formatear errores del objeto
           const errorMessages = Object.keys(error.response.data)
             .map(key => {
               const msgs = error.response.data[key];
@@ -89,7 +99,6 @@ const Login = () => {
       }
       
       setOpenSnackbar(true);
-      setIsLoading(false);
       return false;
     } finally {
       setIsLoading(false);

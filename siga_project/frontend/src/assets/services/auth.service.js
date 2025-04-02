@@ -1,95 +1,70 @@
 // src/services/auth.service.js
 import api from './api';
-import { jwtDecode } from 'jwt-decode'; // Cambiado de jwt_decode a { jwtDecode }
+import { jwtDecode } from 'jwt-decode';
 
-// Modifica la función login para enviar los parámetros correctamente
-
+// Función de login
 const login = async (tip, password) => {
   try {
-    console.log("Intentando login con:", { tip, password });
+    console.log("Intentando login con:", { tip, password: "***" });
     
-    // Los datos deben enviarse en este formato según el error
-    const data = {
-      tip: tip,
-      password: password
-    };
-    
+    const data = { tip, password };
     const response = await api.post('/token/', data);
     
-    // Guardar tokens
-    if (response.data.access) {
-      localStorage.setItem('authToken', response.data.access);
-    }
-    if (response.data.refresh) {
+    // Guardar tokens con nombres consistentes
+    if (response.data && response.data.access) {
+      localStorage.setItem('token', response.data.access);
       localStorage.setItem('refreshToken', response.data.refresh);
+      
+      // Configurar el token para futuras peticiones
+      api.defaults.headers.common['Authorization'] = `Bearer ${response.data.access}`;
     }
     
     return response;
   } catch (error) {
     console.error("Error durante la autenticación:", error);
-    
-    // Muestra más detalles del error para depuración
-    if (error.response && error.response.data) {
-      console.error("Detalles del error:", error.response.data);
-    }
-    
     throw error;
   }
 };
 
-const register = async (userData) => {
+// Función para cerrar sesión
+const logout = () => {
+  localStorage.removeItem('token');
+  localStorage.removeItem('refreshToken');
+  delete api.defaults.headers.common['Authorization'];
+};
+
+// Función para obtener detalles del usuario por su ID
+const getUserDetails = async (userId) => {
   try {
-    const response = await api.post('/users/', userData);
-    return response.data;
+    const response = await api.get(`/users/${userId}/`);
+    return response;
   } catch (error) {
-    throw new Error(error.response?.data?.detail || 'Error al registrar usuario');
+    console.error(`Error al obtener detalles del usuario ${userId}:`, error);
+    throw error;
   }
 };
 
-// Modifica la función getUserDetails para usar la ruta correcta
-
-const getUserDetails = (userId) => {
-  // Cambia la ruta según la estructura de tu API backend
-  return api.get(`/users/${userId}/`);  // Parece que la ruta correcta es users, no usuarios
-};
-
-// Implementa getCurrentUser para verificar la sesión actual
-const getCurrentUser = async () => {
+// Función para obtener el usuario actual
+const getCurrentUser = () => {
+  const token = localStorage.getItem('token');
+  
+  if (!token) {
+    return null;
+  }
+  
   try {
-    const token = localStorage.getItem('authToken');
-    if (!token) return null;
-    
-    // Decodificar el token para obtener el user_id
-    const tokenData = JSON.parse(atob(token.split('.')[1]));
-    const userId = tokenData.user_id;
-    
-    // Obtener los detalles del usuario
-    const response = await getUserDetails(userId);
-    
-    // Combinar los datos del token con los detalles del usuario
-    return {
-      ...tokenData,
-      ...response.data
-    };
+    // Decodificar el token para obtener información básica
+    const decoded = jwtDecode(token);
+    return decoded;
   } catch (error) {
-    console.error('Error al obtener usuario actual:', error);
-    // Si hay un error, limpiar el token y devolver null
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('refreshToken');
+    console.error("Error al decodificar token:", error);
     return null;
   }
 };
 
-// Asegúrate de incluir todas las funciones en el objeto exportado
-const authService = {
+export default {
   login,
-  register,
-  logout: () => {
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('refreshToken');
-  },
-  getCurrentUser,
-  getUserDetails
+  logout,
+  getUserDetails,
+  getCurrentUser
 };
-
-export default authService;
