@@ -8,7 +8,9 @@ import {
   Divider, 
   Collapse,
   Box,
-  Typography
+  Typography,
+  useMediaQuery,
+  useTheme
 } from '@mui/material';
 import { NavLink, useLocation } from 'react-router-dom';
 import { AuthContext } from '../../contexts/AuthContext';
@@ -47,9 +49,12 @@ const StyledNavLink = styled(NavLink)(({ theme }) => ({
   }
 }));
 
-const Sidebar = ({ drawerWidth = 240, mobileOpen, handleDrawerToggle }) => {
+const Sidebar = ({ drawerWidth = 260, mobileOpen, handleDrawerToggle }) => {
   const { user } = useContext(AuthContext);
   const location = useLocation();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  
   const [openMenus, setOpenMenus] = React.useState({
     procedimientos: true,
     unidades: false,
@@ -70,20 +75,51 @@ const Sidebar = ({ drawerWidth = 240, mobileOpen, handleDrawerToggle }) => {
 
   const drawer = (
     <>
-      <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-        {/* Logo y Título de la Aplicación */}
-        <Box sx={{ p: 2, textAlign: 'center' }}>
+      <Box sx={{ 
+        display: 'flex', 
+        flexDirection: 'column', 
+        height: '100%',
+        overflowY: 'hidden'  // Previene overflow en el contenedor principal
+      }}>
+        {/* Logo y Título de la Aplicación - ajustado para tener en cuenta la altura del AppBar */}
+        <Box sx={{ 
+          p: 2, 
+          textAlign: 'center', 
+          height: '64px', // Misma altura que el AppBar
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}>
           <Typography variant="h6" color="primary" sx={{ fontWeight: 'bold' }}>
             SIGA
           </Typography>
-          <Typography variant="subtitle2" color="text.secondary">
-            Sistema Integral de Gestión
+          <Typography variant="subtitle2" color="text.secondary" sx={{ ml: 1 }}>
+            Sistema Integral
           </Typography>
         </Box>
         
         <Divider />
         
-        <List component="nav" sx={{ flexGrow: 1, overflowY: 'auto' }}>
+        {/* Lista de navegación con scroll independiente */}
+        <List 
+          component="nav" 
+          sx={{ 
+            flexGrow: 1, 
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            // Estilizado para el scrollbar
+            '&::-webkit-scrollbar': {
+              width: '6px',
+            },
+            '&::-webkit-scrollbar-track': {
+              backgroundColor: 'rgba(0,0,0,0.05)',
+            },
+            '&::-webkit-scrollbar-thumb': {
+              backgroundColor: 'rgba(0,0,0,0.15)',
+              borderRadius: '6px',
+            },
+          }}
+        >
           {/* Dashboard */}
           <ListItem component={StyledNavLink} to="/dashboard" end>
             <ListItemIcon>
@@ -234,7 +270,10 @@ const Sidebar = ({ drawerWidth = 240, mobileOpen, handleDrawerToggle }) => {
           '& .MuiDrawer-paper': { 
             boxSizing: 'border-box', 
             width: drawerWidth,
-            backgroundColor: (theme) => theme.palette.background.default
+            backgroundColor: (theme) => theme.palette.background.default,
+            // El drawer móvil debe aparecer por debajo del AppBar
+            marginTop: '64px',
+            height: 'calc(100% - 64px)'
           },
         }}
       >
@@ -250,7 +289,10 @@ const Sidebar = ({ drawerWidth = 240, mobileOpen, handleDrawerToggle }) => {
             boxSizing: 'border-box', 
             width: drawerWidth,
             backgroundColor: (theme) => theme.palette.background.default,
-            borderRight: (theme) => `1px solid ${theme.palette.divider}`
+            borderRight: (theme) => `1px solid ${theme.palette.divider}`,
+            // Drawer permanente debe estar por debajo del AppBar
+            marginTop: '64px',
+            height: 'calc(100% - 64px)'
           },
         }}
         open

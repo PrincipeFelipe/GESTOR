@@ -19,18 +19,20 @@ import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../../contexts/AuthContext';
 
 const Header = ({ drawerWidth, handleDrawerToggle }) => {
-  const { currentUser } = useContext(AuthContext);
+  const { user } = useContext(AuthContext);
   const navigate = useNavigate();
 
   return (
     <AppBar
       position="fixed"
       sx={{
-        width: { sm: `calc(100% - ${drawerWidth}px)` },
-        ml: { sm: `${drawerWidth}px` },
+        width: { xs: '100%', md: `calc(100% - ${drawerWidth}px)` },
+        ml: { xs: 0, md: `${drawerWidth}px` },
         backgroundColor: 'white',
         color: 'text.primary',
-        boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.05)'
+        boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.05)',
+        zIndex: (theme) => theme.zIndex.drawer + 1, // Asegura que esté por encima del drawer en dispositivos móviles
+        transition: 'width 0.3s ease, margin-left 0.3s ease'
       }}
     >
       <Toolbar>
@@ -39,7 +41,7 @@ const Header = ({ drawerWidth, handleDrawerToggle }) => {
           aria-label="open drawer"
           edge="start"
           onClick={handleDrawerToggle}
-          sx={{ mr: 2, display: { sm: 'none' } }}
+          sx={{ mr: 2, display: { md: 'none' } }} // Solo mostrar en dispositivos móviles
         >
           <MenuIcon />
         </IconButton>
@@ -69,7 +71,7 @@ const Header = ({ drawerWidth, handleDrawerToggle }) => {
               <Avatar 
                 sx={{ width: 32, height: 32, bgcolor: 'primary.main' }}
               >
-                {currentUser?.nombre ? currentUser.nombre[0].toUpperCase() : <PersonIcon />}
+                {user?.nombre ? user.nombre[0].toUpperCase() : <PersonIcon />}
               </Avatar>
             </IconButton>
           </Tooltip>

@@ -12,7 +12,7 @@ const UnidadesPage = () => {
   };
 
   return (
-    <Container maxWidth="lg" sx={{ mt: 4, mb: 8 }}>
+    <Container maxWidth="lg" sx={{ py: 2 }}> {/* Eliminar margin-top */}
       <Typography variant="h4" component="h1" gutterBottom>
         Gestión de Unidades
       </Typography>
@@ -30,7 +30,7 @@ const UnidadesPage = () => {
         </Tabs>
       </Paper>
 
-      <Box sx={{ mt: 3 }}>
+      <Box>
         {tabIndex === 0 ? (
           <UnidadesList />
         ) : (
