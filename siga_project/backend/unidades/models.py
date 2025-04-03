@@ -11,7 +11,18 @@ class Unidad(models.Model):
     
     def save(self, *args, **kwargs):
         is_new = self.pk is None  # Verificar si es un objeto nuevo
-        needs_code = is_new or not self.cod_unidad or self.cod_unidad.startswith('temp_')
+        old_parent = None
+        
+        # Si ya existe, guardar el padre anterior
+        if not is_new:
+            try:
+                old_unidad = Unidad.objects.get(pk=self.pk)
+                old_parent = old_unidad.id_padre
+            except Unidad.DoesNotExist:
+                pass
+        
+        # Si es nueva o ha cambiado de padre, regenerar código
+        needs_code = is_new or not self.cod_unidad or self.cod_unidad.startswith('temp_') or old_parent != self.id_padre
         
         # Si es nueva o necesita un código, asignar un código temporal primero
         if needs_code:
@@ -83,7 +94,7 @@ class Unidad(models.Model):
                 else:
                     siguiente_componente = 1
                 
-                # Formar el nuevo código
+                # Formar el nuevo código basado en el código del padre
                 self.cod_unidad = f"{codigo_base}.{siguiente_componente}"
             
             # Guardar con el código definitivo

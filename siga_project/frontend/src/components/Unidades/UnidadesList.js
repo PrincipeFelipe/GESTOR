@@ -66,7 +66,8 @@ const UnidadesList = () => {
     open: false,
     title: '',
     content: '',
-    onConfirm: () => {}
+    onConfirm: () => {},
+    onCancel: () => {}
   });
   const [snackbar, setSnackbar] = useState({
     open: false,
@@ -154,22 +155,39 @@ const UnidadesList = () => {
     setTimeout(() => setCurrentUnidad(null), 300);
   };
 
-  // Modificar la función handleSaveUnidad para añadir animación
+  // Modificar la función handleSaveUnidad para manejar la actualización de códigos jerárquicos
+
   const handleSaveUnidad = async (unidadData) => {
     try {
       if (unidadData.id) {
         // Actualizar unidad existente
-        await unidadesService.update(unidadData.id, unidadData);
-        const updatedUnidades = unidades.map(u => 
-          u.id === unidadData.id ? { ...u, ...unidadData, _highlight: true } : u
-        );
-        setUnidades(updatedUnidades);
+        const unidadExistente = unidades.find(u => u.id === unidadData.id);
+        const cambioJerarquico = unidadExistente && unidadExistente.id_padre !== unidadData.id_padre;
         
-        setSnackbar({
-          open: true,
-          message: 'Unidad actualizada correctamente',
-          severity: 'success'
-        });
+        // Si hay cambio jerárquico, mostrar aviso antes de continuar
+        if (cambioJerarquico) {
+          // Contar unidades dependientes que se verán afectadas
+          const unidadesDependientes = contarUnidadesDependientes(unidadData.id);
+          
+          if (unidadesDependientes > 0) {
+            setConfirmDialog({
+              open: true,
+              title: 'Cambio en la estructura jerárquica',
+              content: `Al cambiar la unidad superior, se actualizará el código jerárquico de esta unidad y de sus ${unidadesDependientes} unidades dependientes. ¿Desea continuar?`,
+              onConfirm: async () => {
+                setConfirmDialog({...confirmDialog, open: false});
+                await realizarActualizacion(unidadData, true);
+              },
+              onCancel: () => {
+                setConfirmDialog({...confirmDialog, open: false});
+              }
+            });
+            return;
+          }
+        }
+        
+        // Continuar con la actualización normal
+        await realizarActualizacion(unidadData);
       } else {
         // Crear nueva unidad
         const response = await unidadesService.create(unidadData);
@@ -209,6 +227,46 @@ const UnidadesList = () => {
         severity: severity
       });
     }
+  };
+
+  // Función auxiliar para realizar la actualización de la unidad
+  const realizarActualizacion = async (unidadData, esRecodificacion = false) => {
+    const response = await unidadesService.update(unidadData.id, unidadData);
+    
+    // Si es una recodificación, necesitamos actualizar todos los datos
+    if (esRecodificacion) {
+      // Recargar datos completos para asegurar que tenemos todos los códigos actualizados
+      await fetchUnidades();
+      
+      setSnackbar({
+        open: true,
+        message: 'Unidad actualizada y códigos jerárquicos regenerados correctamente',
+        severity: 'success'
+      });
+    } else {
+      // Actualización simple
+      const updatedUnidades = unidades.map(u => 
+        u.id === unidadData.id ? { ...u, ...unidadData, _highlight: true } : u
+      );
+      setUnidades(updatedUnidades);
+      
+      setSnackbar({
+        open: true,
+        message: 'Unidad actualizada correctamente',
+        severity: 'success'
+      });
+    }
+  };
+
+  // Función recursiva para contar cuántas unidades dependen de una unidad dada
+  const contarUnidadesDependientes = (unidadId) => {
+    const hijos = unidades.filter(u => u.id_padre === unidadId);
+    
+    if (hijos.length === 0) return 0;
+    
+    return hijos.length + hijos.reduce((total, hijo) => {
+      return total + contarUnidadesDependientes(hijo.id);
+    }, 0);
   };
 
   // Función mejorada para eliminar una unidad

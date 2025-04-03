@@ -11,9 +11,10 @@ import {
   Box,
   Typography,
   useMediaQuery,
-  useTheme
+  useTheme,
+  Button
 } from '@mui/material';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../../contexts/AuthContext';
 import { styled } from '@mui/material/styles';
 
@@ -30,6 +31,10 @@ import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import ListAltIcon from '@mui/icons-material/ListAlt';
 import PolicyIcon from '@mui/icons-material/Policy';
+import LogoutIcon from '@mui/icons-material/Logout';
+
+// Importar el logo
+import logo from '../../assets/images/logo.png';
 
 // Estilizado de enlaces activos
 const StyledNavLink = styled(NavLink)(({ theme }) => ({
@@ -51,9 +56,10 @@ const StyledNavLink = styled(NavLink)(({ theme }) => ({
 }));
 
 const Sidebar = ({ drawerWidth = 260, mobileOpen, handleDrawerToggle }) => {
-  const { user } = useContext(AuthContext);
+  const { user, logout } = useContext(AuthContext);
   const location = useLocation();
   const theme = useTheme();
+  const navigate = useNavigate();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   
   const [openMenus, setOpenMenus] = React.useState({
@@ -72,7 +78,13 @@ const Sidebar = ({ drawerWidth = 260, mobileOpen, handleDrawerToggle }) => {
   };
 
   // Verificar permisos de administrador
-  const isAdmin = user && (user.tipo_usuario === 'Admin' || user.tipo_usuario === 'SuperAdmin');
+  const isAdmin = user && (user.tipo_usuario === 'Admin' || user.tipo_usuario === 'SuperAdmin' || user.is_staff || user.is_superuser);
+
+  // Manejar cierre de sesión
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
   const drawer = (
     <>
@@ -82,20 +94,22 @@ const Sidebar = ({ drawerWidth = 260, mobileOpen, handleDrawerToggle }) => {
         height: '100%',
         overflowY: 'hidden'  // Previene overflow en el contenedor principal
       }}>
-        {/* Logo y Título de la Aplicación - ajustado para tener en cuenta la altura del AppBar */}
+        {/* Logo y Título de la Aplicación */}
         <Box sx={{ 
           p: 2, 
           textAlign: 'center', 
-          height: '64px', // Misma altura que el AppBar
-          display: 'flex',
+          backgroundColor: 'background.paper',
+          display: 'flex', 
+          flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center'
         }}>
-          <Typography variant="h6" color="primary" sx={{ fontWeight: 'bold' }}>
-            SIGA
+          <img src={logo} alt="SIGA Logo" style={{ width: '60px', height: 'auto', marginBottom: '8px' }} />
+          <Typography variant="h6" color="primary" sx={{ fontWeight: 'bold', mb: 0.5 }}>
+            S.I.G.A.
           </Typography>
-          <Typography variant="subtitle2" color="text.secondary" sx={{ ml: 1 }}>
-            Sistema Integral
+          <Typography variant="caption" color="text.secondary" align="center" sx={{ fontSize: '0.7rem' }}>
+            Sistema Integral de Gestión Administrativa
           </Typography>
         </Box>
         
@@ -235,20 +249,33 @@ const Sidebar = ({ drawerWidth = 260, mobileOpen, handleDrawerToggle }) => {
         
         <Divider />
         
-        {/* Perfil de Usuario */}
-        <ListItem component={StyledNavLink} to="/dashboard/perfil">
-          <ListItemIcon>
-            <PersonIcon />
-          </ListItemIcon>
-          <ListItemText 
-            primary="Mi Perfil" 
-            secondary={user ? `${user.nombre} ${user.apellido1 || ''}` : 'Usuario'} 
-            secondaryTypographyProps={{
-              noWrap: true,
-              style: { fontSize: '0.7rem' }
-            }}
-          />
-        </ListItem>
+        {/* Perfil de Usuario y Cerrar Sesión */}
+        <List>
+          {/* Perfil de Usuario */}
+          <ListItem component={StyledNavLink} to="/dashboard/perfil">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            <ListItemText 
+              primary="Mi Perfil" 
+              secondary={user ? `${user.nombre} ${user.apellido1 || ''}` : 'Usuario'} 
+              secondaryTypographyProps={{
+                noWrap: true,
+                style: { fontSize: '0.7rem' }
+              }}
+            />
+          </ListItem>
+          
+          {/* Opción para cerrar sesión */}
+          <ListItem disablePadding>
+            <ListItemButton onClick={handleLogout}>
+              <ListItemIcon>
+                <LogoutIcon />
+              </ListItemIcon>
+              <ListItemText primary="Cerrar Sesión" />
+            </ListItemButton>
+          </ListItem>
+        </List>
       </Box>
     </>
   );
