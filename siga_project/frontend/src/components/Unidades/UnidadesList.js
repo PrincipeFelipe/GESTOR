@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box, 
   Paper, 
@@ -22,10 +22,10 @@ import {
   DialogActions,
   Grid,
   List,
-  ListItem,
   ListItemIcon,
   ListItemText,
-  Divider
+  Divider,
+  ListItemButton
 } from '@mui/material';
 
 // Importar iconos
@@ -42,13 +42,17 @@ import {
   ContentCopy as ContentCopyIcon
 } from '@mui/icons-material';
 
-// Importar contexto y servicios
-import { AuthContext } from '../../contexts/AuthContext';
+// Reemplazar importación de AuthContext
+import { usePermissions } from '../../hooks/usePermissions';
+
 import unidadesService from '../../assets/services/unidades.service';
 import UnidadForm from './UnidadForm';
 import ConfirmDialog from '../common/ConfirmDialog';
 
 const UnidadesList = () => {
+  // Reemplazar uso de AuthContext
+  const { isAdmin, user } = usePermissions();
+
   // Estados
   const [unidades, setUnidades] = useState([]);
   const [unidadesPadre, setUnidadesPadre] = useState([]);
@@ -72,16 +76,8 @@ const UnidadesList = () => {
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [hierarchyDialogOpen, setHierarchyDialogOpen] = useState(false);
   const [selectedUnidad, setSelectedUnidad] = useState(null);
-
-  // Contexto de autenticación para verificar permisos
-  const { user } = useContext(AuthContext);
-  // Verificar si el usuario tiene permisos basados en tipo_usuario
-  const isAdminOrSuperAdmin = user && (
-    user.tipo_usuario === 'Admin' || 
-    user.tipo_usuario === 'SuperAdmin' || 
-    user.is_staff || 
-    user.is_superuser
-  );
+  const [orderBy, setOrderBy] = useState('cod_unidad'); // Por defecto ordenar por código
+  const [order, setOrder] = useState('asc');
 
   // Para depuración - elimina esto después
   useEffect(() => {
@@ -90,11 +86,11 @@ const UnidadesList = () => {
       console.log('Tipo de usuario:', user.tipo_usuario);
       console.log('¿Es SuperAdmin?', user.tipo_usuario === 'SuperAdmin');
       console.log('¿Es Admin?', user.tipo_usuario === 'Admin');
-      console.log('¿Tiene permisos de admin?', isAdminOrSuperAdmin);
+      console.log('¿Tiene permisos de admin?', isAdmin);
     } else {
       console.log('No hay usuario autenticado');
     }
-  }, [user, isAdminOrSuperAdmin]);
+  }, [user, isAdmin]);
 
   // Cargar unidades al montar el componente y cuando cambian los parámetros de paginación
   useEffect(() => {
@@ -130,6 +126,11 @@ const UnidadesList = () => {
     const unidadPadre = unidades.find(u => u.id === id_padre) || 
                         unidadesPadre.find(u => u.id === id_padre);
     return unidadPadre ? unidadPadre.nombre : 'Unidad no encontrada';
+  };
+
+  // Función para determinar si una unidad tiene hijos
+  const hasChildren = (unidadId) => {
+    return unidades.some(u => u.id_padre === unidadId);
   };
 
   // Funciones para manejar la paginación
@@ -185,10 +186,27 @@ const UnidadesList = () => {
       handleCloseForm();
     } catch (error) {
       console.error("Error al guardar unidad:", error);
+      
+      // Mostrar mensaje específico según el error
+      let errorMessage = 'Error al guardar los datos de la unidad';
+      let severity = 'error';
+      
+      // Extraer el mensaje de error del objeto de error
+      if (error.message) {
+        if (error.message.includes("Duplicate entry") && error.message.includes("cod_unidad")) {
+          errorMessage = "Ya existe una unidad con el mismo código jerárquico. Intente nuevamente.";
+        } else if (error.message.includes("límite de 9 unidades")) {
+          errorMessage = "Se ha alcanzado el límite de unidades para este nivel jerárquico.";
+        } else {
+          // Usar el mensaje de error original si existe
+          errorMessage = error.message;
+        }
+      }
+      
       setSnackbar({
         open: true,
-        message: 'Error al guardar los datos de la unidad',
-        severity: 'error'
+        message: errorMessage,
+        severity: severity
       });
     }
   };
@@ -292,11 +310,12 @@ const UnidadesList = () => {
   // Función para exportar a CSV
   const handleExportCSV = () => {
     // Definir cabeceras
-    const headers = ['ID', 'Nombre', 'Unidad Superior'];
+    const headers = ['ID', 'Código', 'Nombre', 'Unidad Superior']; // Añadido "Código"
     
     // Preparar datos para CSV
     const csvData = unidades.map(unidad => [
       unidad.id,
+      unidad.cod_unidad, // Añadido código
       unidad.nombre,
       getNombreUnidadPadre(unidad.id_padre)
     ]);
@@ -324,6 +343,52 @@ const UnidadesList = () => {
       message: 'Lista exportada correctamente',
       severity: 'success'
     });
+  };
+
+  // Función para solicitar ordenación
+  const handleRequestSort = (property) => {
+    const isAsc = orderBy === property && order === 'asc';
+    setOrder(isAsc ? 'desc' : 'asc');
+    setOrderBy(property);
+    
+    // Si es ordenación local (de datos ya cargados)
+    const sortedUnidades = [...unidades].sort((a, b) => {
+      if (property === 'cod_unidad') {
+        // Ordenar por niveles de jerarquía para cod_unidad
+        const partsA = a.cod_unidad.split('.');
+        const partsB = b.cod_unidad.split('.');
+        
+        // Comparar cada nivel
+        for (let i = 0; i < Math.min(partsA.length, partsB.length); i++) {
+          const numA = parseInt(partsA[i], 10);
+          const numB = parseInt(partsB[i], 10);
+          if (numA !== numB) {
+            return order === 'asc' ? numA - numB : numB - numA;
+          }
+        }
+        
+        // Si todos los niveles comunes son iguales, el más corto va primero
+        return order === 'asc' 
+          ? partsA.length - partsB.length 
+          : partsB.length - partsA.length;
+      }
+      
+      // Otras columnas...
+    });
+    
+    setUnidades(sortedUnidades);
+  };
+
+  // Función para manejar la expansión/colapso de items en la vista de detalles
+  const handleToggle = (unidadId) => {
+    handleCloseViewDialog();
+    const subunidad = unidades.find(u => u.id === unidadId);
+    if (subunidad) {
+      setTimeout(() => {
+        setSelectedUnidad(subunidad);
+        setViewDialogOpen(true);
+      }, 300);
+    }
   };
 
   return (
@@ -366,7 +431,7 @@ const UnidadesList = () => {
             Exportar CSV
           </Button>
           
-          {isAdminOrSuperAdmin && (
+          {isAdmin && (
             <Button 
               variant="contained" 
               color="primary" 
@@ -390,6 +455,18 @@ const UnidadesList = () => {
               <TableHead>
                 <TableRow>
                   <TableCell>ID</TableCell>
+                  <TableCell 
+                    sortDirection={orderBy === 'cod_unidad' ? order : false}
+                    onClick={() => handleRequestSort('cod_unidad')}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    Código
+                    {orderBy === 'cod_unidad' && (
+                      <Box component="span" sx={{ ml: 1, color: 'text.secondary' }}>
+                        {order === 'asc' ? '↑' : '↓'}
+                      </Box>
+                    )}
+                  </TableCell>
                   <TableCell>Nombre</TableCell>
                   <TableCell>Unidad Superior</TableCell>
                   <TableCell align="right">Acciones</TableCell>
@@ -398,9 +475,7 @@ const UnidadesList = () => {
               <TableBody>
                 {unidades.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} align="center">
-                      No hay unidades disponibles
-                    </TableCell>
+                    <TableCell colSpan={5} align="center">No hay unidades disponibles</TableCell>
                   </TableRow>
                 ) : (
                   unidades.map((unidad) => (
@@ -416,6 +491,7 @@ const UnidadesList = () => {
                       }}
                     >
                       <TableCell>{unidad.id}</TableCell>
+                      <TableCell>{unidad.cod_unidad}</TableCell>
                       <TableCell>{unidad.nombre}</TableCell>
                       <TableCell>{getNombreUnidadPadre(unidad.id_padre)}</TableCell>
                       <TableCell align="right">
@@ -430,7 +506,6 @@ const UnidadesList = () => {
                               <VisibilityIcon fontSize="small" />
                             </IconButton>
                           </Tooltip>
-
                           <Tooltip title="Ver jerarquía">
                             <IconButton 
                               size="small" 
@@ -441,7 +516,6 @@ const UnidadesList = () => {
                               <AccountTreeIcon fontSize="small" />
                             </IconButton>
                           </Tooltip>
-
                           <Tooltip title="Duplicar">
                             <IconButton 
                               size="small" 
@@ -452,8 +526,7 @@ const UnidadesList = () => {
                               <ContentCopyIcon fontSize="small" />
                             </IconButton>
                           </Tooltip>
-
-                          {isAdminOrSuperAdmin && (
+                          {isAdmin && (
                             <>
                               <Tooltip title="Editar">
                                 <IconButton 
@@ -552,10 +625,14 @@ const UnidadesList = () => {
                     <Typography variant="body1" sx={{ mb: 1 }}>{selectedUnidad.id}</Typography>
                   </Grid>
                   <Grid item xs={6}>
+                    <Typography variant="body2" color="textSecondary">Código:</Typography>
+                    <Typography variant="body1" sx={{ mb: 1 }}>{selectedUnidad.cod_unidad}</Typography>
+                  </Grid>
+                  <Grid item xs={6}>
                     <Typography variant="body2" color="textSecondary">Nombre:</Typography>
                     <Typography variant="body1" sx={{ mb: 1 }}>{selectedUnidad.nombre}</Typography>
                   </Grid>
-                  <Grid item xs={12}>
+                  <Grid item xs={6}>
                     <Typography variant="body2" color="textSecondary">Unidad Superior:</Typography>
                     <Typography variant="body1">{getNombreUnidadPadre(selectedUnidad.id_padre)}</Typography>
                   </Grid>
@@ -571,15 +648,42 @@ const UnidadesList = () => {
                     {unidades
                       .filter(u => u.id_padre === selectedUnidad.id)
                       .map(subunidad => (
-                        <ListItem key={subunidad.id}>
+                        <ListItemButton 
+                          onClick={() => handleToggle(subunidad.id)}
+                          sx={{ cursor: 'pointer' }}
+                          key={subunidad.id}
+                        >
                           <ListItemIcon>
                             <AccountTreeIcon color="action" fontSize="small" />
+                            {hasChildren(subunidad.id) && (
+                              <Box 
+                                component="span" 
+                                sx={{ 
+                                  width: 8, 
+                                  height: 8, 
+                                  bgcolor: 'primary.main', 
+                                  borderRadius: '50%',
+                                  position: 'absolute',
+                                  bottom: 6,
+                                  right: 6
+                                }} 
+                              />
+                            )}
                           </ListItemIcon>
                           <ListItemText 
                             primary={subunidad.nombre}
-                            secondary={`ID: ${subunidad.id}`}
+                            secondary={
+                              <React.Fragment>
+                                <Typography variant="caption" component="span" color="text.secondary">
+                                  ID: {subunidad.id}
+                                </Typography>
+                                <Typography variant="caption" component="span" color="text.secondary" sx={{ ml: 1 }}>
+                                  Código: {subunidad.cod_unidad}
+                                </Typography>
+                              </React.Fragment>
+                            }
                           />
-                        </ListItem>
+                        </ListItemButton>
                       ))}
                   </List>
                 ) : (
@@ -592,7 +696,7 @@ const UnidadesList = () => {
           )}
         </DialogContent>
         <DialogActions>
-          {isAdminOrSuperAdmin && selectedUnidad && (
+          {isAdmin && selectedUnidad && (
             <Button 
               color="primary" 
               startIcon={<EditIcon />}
@@ -659,7 +763,12 @@ const UnidadesList = () => {
                         }}
                       >
                         <AccountTreeIcon sx={{ mr: 1, color: 'action.active', fontSize: 'small' }} />
-                        <Typography variant="body2">{unidadHija.nombre}</Typography>
+                        <Box>
+                          <Typography variant="body2">{unidadHija.nombre}</Typography>
+                          <Typography variant="caption" color="textSecondary" sx={{ display: 'block' }}>
+                            Código: {unidadHija.cod_unidad}
+                          </Typography>
+                        </Box>
                       </Paper>
                       
                       {/* Renderizar recursivamente los hijos */}

@@ -2,7 +2,8 @@ import React, { useContext } from 'react';
 import { 
   Drawer, 
   List, 
-  ListItem, 
+  ListItem,
+  ListItemButton, 
   ListItemIcon, 
   ListItemText, 
   Divider, 
@@ -129,13 +130,13 @@ const Sidebar = ({ drawerWidth = 260, mobileOpen, handleDrawerToggle }) => {
           </ListItem>
           
           {/* Unidades */}
-          <ListItem button onClick={() => handleMenuToggle('unidades')}>
+          <ListItemButton onClick={() => handleMenuToggle('unidades')}>
             <ListItemIcon>
               <AccountTreeIcon />
             </ListItemIcon>
             <ListItemText primary="Unidades" />
             {openMenus.unidades ? <ExpandLess /> : <ExpandMore />}
-          </ListItem>
+          </ListItemButton>
           <Collapse in={openMenus.unidades} timeout="auto" unmountOnExit>
             <List component="div" disablePadding>
               <ListItem component={StyledNavLink} to="/dashboard/unidades" sx={{ pl: 4 }} end>
@@ -160,13 +161,13 @@ const Sidebar = ({ drawerWidth = 260, mobileOpen, handleDrawerToggle }) => {
           </Collapse>
           
           {/* Empleos */}
-          <ListItem button onClick={() => handleMenuToggle('empleos')}>
+          <ListItemButton onClick={() => handleMenuToggle('empleos')}>
             <ListItemIcon>
               <MilitaryTechIcon />
             </ListItemIcon>
             <ListItemText primary="Empleos" />
             {openMenus.empleos ? <ExpandLess /> : <ExpandMore />}
-          </ListItem>
+          </ListItemButton>
           <Collapse in={openMenus.empleos} timeout="auto" unmountOnExit>
             <List component="div" disablePadding>
               <ListItem component={StyledNavLink} to="/dashboard/empleos" sx={{ pl: 4 }}>
@@ -179,13 +180,13 @@ const Sidebar = ({ drawerWidth = 260, mobileOpen, handleDrawerToggle }) => {
           </Collapse>
           
           {/* Procedimientos */}
-          <ListItem button onClick={() => handleMenuToggle('procedimientos')}>
+          <ListItemButton onClick={() => handleMenuToggle('procedimientos')}>
             <ListItemIcon>
               <PolicyIcon />
             </ListItemIcon>
             <ListItemText primary="Procedimientos" />
             {openMenus.procedimientos ? <ExpandLess /> : <ExpandMore />}
-          </ListItem>
+          </ListItemButton>
           <Collapse in={openMenus.procedimientos} timeout="auto" unmountOnExit>
             <List component="div" disablePadding>
               <ListItem component={StyledNavLink} to="/dashboard/procedimientos" sx={{ pl: 4 }} end>
@@ -202,12 +203,7 @@ const Sidebar = ({ drawerWidth = 260, mobileOpen, handleDrawerToggle }) => {
                     </ListItemIcon>
                     <ListItemText primary="Tipos" />
                   </ListItem>
-                  <ListItem component={StyledNavLink} to="/dashboard/procedimientos/documentos" sx={{ pl: 4 }}>
-                    <ListItemIcon>
-                      <DescriptionIcon fontSize="small" />
-                    </ListItemIcon>
-                    <ListItemText primary="Documentos" />
-                  </ListItem>
+                  
                 </>
               )}
             </List>
@@ -216,13 +212,13 @@ const Sidebar = ({ drawerWidth = 260, mobileOpen, handleDrawerToggle }) => {
           {/* Usuarios - Solo visible para administradores */}
           {isAdmin && (
             <>
-              <ListItem button onClick={() => handleMenuToggle('usuarios')}>
+              <ListItemButton onClick={() => handleMenuToggle('usuarios')}>
                 <ListItemIcon>
                   <PeopleIcon />
                 </ListItemIcon>
                 <ListItemText primary="Usuarios" />
                 {openMenus.usuarios ? <ExpandLess /> : <ExpandMore />}
-              </ListItem>
+              </ListItemButton>
               <Collapse in={openMenus.usuarios} timeout="auto" unmountOnExit>
                 <List component="div" disablePadding>
                   <ListItem component={StyledNavLink} to="/dashboard/usuarios" sx={{ pl: 4 }}>

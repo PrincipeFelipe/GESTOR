@@ -565,8 +565,13 @@ const PasoItem = ({
 const PasosManager = () => {
   const { procedimientoId } = useParams(); // Obtener ID de la URL
   const navigate = useNavigate();
-  const { currentUser } = useContext(AuthContext);
-  const isAdminOrSuperAdmin = ['Admin', 'SuperAdmin'].includes(currentUser?.tipo_usuario);
+  const { user } = useContext(AuthContext);
+  const isAdminOrSuperAdmin = user && (
+    user.tipo_usuario === 'Admin' || 
+    user.tipo_usuario === 'SuperAdmin' || 
+    user.is_staff || 
+    user.is_superuser
+  );
   
   const [procedimiento, setProcedimiento] = useState(null);
   const [pasos, setPasos] = useState([]);

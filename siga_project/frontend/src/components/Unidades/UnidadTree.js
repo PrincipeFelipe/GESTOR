@@ -4,7 +4,7 @@ import {
   Paper,
   Typography,
   List,
-  ListItem,
+  ListItemButton,
   ListItemIcon,
   ListItemText,
   Collapse,
@@ -48,6 +48,11 @@ const UnidadTree = () => {
     }));
   };
 
+  const getUnidadLevel = (codUnidad) => {
+    if (!codUnidad) return 0;
+    return codUnidad.split('.').length;
+  };
+
   // Función recursiva para construir el árbol
   const buildTree = (unidadesArray, parentId = null) => {
     return unidadesArray
@@ -63,28 +68,46 @@ const UnidadTree = () => {
         
         return (
           <React.Fragment key={unidad.id}>
-            <ListItem
-              button
+            <ListItemButton
               onClick={() => hasChildren && handleToggle(unidad.id)}
               sx={{ 
-                pl: parentId ? 4 : 2, 
+                pl: getUnidadLevel(unidad.cod_unidad) * 2 + 2,
                 borderLeft: parentId ? '1px dashed rgba(0,0,0,0.1)' : 'none',
-                ml: parentId ? 2 : 0
+                ml: parentId ? 2 : 0,
+                backgroundColor: getUnidadLevel(unidad.cod_unidad) % 2 === 0 ? 'rgba(0,0,0,0.02)' : 'transparent'
               }}
             >
               <ListItemIcon>
                 {parentId ? <BusinessIcon /> : <AccountBalanceIcon />}
               </ListItemIcon>
               <ListItemText 
-                primary={unidad.nombre}
-                primaryTypographyProps={{
-                  fontWeight: !parentId ? 600 : 400
-                }}
+                primary={
+                  <Box component="span" sx={{ display: 'flex', alignItems: 'center' }}>
+                    <Typography component="span" sx={{ fontWeight: !parentId ? 600 : 400 }}>
+                      {unidad.nombre}
+                    </Typography>
+                    <Typography 
+                      component="span" 
+                      variant="caption" 
+                      sx={{ 
+                        ml: 1,
+                        backgroundColor: 'rgba(0,0,0,0.05)',
+                        px: 0.8,
+                        py: 0.3,
+                        borderRadius: 1,
+                        color: 'text.secondary'
+                      }}
+                    >
+                      {unidad.cod_unidad}
+                    </Typography>
+                  </Box>
+                }
+                secondary={`ID: ${unidad.id}`}
               />
               {hasChildren && (
                 isOpen ? <ExpandLessIcon /> : <ExpandMoreIcon />
               )}
-            </ListItem>
+            </ListItemButton>
             {hasChildren && (
               <Collapse in={isOpen} timeout="auto" unmountOnExit>
                 <List component="div" disablePadding>
@@ -121,6 +144,16 @@ const UnidadTree = () => {
       <Typography variant="h6" component="h2" gutterBottom>
         Estructura Jerárquica
       </Typography>
+
+      <Box sx={{ mb: 2 }}>
+        <Typography variant="subtitle2" color="primary" gutterBottom>
+          Información de Códigos
+        </Typography>
+        <Typography variant="body2">
+          Los códigos jerárquicos representan la estructura organizativa. Por ejemplo, un código "1.3.5" 
+          significa que es la unidad con ID 5, que pertenece a la unidad 3, que a su vez pertenece a la unidad 1.
+        </Typography>
+      </Box>
       
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>

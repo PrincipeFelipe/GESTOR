@@ -20,17 +20,19 @@ import {
   Edit as EditIcon,
   ArrowForward as ArrowForwardIcon
 } from '@mui/icons-material';
+import { usePermissions } from '../../hooks/usePermissions';
 
 const BifurcacionesManager = ({ bifurcaciones = [], pasos = [], onChange, pasoActual, onBifurcacionClick, readonly = false }) => {
+  const { isAdmin } = usePermissions();
+  
   const [editingIndex, setEditingIndex] = useState(null);
-  const [showForm, setShowForm] = useState(false);  // Nuevo estado para controlar la visibilidad del formulario
+  const [showForm, setShowForm] = useState(false);
   const [currentBifurcacion, setCurrentBifurcacion] = useState({
     condicion: '',
     descripcion: '',
     paso_destino: ''
   });
 
-  // Pasos disponibles (excluyendo el actual y anteriores para evitar bucles)
   const pasosDisponibles = pasos.filter(p => {
     if (!pasoActual) return true;
     return p.id !== pasoActual.id && p.numero > pasoActual.numero;
@@ -43,13 +45,13 @@ const BifurcacionesManager = ({ bifurcaciones = [], pasos = [], onChange, pasoAc
       descripcion: '',
       paso_destino: ''
     });
-    setShowForm(true);  // Mostrar el formulario
+    setShowForm(true);
   };
 
   const handleEdit = (index) => {
     setEditingIndex(index);
     setCurrentBifurcacion({ ...bifurcaciones[index] });
-    setShowForm(true);  // Mostrar el formulario
+    setShowForm(true);
   };
 
   const handleDelete = (index) => {
@@ -68,7 +70,7 @@ const BifurcacionesManager = ({ bifurcaciones = [], pasos = [], onChange, pasoAc
 
   const handleSave = () => {
     if (!currentBifurcacion.condicion || !currentBifurcacion.paso_destino) {
-      return; // Validación básica
+      return;
     }
 
     const nuevasBifurcaciones = [...bifurcaciones];
@@ -86,7 +88,7 @@ const BifurcacionesManager = ({ bifurcaciones = [], pasos = [], onChange, pasoAc
       descripcion: '',
       paso_destino: ''
     });
-    setShowForm(false);  // Ocultar el formulario después de guardar
+    setShowForm(false);
   };
 
   const handleCancel = () => {
@@ -96,7 +98,7 @@ const BifurcacionesManager = ({ bifurcaciones = [], pasos = [], onChange, pasoAc
       descripcion: '',
       paso_destino: ''
     });
-    setShowForm(false);  // Ocultar el formulario al cancelar
+    setShowForm(false);
   };
 
   const getPasoNombre = (pasoId) => {
@@ -107,7 +109,6 @@ const BifurcacionesManager = ({ bifurcaciones = [], pasos = [], onChange, pasoAc
   return (
     <Box sx={{ mt: 3 }}>
 
-      {/* Lista de bifurcaciones existentes */}
       {bifurcaciones.length > 0 && (
         <Box sx={{ mb: 3 }}>
           {bifurcaciones.map((bifurcacion, index) => {
@@ -151,16 +152,16 @@ const BifurcacionesManager = ({ bifurcaciones = [], pasos = [], onChange, pasoAc
                     />
                   </Box>
                 </Box>
-                {!readonly && (
+                {!readonly && isAdmin && (
                   <Box>
                     <IconButton size="small" onClick={(e) => {
-                      e.stopPropagation(); // Prevenir que se propague al onClick del Paper
+                      e.stopPropagation();
                       handleEdit(index);
                     }}>
                       <EditIcon fontSize="small" />
                     </IconButton>
                     <IconButton size="small" color="error" onClick={(e) => {
-                      e.stopPropagation(); // Prevenir que se propague al onClick del Paper
+                      e.stopPropagation();
                       handleDelete(index);
                     }}>
                       <DeleteIcon fontSize="small" />
@@ -173,7 +174,6 @@ const BifurcacionesManager = ({ bifurcaciones = [], pasos = [], onChange, pasoAc
         </Box>
       )}
 
-      {/* Formulario para añadir/editar bifurcaciones */}
       {showForm ? (
         <Paper sx={{ p: 2, mb: 2, bgcolor: 'background.paper' }}>
           <Grid container spacing={2}>
@@ -235,14 +235,16 @@ const BifurcacionesManager = ({ bifurcaciones = [], pasos = [], onChange, pasoAc
           </Grid>
         </Paper>
       ) : (
-        <Button
-          variant="outlined"
-          startIcon={<AddIcon />}
-          onClick={handleAdd}
-          sx={{ mb: 2 }}
-        >
-          Añadir bifurcación
-        </Button>
+        !readonly && isAdmin && (
+          <Button
+            variant="outlined"
+            startIcon={<AddIcon />}
+            onClick={handleAdd}
+            sx={{ mb: 2 }}
+          >
+            Añadir bifurcación
+          </Button>
+        )
       )}
 
     </Box>

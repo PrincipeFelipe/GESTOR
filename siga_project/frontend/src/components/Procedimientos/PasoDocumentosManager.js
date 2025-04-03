@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect } from 'react'; // Quitar useContext
 import {
   Box,
   Typography,
@@ -36,23 +36,22 @@ import {
   AudioFile as AudioIcon,
   ArrowBack as ArrowBackIcon
 } from '@mui/icons-material';
-import { AuthContext } from '../../contexts/AuthContext';
+// Reemplazar la importación del AuthContext
+import { usePermissions } from '../../hooks/usePermissions'; // Usar el nuevo hook
 import DocumentoForm from './DocumentoForm';
 import procedimientosService from '../../assets/services/procedimientos.service';
-// Añadir esta importación para el objeto api
 import api from '../../assets/services/api';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
-// Actualizar el componente para aceptar y usar el callback:
 const PasoDocumentosManager = ({ 
   pasoId, 
   procedimientoId, 
   embedded = false,
-  onDocumentosChange // Nueva prop para manejar cambios
+  onDocumentosChange
 }) => {
-  const { currentUser } = useContext(AuthContext);
-  const isAdminOrSuperAdmin = ['Admin', 'SuperAdmin'].includes(currentUser?.tipo_usuario);
+  // Usar el hook de permisos en lugar del contexto directamente
+  const { isAdmin } = usePermissions();
   const navigate = useNavigate();
   
   const [documentosPaso, setDocumentosPaso] = useState([]);
@@ -77,47 +76,40 @@ const PasoDocumentosManager = ({
     }
   }, [pasoId]);
 
-  // Actualizar la función fetchPasoDocumentos
-
-const fetchPasoDocumentos = async () => {
-  setLoading(true);
-  try {
-    // Obtener paso con sus documentos
-    const pasoResponse = await procedimientosService.getPaso(pasoId);
-    console.log("Respuesta del paso:", pasoResponse.data);
-    
-    // Verificar si el paso tiene documentos incluidos en la respuesta
-    if (pasoResponse.data && Array.isArray(pasoResponse.data.documentos)) {
-      console.log("Documentos en la respuesta del paso:", pasoResponse.data.documentos);
-      setDocumentosPaso(pasoResponse.data.documentos);
-    } else {
-      // Si no hay documentos en la respuesta, intentar obtener documentos del paso
-      try {
-        // Intentar primera estrategia - petición a documentos del paso
-        const docResponse = await api.get(`/procedimientos/pasos/${pasoId}/documentos/`);
-        console.log("Documentos desde endpoint específico:", docResponse.data);
-        setDocumentosPaso(docResponse.data);
-      } catch (docError) {
-        console.error("Error al cargar documentos del paso:", docError);
-        
-        // Intentar segunda estrategia - filtrar documentos por paso
+  const fetchPasoDocumentos = async () => {
+    setLoading(true);
+    try {
+      const pasoResponse = await procedimientosService.getPaso(pasoId);
+      console.log("Respuesta del paso:", pasoResponse.data);
+      
+      if (pasoResponse.data && Array.isArray(pasoResponse.data.documentos)) {
+        console.log("Documentos en la respuesta del paso:", pasoResponse.data.documentos);
+        setDocumentosPaso(pasoResponse.data.documentos);
+      } else {
         try {
-          const allDocsResponse = await procedimientosService.getDocumentos({
-            paso: pasoId
-          });
-          console.log("Documentos filtrados:", allDocsResponse.data);
-          setDocumentosPaso(allDocsResponse.data.results || allDocsResponse.data || []);
-        } catch (filterError) {
-          console.error("Error al filtrar documentos:", filterError);
+          const docResponse = await api.get(`/procedimientos/pasos/${pasoId}/documentos/`);
+          console.log("Documentos desde endpoint específico:", docResponse.data);
+          setDocumentosPaso(docResponse.data);
+        } catch (docError) {
+          console.error("Error al cargar documentos del paso:", docError);
+          
+          try {
+            const allDocsResponse = await procedimientosService.getDocumentos({
+              paso: pasoId
+            });
+            console.log("Documentos filtrados:", allDocsResponse.data);
+            setDocumentosPaso(allDocsResponse.data.results || allDocsResponse.data || []);
+          } catch (filterError) {
+            console.error("Error al filtrar documentos:", filterError);
+          }
         }
       }
+    } catch (error) {
+      console.error("Error al cargar documentos del paso:", error);
+    } finally {
+      setLoading(false);
     }
-  } catch (error) {
-    console.error("Error al cargar documentos del paso:", error);
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const handleOpenDocumentoForm = (documento = null) => {
     setDocumentoActual(documento);
@@ -129,114 +121,94 @@ const fetchPasoDocumentos = async () => {
     setOpenDocumentoForm(false);
   };
 
-  // Modificar la función handleSubmitDocumento para notificar cambios:
-const handleSubmitDocumento = async (data) => {
-  try {
-    if (data.id) {
-      // Actualizar documento existente
-      await procedimientosService.updateDocumento(data.id, data);
-    } else {
-      // Crear nuevo documento
-      const response = await procedimientosService.createDocumento({
-        ...data,
-        procedimiento: procedimientoId
+  const handleSubmitDocumento = async (data) => {
+    try {
+      if (data.id) {
+        await procedimientosService.updateDocumento(data.id, data);
+      } else {
+        const response = await procedimientosService.createDocumento({
+          ...data,
+          procedimiento: procedimientoId
+        });
+        
+        await procedimientosService.addDocumentoPaso(pasoId, response.data.id);
+      }
+      
+      await fetchPasoDocumentos();
+      notificarCambios();
+      handleCloseDocumentoForm();
+      
+      setSnackbar({
+        open: true,
+        message: data.id ? 'Documento actualizado correctamente' : 'Documento añadido correctamente',
+        severity: 'success'
       });
       
-      // Asociar el documento al paso
-      await procedimientosService.addDocumentoPaso(pasoId, response.data.id);
+    } catch (error) {
+      console.error("Error al guardar documento:", error);
+      setSnackbar({
+        open: true,
+        message: `Error al guardar documento: ${error.message}`,
+        severity: 'error'
+      });
     }
-    
-    // Recargar documentos
-    await fetchPasoDocumentos();
-    
-    // Notificar al componente padre sobre el cambio
-    notificarCambios();
-    
-    // Cerrar el formulario de documento
-    handleCloseDocumentoForm();
-    
-    // Mostrar notificación de éxito
-    setSnackbar({
-      open: true,
-      message: data.id ? 'Documento actualizado correctamente' : 'Documento añadido correctamente',
-      severity: 'success'
-    });
-    
-  } catch (error) {
-    console.error("Error al guardar documento:", error);
-    setSnackbar({
-      open: true,
-      message: `Error al guardar documento: ${error.message}`,
-      severity: 'error'
-    });
-  }
-};
+  };
 
-  // Modificar el handleConfirmDeleteOpen:
-const handleConfirmDeleteOpen = (documentoPaso) => {
-  setDocumentoToDelete(documentoPaso);
-  
-  // Personalizar mensaje dependiendo si tiene archivo físico
-  const tieneArchivo = documentoPaso.documento_detalle?.archivo_url;
-  const mensaje = tieneArchivo 
-    ? '¿Está seguro de que desea eliminar este documento? El archivo físico también será eliminado permanentemente del servidor.'
-    : '¿Está seguro de que desea eliminar este documento del paso?';
+  const handleConfirmDeleteOpen = (documentoPaso) => {
+    setDocumentoToDelete(documentoPaso);
     
-  setConfirmDeleteMessage(mensaje);
-  setOpenConfirmDelete(true);
-};
+    const tieneArchivo = documentoPaso.documento_detalle?.archivo_url;
+    const mensaje = tieneArchivo 
+      ? '¿Está seguro de que desea eliminar este documento? El archivo físico también será eliminado permanentemente del servidor.'
+      : '¿Está seguro de que desea eliminar este documento del paso?';
+      
+    setConfirmDeleteMessage(mensaje);
+    setOpenConfirmDelete(true);
+  };
 
   const handleConfirmDeleteClose = () => {
     setOpenConfirmDelete(false);
     setDocumentoToDelete(null);
   };
 
-  // Notificar cambios al componente padre
   const notificarCambios = () => {
     if (typeof onDocumentosChange === 'function') {
       onDocumentosChange();
     }
   };
 
-  // Modificar la función handleDeleteDocumento:
-const handleDeleteDocumento = async () => {
-  if (!documentoToDelete) return;
-  
-  try {
-    // Verificar si el documento tiene un archivo físico
-    const tieneArchivo = documentoToDelete.documento_detalle?.archivo_url;
+  const handleDeleteDocumento = async () => {
+    if (!documentoToDelete) return;
     
-    // Eliminar la relación del documento con el paso y opcionalmente el archivo físico
-    await procedimientosService.removeDocumentoPaso(
-      pasoId, 
-      documentoToDelete.id,
-      { eliminar_archivo: tieneArchivo ? true : false }  // Parámetro adicional
-    );
-    
-    // Notificar al usuario
-    setSnackbar({
-      open: true,
-      message: 'Documento eliminado correctamente',
-      severity: 'success'
-    });
-    
-    // Recargar documentos
-    await fetchPasoDocumentos();
-    
-    // Notificar al componente padre sobre el cambio
-    notificarCambios();
-    
-  } catch (error) {
-    console.error("Error al eliminar documento:", error);
-    setSnackbar({
-      open: true,
-      message: `Error al eliminar documento: ${error.message}`,
-      severity: 'error'
-    });
-  } finally {
-    handleConfirmDeleteClose();
-  }
-};
+    try {
+      const tieneArchivo = documentoToDelete.documento_detalle?.archivo_url;
+      
+      await procedimientosService.removeDocumentoPaso(
+        pasoId, 
+        documentoToDelete.id,
+        { eliminar_archivo: tieneArchivo ? true : false }
+      );
+      
+      setSnackbar({
+        open: true,
+        message: 'Documento eliminado correctamente',
+        severity: 'success'
+      });
+      
+      await fetchPasoDocumentos();
+      notificarCambios();
+      
+    } catch (error) {
+      console.error("Error al eliminar documento:", error);
+      setSnackbar({
+        open: true,
+        message: `Error al eliminar documento: ${error.message}`,
+        severity: 'error'
+      });
+    } finally {
+      handleConfirmDeleteClose();
+    }
+  };
 
   const handleOpenNotasDialog = (documentoPaso) => {
     setCurrentDocumentoPasoId(documentoPaso.id);
@@ -244,49 +216,41 @@ const handleDeleteDocumento = async () => {
     setOpenNotasDialog(true);
   };
 
-  // Modificar también la función handleSaveNotas para notificar cambios:
-const handleSaveNotas = async () => {
-  if (!currentDocumentoPasoId) return;
-  
-  try {
-    // Actualizar notas del documento en el paso
-    await procedimientosService.updatePasoDocumento(
-      pasoId,
-      currentDocumentoPasoId,
-      { notas: currentNotas }
-    );
+  const handleSaveNotas = async () => {
+    if (!currentDocumentoPasoId) return;
     
-    // Recargar documentos
-    await fetchPasoDocumentos();
-    
-    // Notificar al componente padre sobre el cambio
-    notificarCambios();
-    
-    // Mostrar notificación de éxito
-    setSnackbar({
-      open: true,
-      message: 'Notas actualizadas correctamente',
-      severity: 'success'
-    });
-  } catch (error) {
-    console.error("Error al guardar notas:", error);
-    setSnackbar({
-      open: true,
-      message: `Error al guardar notas: ${error.message}`,
-      severity: 'error'
-    });
-  } finally {
-    setOpenNotasDialog(false);
-  }
-};
+    try {
+      await procedimientosService.updatePasoDocumento(
+        pasoId,
+        currentDocumentoPasoId,
+        { notas: currentNotas }
+      );
+      
+      await fetchPasoDocumentos();
+      notificarCambios();
+      
+      setSnackbar({
+        open: true,
+        message: 'Notas actualizadas correctamente',
+        severity: 'success'
+      });
+    } catch (error) {
+      console.error("Error al guardar notas:", error);
+      setSnackbar({
+        open: true,
+        message: `Error al guardar notas: ${error.message}`,
+        severity: 'error'
+      });
+    } finally {
+      setOpenNotasDialog(false);
+    }
+  };
 
   const getIconByFileType = (documento) => {
-    // Si es una URL, mostrar icono de enlace
     if (documento.documento_detalle.url) {
       return <LinkIcon color="primary" />;
     }
     
-    // Para archivos, determinar el tipo por la extensión
     const extension = documento.documento_detalle.extension?.toLowerCase() || '';
     
     if (['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp'].includes(extension)) {
@@ -302,80 +266,71 @@ const handleSaveNotas = async () => {
     }
   };
 
-  // Añadir esta función para descargas directas (similar a la de PasosManager)
-const handleDirectDownload = async (e, documentoUrl) => {
-  e.preventDefault();
-  e.stopPropagation();
-  
-  try {
-    // Obtener el nombre del archivo desde la URL
-    const fileName = documentoUrl.split('/').pop();
+  const handleDirectDownload = async (e, documentoUrl) => {
+    e.preventDefault();
+    e.stopPropagation();
     
-    // Determinar la URL completa
-    let fullUrl = documentoUrl;
-    if (!fullUrl.startsWith('http')) {
-      // Si es una URL relativa
-      if (fullUrl.startsWith('/api/media')) {
-        fullUrl = fullUrl.replace('/api/media', '/media');
+    try {
+      const fileName = documentoUrl.split('/').pop();
+      
+      let fullUrl = documentoUrl;
+      if (!fullUrl.startsWith('http')) {
+        if (fullUrl.startsWith('/api/media')) {
+          fullUrl = fullUrl.replace('/api/media', '/media');
+        }
+        if (!fullUrl.startsWith('/')) {
+          fullUrl = '/' + fullUrl;
+        }
+        const baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+        fullUrl = baseUrl + fullUrl;
       }
-      if (!fullUrl.startsWith('/')) {
-        fullUrl = '/' + fullUrl;
-      }
-      const baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:8000';
-      fullUrl = baseUrl + fullUrl;
+      
+      const button = e.currentTarget;
+      const originalInnerHTML = button.innerHTML;
+      button.disabled = true;
+      button.innerHTML = '<span class="MuiCircularProgress-root MuiCircularProgress-indeterminate MuiCircularProgress-colorPrimary" style="width: 18px; height: 18px;" role="progressbar"></span>';
+      
+      const response = await axios({
+        url: fullUrl,
+        method: 'GET',
+        responseType: 'blob',
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      });
+      
+      const blob = new Blob([response.data], {
+        type: response.headers['content-type'] || 'application/octet-stream'
+      });
+      const blobUrl = URL.createObjectURL(blob);
+      
+      const link = document.createElement('a');
+      link.style.display = 'none';
+      link.href = blobUrl;
+      link.download = fileName;
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      setTimeout(() => {
+        URL.revokeObjectURL(blobUrl);
+      }, 200);
+      
+      setTimeout(() => {
+        button.disabled = false;
+        button.innerHTML = originalInnerHTML;
+      }, 1000);
+      
+    } catch (error) {
+      console.error('Error al descargar el documento:', error);
+      e.currentTarget.disabled = false;
+      e.currentTarget.innerHTML = '<svg class="MuiSvgIcon-root MuiSvgIcon-fontSizeSmall" focusable="false" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12h2v5h16v-5h2v5a2 2 0 01-2 2H4a2 2 0 01-2-2v-5zm10-7.41l3.88 3.88 1.41-1.42L12 2.59 6.71 7.88l1.41 1.42L12 5.41z"></path></svg>';
     }
-    
-    // Mostrar indicador de carga
-    const button = e.currentTarget;
-    const originalInnerHTML = button.innerHTML;
-    button.disabled = true;
-    button.innerHTML = '<span class="MuiCircularProgress-root MuiCircularProgress-indeterminate MuiCircularProgress-colorPrimary" style="width: 18px; height: 18px;" role="progressbar"></span>';
-    
-    // Descargar archivo
-    const response = await axios({
-      url: fullUrl,
-      method: 'GET',
-      responseType: 'blob',
-      headers: {
-        'Cache-Control': 'no-cache',
-        'Pragma': 'no-cache',
-        'Expires': '0'
-      }
-    });
-    
-    // Crear blob URL y enlace de descarga
-    const blob = new Blob([response.data], {
-      type: response.headers['content-type'] || 'application/octet-stream'
-    });
-    const blobUrl = URL.createObjectURL(blob);
-    
-    const link = document.createElement('a');
-    link.style.display = 'none';
-    link.href = blobUrl;
-    link.download = fileName;
-    
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    setTimeout(() => {
-      URL.revokeObjectURL(blobUrl);
-    }, 200);
-    
-    // Restaurar botón
-    setTimeout(() => {
-      button.disabled = false;
-      button.innerHTML = originalInnerHTML;
-    }, 1000);
-    
-  } catch (error) {
-    console.error('Error al descargar el documento:', error);
-    e.currentTarget.disabled = false;
-    e.currentTarget.innerHTML = '<svg class="MuiSvgIcon-root MuiSvgIcon-fontSizeSmall" focusable="false" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12h2v5h16v-5h2v5a2 2 0 01-2 2H4a2 2 0 01-2-2v-5zm10-7.41l3.88 3.88 1.41-1.42L12 2.59 6.71 7.88l1.41 1.42L12 5.41z"></path></svg>';
-  }
-};
+  };
 
-  // Si está embebido, no mostrar el botón de volver
   const handleBack = () => {
     if (embedded) return;
     navigate(`/dashboard/procedimientos/${procedimientoId}/pasos`);
@@ -398,7 +353,7 @@ const handleDirectDownload = async (e, documentoUrl) => {
           Documentos del paso
         </Typography>
         
-        {isAdminOrSuperAdmin && (
+        {isAdmin && (
           <Button
             variant="contained"
             color="primary"
@@ -420,7 +375,7 @@ const handleDirectDownload = async (e, documentoUrl) => {
           <Typography variant="body2" color="text.secondary">
             No hay documentos asociados a este paso
           </Typography>
-          {isAdminOrSuperAdmin && (
+          {isAdmin && (
             <Button
               variant="outlined"
               color="primary"
@@ -462,7 +417,7 @@ const handleDirectDownload = async (e, documentoUrl) => {
                     }
                   />
                   <ListItemSecondaryAction>
-                    {isAdminOrSuperAdmin && (
+                    {isAdmin && (
                       <>
                         <Tooltip title="Editar notas">
                           <IconButton 
@@ -503,7 +458,6 @@ const handleDirectDownload = async (e, documentoUrl) => {
                         </IconButton>
                       </Tooltip>
                     ) : (
-                      // Reemplazar el botón de descarga
                       <Tooltip title="Descargar">
                         <IconButton 
                           edge="end" 
@@ -523,7 +477,6 @@ const handleDirectDownload = async (e, documentoUrl) => {
         </Paper>
       )}
       
-      {/* Modal de formulario de documentos */}
       <DocumentoForm
         open={openDocumentoForm}
         onClose={handleCloseDocumentoForm}
@@ -532,7 +485,6 @@ const handleDirectDownload = async (e, documentoUrl) => {
         procedimientoId={procedimientoId}
       />
       
-      {/* Diálogo de confirmación para eliminar */}
       <Dialog
         open={openConfirmDelete}
         onClose={handleConfirmDeleteClose}
@@ -553,7 +505,6 @@ const handleDirectDownload = async (e, documentoUrl) => {
         </DialogActions>
       </Dialog>
       
-      {/* Diálogo para editar notas */}
       <Dialog
         open={openNotasDialog}
         onClose={() => setOpenNotasDialog(false)}
@@ -582,7 +533,6 @@ const handleDirectDownload = async (e, documentoUrl) => {
         </DialogActions>
       </Dialog>
 
-      {/* Snackbar para notificaciones */}
       <Snackbar
         open={snackbar.open}
         autoHideDuration={5000}

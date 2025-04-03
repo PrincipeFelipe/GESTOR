@@ -123,6 +123,20 @@ const UnidadForm = ({ open, onClose, unidad, unidades, onSave }) => {
               margin="normal"
             />
             
+            {unidad && unidad.cod_unidad && (
+              <TextField
+                label="Código jerárquico"
+                value={unidad.cod_unidad}
+                fullWidth
+                margin="normal"
+                disabled
+                InputProps={{
+                  readOnly: true,
+                }}
+                helperText="Este código se genera automáticamente basado en la jerarquía"
+              />
+            )}
+            
             <FormControl fullWidth margin="normal">
               <InputLabel id="id-padre-label">Unidad superior</InputLabel>
               <Select

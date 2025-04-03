@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -34,16 +34,15 @@ import {
   Delete as DeleteIcon,
   Assignment as AssignmentIcon
 } from '@mui/icons-material';
+import { usePermissions } from '../../hooks/usePermissions';
 import procedimientosService from '../../assets/services/procedimientos.service';
-import api from '../../assets/services/api'; // Añadir esta importación
-import { AuthContext } from '../../contexts/AuthContext';
+import api from '../../assets/services/api';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 const ProcedimientosList = () => {
   const navigate = useNavigate();
-  const { currentUser } = useContext(AuthContext);
-  const isAdmin = currentUser?.tipo_usuario === 'Admin' || currentUser?.tipo_usuario === 'SuperAdmin';
+  const { isAdmin, user } = usePermissions();
   
   const [procedimientos, setProcedimientos] = useState([]);
   const [tipos, setTipos] = useState([]);
@@ -88,7 +87,6 @@ const ProcedimientosList = () => {
         const response = await procedimientosService.getProcedimientos(params);
         console.log('Respuesta completa de la API:', response);
         
-        // Aquí está la corrección para manejar diferentes estructuras de respuesta
         let procedimientosData = [];
         let totalItems = 0;
         
@@ -100,7 +98,6 @@ const ProcedimientosList = () => {
             procedimientosData = response.data.results;
             totalItems = response.data.count || procedimientosData.length;
           } else if (response.data.procedimientos) {
-            // Si solo devuelve la URL de procedimientos, hacer una segunda llamada
             const procResponse = await api.get(response.data.procedimientos);
             console.log('Segunda llamada a procedimientos:', procResponse);
             procedimientosData = procResponse.data.results || procResponse.data || [];
