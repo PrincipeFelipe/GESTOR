@@ -19,7 +19,10 @@ import {
   Add as AddIcon,
   Delete as DeleteIcon,
   Edit as EditIcon,
-  ArrowForward as ArrowForwardIcon
+  ArrowForward as ArrowForwardIcon,
+  ArrowBack as ArrowBackIcon,
+  Loop as LoopIcon,
+  ArrowDownward as ArrowDownwardIcon
 } from '@mui/icons-material';
 import { usePermissions } from '../../hooks/usePermissions';
 
@@ -36,7 +39,7 @@ const BifurcacionesManager = ({ bifurcaciones = [], pasos = [], onChange, pasoAc
 
   const pasosDisponibles = pasos.filter(p => {
     if (!pasoActual) return true;
-    return p.id !== pasoActual.id && p.numero > pasoActual.numero;
+    return p.id !== pasoActual.id;
   });
 
   const handleAdd = () => {
@@ -107,6 +110,24 @@ const BifurcacionesManager = ({ bifurcaciones = [], pasos = [], onChange, pasoAc
     return paso ? `${paso.numero}. ${paso.titulo}` : 'Desconocido';
   };
 
+  const getDireccionPaso = (pasoDestinoId) => {
+    if (!pasoActual) return 'forward';
+    
+    const paso = pasos.find(p => p.id === parseInt(pasoDestinoId));
+    if (!paso) return 'forward';
+    
+    if (paso.numero < pasoActual.numero) return 'backward';
+    if (paso.numero > pasoActual.numero) return 'forward';
+    return 'loop';
+  };
+
+  const getDireccionIcon = (pasoDestinoId) => {
+    const direccion = getDireccionPaso(pasoDestinoId);
+    if (direccion === 'backward') return <ArrowBackIcon fontSize="small" sx={{ color: '#ff9800' }} />;
+    if (direccion === 'loop') return <LoopIcon fontSize="small" sx={{ color: '#9c27b0' }} />;
+    return <ArrowForwardIcon fontSize="small" sx={{ color: '#2196f3' }} />;
+  };
+
   return (
     <Box sx={{ mt: 3 }}>
       {esPasoFinal && bifurcaciones.length > 0 && (
@@ -124,6 +145,14 @@ const BifurcacionesManager = ({ bifurcaciones = [], pasos = [], onChange, pasoAc
         <Box sx={{ mb: 3 }}>
           {bifurcaciones.map((bifurcacion, index) => {
             const pasoDestino = pasos.find(p => p.id === parseInt(bifurcacion.paso_destino));
+            const direccion = getDireccionPaso(bifurcacion.paso_destino);
+            
+            const borderColor = {
+              backward: '#ff9800',
+              loop: '#9c27b0',
+              forward: '#2196f3'
+            }[direccion];
+
             return (
               <Paper 
                 key={index}
@@ -133,7 +162,7 @@ const BifurcacionesManager = ({ bifurcaciones = [], pasos = [], onChange, pasoAc
                   display: 'flex', 
                   justifyContent: 'space-between',
                   alignItems: 'center',
-                  borderLeft: '4px solid #3f51b5',
+                  borderLeft: `4px solid ${borderColor}`,
                   cursor: readonly && onBifurcacionClick ? 'pointer' : 'default',
                   transition: 'background-color 0.2s',
                   '&:hover': readonly && onBifurcacionClick ? {
@@ -154,13 +183,19 @@ const BifurcacionesManager = ({ bifurcaciones = [], pasos = [], onChange, pasoAc
                     <Typography variant="body2" color="text.secondary">
                       {bifurcacion.descripcion}
                     </Typography>
-                    <ArrowForwardIcon fontSize="small" sx={{ mx: 1, color: 'text.secondary' }} />
+                    {getDireccionIcon(bifurcacion.paso_destino)}
                     <Chip
                       label={getPasoNombre(bifurcacion.paso_destino)}
                       size="small" 
-                      color="primary"
+                      color={direccion === 'backward' ? 'warning' : direccion === 'loop' ? 'secondary' : 'primary'}
                       variant="outlined"
+                      sx={{ ml: 1 }}
                     />
+                    {direccion === 'backward' && (
+                      <Typography variant="caption" sx={{ ml: 1, color: 'warning.main' }}>
+                        (Paso anterior)
+                      </Typography>
+                    )}
                   </Box>
                 </Box>
                 {!readonly && isAdmin && (
@@ -220,13 +255,61 @@ const BifurcacionesManager = ({ bifurcaciones = [], pasos = [], onChange, pasoAc
                   label="Ir al paso"
                 >
                   <MenuItem value="">Seleccionar paso destino</MenuItem>
-                  {pasosDisponibles.map((paso) => (
-                    <MenuItem key={paso.id} value={paso.id}>
-                      {paso.numero}. {paso.titulo}
-                    </MenuItem>
-                  ))}
+                  {pasosDisponibles.length > 0 && (
+                    [
+                      <MenuItem key="header-anterior" disabled divider>
+                        <Typography variant="caption" color="text.secondary">
+                          — Pasos anteriores —
+                        </Typography>
+                      </MenuItem>,
+                      ...pasosDisponibles
+                        .filter(paso => !pasoActual || paso.numero < pasoActual.numero)
+                        .sort((a, b) => b.numero - a.numero)
+                        .map((paso) => (
+                          <MenuItem key={`prev-${paso.id}`} value={paso.id}>
+                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                              <ArrowBackIcon fontSize="small" sx={{ mr: 1, color: 'warning.main' }} />
+                              {paso.numero}. {paso.titulo}
+                            </Box>
+                          </MenuItem>
+                        )),
+                      <MenuItem key="header-posterior" disabled divider>
+                        <Typography variant="caption" color="text.secondary">
+                          — Pasos posteriores —
+                        </Typography>
+                      </MenuItem>,
+                      ...pasosDisponibles
+                        .filter(paso => !pasoActual || paso.numero > pasoActual.numero)
+                        .sort((a, b) => a.numero - b.numero)
+                        .map((paso) => (
+                          <MenuItem key={`next-${paso.id}`} value={paso.id}>
+                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                              <ArrowForwardIcon fontSize="small" sx={{ mr: 1, color: 'primary.main' }} />
+                              {paso.numero}. {paso.titulo}
+                            </Box>
+                          </MenuItem>
+                        ))
+                    ]
+                  )}
                 </Select>
               </FormControl>
+              {currentBifurcacion.paso_destino && pasoActual && (
+                <Box sx={{ mt: 1 }}>
+                  {(() => {
+                    const direccion = getDireccionPaso(currentBifurcacion.paso_destino);
+                    const paso = pasos.find(p => p.id === parseInt(currentBifurcacion.paso_destino));
+                    
+                    if (direccion === 'backward') {
+                      return (
+                        <Alert severity="info" icon={<ArrowBackIcon />} sx={{ py: 0 }}>
+                          Esta bifurcación regresa a un paso anterior (paso {paso?.numero}).
+                        </Alert>
+                      );
+                    }
+                    return null;
+                  })()}
+                </Box>
+              )}
             </Grid>
             <Grid item xs={12} sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
               <Button 
@@ -257,7 +340,6 @@ const BifurcacionesManager = ({ bifurcaciones = [], pasos = [], onChange, pasoAc
           </Button>
         )
       )}
-
     </Box>
   );
 };
