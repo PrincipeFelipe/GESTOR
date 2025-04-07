@@ -79,33 +79,17 @@ const PasoDocumentosManager = ({
   const fetchPasoDocumentos = async () => {
     setLoading(true);
     try {
-      const pasoResponse = await procedimientosService.getPaso(pasoId);
-      console.log("Respuesta del paso:", pasoResponse.data);
-      
-      if (pasoResponse.data && Array.isArray(pasoResponse.data.documentos)) {
-        console.log("Documentos en la respuesta del paso:", pasoResponse.data.documentos);
-        setDocumentosPaso(pasoResponse.data.documentos);
-      } else {
-        try {
-          const docResponse = await api.get(`/procedimientos/pasos/${pasoId}/documentos/`);
-          console.log("Documentos desde endpoint específico:", docResponse.data);
-          setDocumentosPaso(docResponse.data);
-        } catch (docError) {
-          console.error("Error al cargar documentos del paso:", docError);
-          
-          try {
-            const allDocsResponse = await procedimientosService.getDocumentos({
-              paso: pasoId
-            });
-            console.log("Documentos filtrados:", allDocsResponse.data);
-            setDocumentosPaso(allDocsResponse.data.results || allDocsResponse.data || []);
-          } catch (filterError) {
-            console.error("Error al filtrar documentos:", filterError);
-          }
-        }
-      }
+      // Usar la nueva función específica para documentos de paso
+      const docResponse = await procedimientosService.getDocumentosPorPaso(pasoId);
+      console.log("Documentos desde endpoint específico:", docResponse.data);
+      setDocumentosPaso(docResponse.data);
     } catch (error) {
       console.error("Error al cargar documentos del paso:", error);
+      setSnackbar({
+        open: true,
+        message: 'Error al cargar documentos del paso',
+        severity: 'error'
+      });
     } finally {
       setLoading(false);
     }
@@ -123,15 +107,19 @@ const PasoDocumentosManager = ({
 
   const handleSubmitDocumento = async (data) => {
     try {
+      // Asegurarnos de incluir el ID del paso en la información
+      const documentoData = {
+        ...data,
+        procedimiento: procedimientoId,
+        paso: pasoId  // Importante: asegurar que se envía el ID del paso
+      };
+      
       if (data.id) {
-        await procedimientosService.updateDocumento(data.id, data);
+        // Si es una actualización, mantener el comportamiento actual
+        await procedimientosService.updateDocumento(data.id, documentoData);
       } else {
-        const response = await procedimientosService.createDocumento({
-          ...data,
-          procedimiento: procedimientoId
-        });
-        
-        await procedimientosService.addDocumentoPaso(pasoId, response.data.id);
+        // Para un nuevo documento, usar la ruta específica para documentos de paso
+        await procedimientosService.addDocumentToPaso(pasoId, documentoData);
       }
       
       await fetchPasoDocumentos();

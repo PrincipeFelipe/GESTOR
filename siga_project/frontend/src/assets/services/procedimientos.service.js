@@ -111,12 +111,14 @@ const getDocumento = (id) => {
   return api.get(`${BASE_URL}/documentos/${id}/`);
 };
 
+// Modificar la función createDocumento para soportar carpetas
 const createDocumento = (data) => {
   // Para manejar la subida de archivos con FormData
   const formData = new FormData();
   
   Object.keys(data).forEach(key => {
     if (key === 'archivo' && data[key] instanceof File) {
+      // Al subir un archivo, el backend decidirá dónde guardarlo según el procedimiento y paso
       formData.append(key, data[key]);
     } else if (data[key] !== null && data[key] !== undefined) {
       formData.append(key, data[key]);
@@ -153,6 +155,16 @@ const deleteDocumento = (id) => {
   return api.delete(`${BASE_URL}/documentos/${id}/`);
 };
 
+// Añadir función para obtener documentos por paso
+const getDocumentosPorPaso = (pasoId) => {
+  return api.get(`${BASE_URL}/pasos/${pasoId}/documentos/`);
+};
+
+// Añadir función para obtener documentos generales de un procedimiento
+const getDocumentosGenerales = (procedimientoId) => {
+  return api.get(`${BASE_URL}/procedimientos/${procedimientoId}/documentos-generales/`);
+};
+
 // Historial
 const getHistorial = (procedimientoId) => {
   return api.get(`${BASE_URL}/historial/`, {
@@ -178,6 +190,26 @@ const removeDocumentoPaso = (pasoId, documentoPasoId, options = {}) => {
   // Si debemos eliminar el archivo físico, añadir el parámetro a la URL
   const params = options.eliminar_archivo ? '?eliminar_archivo=true' : '';
   return api.delete(`${BASE_URL}/pasos/${pasoId}/documentos/${documentoPasoId}/${params}`);
+};
+
+// Añadir esta función específica para cargar documentos a un paso
+const addDocumentToPaso = (pasoId, data) => {
+  // Para manejar la subida de archivos con FormData
+  const formData = new FormData();
+  
+  Object.keys(data).forEach(key => {
+    if (key === 'archivo' && data[key] instanceof File) {
+      formData.append(key, data[key]);
+    } else if (data[key] !== null && data[key] !== undefined) {
+      formData.append(key, data[key]);
+    }
+  });
+  
+  return api.post(`${BASE_URL}/pasos/${pasoId}/documentos/`, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  });
 };
 
 // Añadir la función getNextAvailableNumber
@@ -243,10 +275,13 @@ const procedimientosService = {
   createDocumento,
   updateDocumento,
   deleteDocumento,
+  getDocumentosPorPaso,
+  getDocumentosGenerales,
   
   getPasoDocumentos,
   addDocumentoPaso,
   removeDocumentoPaso,
+  addDocumentToPaso,
   
   getHistorial,
   getNextAvailableNumber,

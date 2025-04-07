@@ -176,25 +176,13 @@ SIMPLE_JWT = {
     'TOKEN_TYPE_CLAIM': 'token_type',
 }
 
-# Añadir configuración para servir archivos estáticos
-STATICFILES_DIRS = [
-    os.path.join(BASE_DIR, 'static'),
-]
-
-MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
-
-# Añade al final del archivo
-
 # Configuración para archivos media
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # Configuración para archivos estáticos
 STATIC_URL = '/static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'static')
-
-# Añadir carpeta documentos a las ubicaciones de archivos estáticos
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')  # Carpeta para collectstatic
 STATICFILES_DIRS = [
-    os.path.join(BASE_DIR, 'documentos'),
+    os.path.join(BASE_DIR, 'static'),  # Tus archivos estáticos propios
 ]

@@ -24,7 +24,7 @@ import {
   Link as LinkIcon
 } from '@mui/icons-material';
 
-const DocumentoForm = ({ open, onClose, onSubmit, initialData, procedimientoId }) => {
+const DocumentoForm = ({ open, onClose, onSubmit, initialData, procedimientoId, pasoId }) => {
   const [formData, setFormData] = useState({
     id: null,
     nombre: '',
@@ -156,42 +156,33 @@ const DocumentoForm = ({ open, onClose, onSubmit, initialData, procedimientoId }
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async () => {
-    if (!validateForm()) return;
+  const handleSubmit = (e) => {
+    e.preventDefault();
     
-    setLoading(true);
+    const formDataToSend = {
+      nombre: formData.nombre,
+      descripcion: formData.descripcion,
+      procedimiento: procedimientoId,
+    };
     
-    try {
-      // Preparar datos para envío
-      const formDataToSend = new FormData();
-      
-      formDataToSend.append('nombre', formData.nombre);
-      if (formData.descripcion) {
-        formDataToSend.append('descripcion', formData.descripcion);
-      }
-      
-      if (formData.tipo_documento === 'ARCHIVO' && formData.archivo) {
-        formDataToSend.append('archivo', formData.archivo);
-      } else if (formData.tipo_documento === 'URL') {
-        formDataToSend.append('url', formData.url);
-      }
-      
-      if (formData.procedimiento) {
-        formDataToSend.append('procedimiento', formData.procedimiento);
-      }
-      
-      if (formData.id) {
-        formDataToSend.append('id', formData.id);
-      }
-      
-      await onSubmit(formData.id ? { id: formData.id, ...formData } : formData);
-      
-      onClose();
-    } catch (error) {
-      console.error('Error al guardar documento:', error);
-    } finally {
-      setLoading(false);
+    // Si es un documento de un paso específico, incluirlo
+    if (pasoId) {
+      formDataToSend.paso = pasoId; // El backend manejará esto para guardar en la carpeta adecuada
     }
+    
+    // Si hay un archivo seleccionado, añadirlo
+    if (formData.archivo) {
+      formDataToSend.archivo = formData.archivo;
+    } else if (formData.url) {
+      formDataToSend.url = formData.url;
+    }
+    
+    // Si se está editando, incluir el ID
+    if (initialData && initialData.id) {
+      formDataToSend.id = initialData.id;
+    }
+    
+    onSubmit(formDataToSend);
   };
 
   return (

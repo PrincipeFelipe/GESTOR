@@ -717,30 +717,18 @@ const PasosManager = () => {
   const [documentosGenerales, setDocumentosGenerales] = useState([]);
   const [loadingDocumentos, setLoadingDocumentos] = useState(false);
 
-  // Añadir esta función para cargar la documentación general del procedimiento
+  // Modificar la función fetchDocumentosGenerales
   const fetchDocumentosGenerales = async () => {
+    setLoadingDocumentos(true);
     try {
-      setLoadingDocumentos(true);
-      // Usar el procedimientoId para obtener documentos asociados directamente al procedimiento
-      const response = await procedimientosService.getDocumentos({
-        procedimiento: procedimientoId,
-        paso__isnull: true // Solo documentos no asociados a pasos específicos
-      });
-      
-      let documentos = [];
-      if (Array.isArray(response.data)) {
-        documentos = response.data;
-      } else if (response.data.results && Array.isArray(response.data.results)) {
-        documentos = response.data.results;
-      }
-      
-      setDocumentosGenerales(documentos);
-      console.log("Documentos generales cargados:", documentos.length);
+      // Usar la función específica para documentos generales
+      const response = await procedimientosService.getDocumentosGenerales(procedimientoId);
+      setDocumentosGenerales(response.data);
     } catch (error) {
-      console.error("Error al cargar documentación general:", error);
+      console.error('Error al cargar documentos generales:', error);
       setSnackbar({
         open: true,
-        message: 'Error al cargar la documentación general',
+        message: 'Error al cargar documentos generales',
         severity: 'error'
       });
     } finally {
@@ -1568,39 +1556,38 @@ const handleCloseGeneralDocForm = () => {
   setGeneralDocFormOpen(false);
 };
 
+// Modificar el handleSaveGeneralDoc para especificar que es un documento general
 const handleSaveGeneralDoc = async (data) => {
   try {
-    if (data.id) {
-      // Actualizar documento existente
-      await procedimientosService.updateDocumento(data.id, {
-        ...data,
-        procedimiento: procedimientoId
-      });
+    // Asegurar que se guarda como documento general del procedimiento
+    const documentoData = {
+      ...data,
+      procedimiento: procedimientoId,
+      // No incluimos paso_id para que se guarde en la carpeta general
+    };
+    
+    if (editingDoc) {
+      await procedimientosService.updateDocumento(editingDoc.id, documentoData);
     } else {
-      // Crear nuevo documento asociado al procedimiento
-      await procedimientosService.createDocumento({
-        ...data,
-        procedimiento: procedimientoId
-      });
+      await procedimientosService.createDocumento(documentoData);
     }
     
-    // Recargar documentos
-    fetchDocumentosGenerales();
+    await fetchDocumentosGenerales();
     
     setSnackbar({
       open: true,
-      message: data.id ? 'Documento actualizado correctamente' : 'Documento añadido correctamente',
+      message: editingDoc ? 'Documento actualizado correctamente' : 'Documento añadido correctamente',
       severity: 'success'
     });
+    
+    handleCloseGeneralDocForm();
   } catch (error) {
-    console.error("Error al guardar documento:", error);
+    console.error('Error al guardar el documento:', error);
     setSnackbar({
       open: true,
       message: 'Error al guardar el documento',
       severity: 'error'
     });
-  } finally {
-    handleCloseGeneralDocForm();
   }
 };
 

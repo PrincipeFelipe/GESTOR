@@ -34,7 +34,22 @@ class DocumentoViewSet(viewsets.ModelViewSet):
     filter_backends = [filters.SearchFilter, filters.OrderingFilter, DjangoFilterBackend]
     search_fields = ['nombre', 'descripcion']
     ordering_fields = ['nombre', 'fecha_creacion', 'fecha_actualizacion']
-    filterset_fields = ['nombre']
+    filterset_fields = ['nombre', 'procedimiento']
+    
+    def perform_create(self, serializer):
+        """
+        Al crear un documento, asegurarse de que se guarda en la carpeta correcta.
+        """
+        procedimiento = serializer.validated_data.get('procedimiento')
+        archivo = serializer.validated_data.get('archivo')
+        
+        # Guardar el documento
+        documento = serializer.save()
+        
+        # Si hay archivo y procedimiento, verificar que esté en la carpeta correcta
+        if archivo and procedimiento:
+            # La función documento_upload_path se encargará de la ruta correcta
+            pass
 
 class ProcedimientoViewSet(viewsets.ModelViewSet):
     queryset = Procedimiento.objects.all()
@@ -136,6 +151,28 @@ class ProcedimientoViewSet(viewsets.ModelViewSet):
             'procedimiento_actual': int(pk),
             'total_niveles': len(cadena)
         })
+    
+    @action(detail=True, methods=['get'], url_path='documentos-generales')
+    def documentos_generales(self, request, pk=None):
+        """
+        Retorna los documentos generales asociados al procedimiento (no vinculados a pasos)
+        """
+        try:
+            procedimiento = self.get_object()
+            documentos = Documento.objects.filter(
+                procedimiento=procedimiento
+            ).exclude(
+                # Excluir documentos que estén asociados a pasos
+                id__in=DocumentoPaso.objects.values_list('documento_id', flat=True)
+            )
+            
+            serializer = DocumentoSerializer(documentos, many=True, context={'request': request})
+            return Response(serializer.data)
+        except Exception as e:
+            return Response(
+                {"error": f"Error al obtener documentos generales: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 # Modificar la clase PasoViewSet
 
@@ -220,14 +257,50 @@ class PasoViewSet(viewsets.ModelViewSet):
         
         if request.method == 'GET':
             # Obtener documentos asociados al paso
-            paso_documentos = DocumentoPaso.objects.filter(paso=paso)  # Cambiado a DocumentoPaso
-            serializer = DocumentoPasoSerializer(paso_documentos, many=True)  # Cambiado a DocumentoPasoSerializer
+            paso_documentos = DocumentoPaso.objects.filter(paso=paso)
+            serializer = DocumentoPasoSerializer(paso_documentos, many=True)
             return Response(serializer.data)
         
         elif request.method == 'POST':
-            # Validar que el documento existe
+            # Si viene un archivo en la petición, crear un nuevo documento
+            if request.FILES.get('archivo'):
+                # Primero crear el documento
+                documento_data = {
+                    'nombre': request.data.get('nombre', 'Documento sin título'),
+                    'descripcion': request.data.get('descripcion', ''),
+                    'procedimiento': paso.procedimiento.id,
+                    'archivo': request.FILES.get('archivo')
+                }
+                
+                documento_serializer = DocumentoSerializer(data=documento_data)
+                if documento_serializer.is_valid():
+                    # Al guardar el documento, se almacenará en procedimientos/ID/general/
+                    documento = documento_serializer.save()
+                    
+                    # Ahora crear la relación con el paso
+                    # Aquí es donde necesitamos asegurar que se guarde en la carpeta del paso
+                    documento_paso_data = {
+                        'paso': paso.id,
+                        'documento': documento.id,
+                        'orden': request.data.get('orden', 1),
+                        'notas': request.data.get('notas', '')
+                    }
+                    
+                    documento_paso_serializer = DocumentoPasoSerializer(data=documento_paso_data)
+                    if documento_paso_serializer.is_valid():
+                        # Al guardar DocumentoPaso, el método save() se encarga de mover el documento
+                        documento_paso_serializer.save()
+                        return Response(documento_paso_serializer.data, status=status.HTTP_201_CREATED)
+                    
+                    # Si hay error en DocumentoPaso, eliminar el documento creado
+                    documento.delete()
+                    return Response(documento_paso_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                
+                return Response(documento_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                
+            # Si no hay archivo, verificar que exista el documento por ID
+            documento_id = request.data.get('documento')
             try:
-                documento_id = request.data.get('documento')
                 documento = Documento.objects.get(pk=documento_id)
             except Documento.DoesNotExist:
                 return Response(
@@ -243,7 +316,7 @@ class PasoViewSet(viewsets.ModelViewSet):
                 'notas': request.data.get('notas', '')
             }
             
-            serializer = DocumentoPasoSerializer(data=data)  # Cambiado a DocumentoPasoSerializer
+            serializer = DocumentoPasoSerializer(data=data)
             if serializer.is_valid():
                 serializer.save()
                 return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -251,7 +324,7 @@ class PasoViewSet(viewsets.ModelViewSet):
         
         elif request.method == 'DELETE':
             # Eliminar todos los documentos del paso (raramente usado)
-            paso_documentos = DocumentoPaso.objects.filter(paso=paso)  # Cambiado a DocumentoPaso
+            paso_documentos = DocumentoPaso.objects.filter(paso=paso)
             paso_documentos.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
     
@@ -265,30 +338,16 @@ class PasoViewSet(viewsets.ModelViewSet):
             # Obtener el documento asociado
             documento = paso_documento.documento
             
-            # Verificar si debemos eliminar el archivo físico
-            eliminar_archivo = request.query_params.get('eliminar_archivo', 'false').lower() == 'true'
+            # Siempre eliminamos el documento físico ya que ahora cada paso tiene su propia copia
+            archivo_path = documento.archivo.path if documento.archivo else None
             
-            if eliminar_archivo and documento.archivo:
-                # Si este documento solo está relacionado con este paso, eliminar el archivo físico
-                if DocumentoPaso.objects.filter(documento=documento).count() <= 1:
-                    try:
-                        archivo_path = documento.archivo.path
-                        if os.path.exists(archivo_path):
-                            os.remove(archivo_path)
-                    except Exception as e:
-                        # Loguear el error pero continuar con la eliminación del registro
-                        import logging
-                        logger = logging.getLogger(__name__)
-                        logger.error(f"Error al eliminar el archivo físico: {str(e)}")
-                    
-                    # Eliminar el documento del sistema después de eliminar el archivo
-                    documento.delete()
-                else:
-                    # Solo eliminar la relación si hay otras relaciones
-                    paso_documento.delete()
-            else:
-                # Solo eliminar la relación
-                paso_documento.delete()
+            # Eliminar la relación y el documento
+            paso_documento.delete()
+            documento.delete()
+            
+            # Si había un archivo físico, eliminarlo
+            if archivo_path and os.path.exists(archivo_path):
+                os.remove(archivo_path)
                 
             return Response(status=status.HTTP_204_NO_CONTENT)
         except DocumentoPaso.DoesNotExist:

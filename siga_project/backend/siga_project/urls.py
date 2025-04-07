@@ -7,6 +7,7 @@ from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
 )
+from procedimientos.views import download_document
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -15,7 +16,8 @@ urlpatterns = [
     path('api/users/', include('users.urls')),
     path('api/unidades/', include('unidades.urls')),
     path('api/empleos/', include('empleos.urls')),
-    path('api/procedimientos/', include('procedimientos.urls')),  # Añadir esta línea
+    path('api/procedimientos/', include('procedimientos.urls')),
+    path('downloads/<path:path>', download_document, name='download_document'),
 ]
 
 # Añadir configuración para servir archivos multimedia en desarrollo

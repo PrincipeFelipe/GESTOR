@@ -8,23 +8,48 @@ class TipoProcedimientoSerializer(serializers.ModelSerializer):
         fields = ['id', 'nombre', 'descripcion']
 
 class DocumentoSerializer(serializers.ModelSerializer):
+    procedimiento_id = serializers.IntegerField(source='procedimiento.id', read_only=True, allow_null=True)
     archivo_url = serializers.SerializerMethodField()
-    extension = serializers.SerializerMethodField()
     
     class Meta:
         model = Documento
-        fields = '__all__'
+        fields = ['id', 'nombre', 'descripcion', 'procedimiento', 'procedimiento_id', 'archivo', 'archivo_url', 'url', 'extension', 'fecha_creacion', 'fecha_actualizacion']
+        extra_kwargs = {
+            'archivo': {'write_only': True, 'required': False},
+        }
     
     def get_archivo_url(self, obj):
         if obj.archivo:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.archivo.url)
             return obj.archivo.url
         return None
-    
-    def get_extension(self, obj):
-        if obj.archivo and obj.archivo.name:
-            import os
-            return os.path.splitext(obj.archivo.name)[1].lstrip('.').upper()
-        return None
+
+    def create(self, validated_data):
+        archivo = validated_data.get('archivo')
+        if archivo:
+            # Extraer la extensión del archivo
+            nombre_archivo = archivo.name
+            extension = nombre_archivo.split('.')[-1].lower() if '.' in nombre_archivo else ''
+            validated_data['extension'] = extension
+        
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        archivo = validated_data.get('archivo')
+        if archivo:
+            # Si se actualiza el archivo, actualizar también la extensión
+            nombre_archivo = archivo.name
+            extension = nombre_archivo.split('.')[-1].lower() if '.' in nombre_archivo else ''
+            validated_data['extension'] = extension
+            
+            # Si cambia el procedimiento o es un documento de paso, actualizar la ubicación del archivo
+            if 'procedimiento' in validated_data or hasattr(instance, 'documento_paso'):
+                # La función save del modelo se encargará de mover el archivo a la ubicación correcta
+                pass
+        
+        return super().update(instance, validated_data)
 
 class DocumentoPasoSerializer(serializers.ModelSerializer):
     documento_detalle = serializers.SerializerMethodField(read_only=True)

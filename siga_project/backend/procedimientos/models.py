@@ -109,84 +109,124 @@ from django.utils.text import slugify
 from datetime import datetime
 
 def documento_upload_path(instance, filename):
-    """
-    Determina la ruta de almacenamiento para los documentos, organizándolos en estructura:
-    documentos/procedimiento_X/paso_Y/nombrearchivo
-    """
-    # Obtener procedimiento_id
-    procedimiento_id = None
+    """Define la ruta donde se guardarán los documentos"""
+    # Primero comprobamos si el documento se está guardando desde DocumentoPaso
+    # Podemos detectarlo verificando si el documento ya está siendo procesado por DocumentoPaso.save()
+    if hasattr(instance, '_saving_from_documento_paso') and instance._saving_from_documento_paso:
+        # Si proviene de DocumentoPaso, ya tenemos el paso y el procedimiento
+        paso_id = instance._paso_id
+        procedimiento_id = instance._procedimiento_id
+        return f'procedimientos/{procedimiento_id}/paso_{paso_id}/{filename}'
     
-    # Si es un documento directamente asociado a un procedimiento
-    if hasattr(instance, 'procedimiento_id') and instance.procedimiento_id:
-        procedimiento_id = instance.procedimiento_id
+    # Caso habitual para documentos generales del procedimiento
+    if instance.procedimiento:
+        return f'procedimientos/{instance.procedimiento.id}/general/{filename}'
     
-    # Si el documento está asociado a un paso
-    paso_id = None
-    if hasattr(instance, 'paso_set'):
-        # Buscar el primer paso que tenga este documento (mediante la relación M2M)
-        pasos = instance.paso_set.all()
-        if pasos.exists():
-            paso = pasos.first()
-            paso_id = paso.id
-            procedimiento_id = paso.procedimiento_id
-    
-    # Limpiar el nombre del archivo
-    name, ext = os.path.splitext(filename)
-    safe_name = slugify(name)
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    safe_filename = f"{safe_name}_{timestamp}{ext}"
-    
-    # Determinar la ruta según los IDs disponibles
-    if procedimiento_id and paso_id:
-        return os.path.join('documentos', f'procedimiento_{procedimiento_id}', f'paso_{paso_id}', safe_filename)
-    elif procedimiento_id:
-        return os.path.join('documentos', f'procedimiento_{procedimiento_id}', safe_filename)
-    else:
-        return os.path.join('documentos', 'general', safe_filename)
+    # Caso para documentos sin procedimiento asociado
+    return f'procedimientos/otros/{filename}'
 
 class Documento(models.Model):
-    nombre = models.CharField(max_length=255)
+    nombre = models.CharField(max_length=200)
     descripcion = models.TextField(blank=True, null=True)
-    archivo = models.FileField(upload_to=documento_upload_path, blank=True, null=True) # Usar la función personalizada
-    url = models.URLField(blank=True, null=True)
-    procedimiento = models.ForeignKey(Procedimiento, on_delete=models.CASCADE, blank=True, null=True)
+    procedimiento = models.ForeignKey(Procedimiento, on_delete=models.CASCADE, related_name='documentos', null=True)
+    archivo = models.FileField(upload_to=documento_upload_path, null=True, blank=True)
+    url = models.URLField(max_length=500, null=True, blank=True)
     fecha_creacion = models.DateTimeField(auto_now_add=True)
     fecha_actualizacion = models.DateTimeField(auto_now=True)
-    
-    class Meta:
-        verbose_name = "Documento"
-        verbose_name_plural = "Documentos"
-        ordering = ['-fecha_actualizacion']
-    
-    def __str__(self):
-        return self.nombre
-    
-    @property
-    def extension(self):
-        if self.archivo and hasattr(self.archivo, 'name'):
-            return os.path.splitext(self.archivo.name)[1].lstrip('.').upper()
-        return None
+    extension = models.CharField(max_length=10, blank=True, null=True)
     
     @property
     def archivo_url(self):
-        if self.archivo and hasattr(self.archivo, 'url'):
+        if self.archivo:
             return self.archivo.url
         return None
+    
+    def save(self, *args, **kwargs):
+        # Extraer la extensión del archivo
+        if self.archivo and not self.extension:
+            self.extension = self.archivo.name.split('.')[-1].lower() if '.' in self.archivo.name else ''
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        # Si tiene archivo, eliminarlo del sistema de archivos
+        if self.archivo:
+            try:
+                storage, path = self.archivo.storage, self.archivo.path
+                storage.delete(path)
+            except Exception as e:
+                # Loguear el error pero continuar con la eliminación
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f"Error al eliminar archivo: {str(e)}")
+        
+        super().delete(*args, **kwargs)
 
 class DocumentoPaso(models.Model):
-    paso = models.ForeignKey(Paso, on_delete=models.CASCADE, related_name='documentos')
-    documento = models.ForeignKey(Documento, on_delete=models.CASCADE, related_name='pasos')
-    orden = models.PositiveIntegerField(default=1)
-    notas = models.TextField(blank=True, null=True, help_text="Notas adicionales sobre este documento en el contexto de este paso")
-    
-    def __str__(self):
-        return f"{self.paso} - {self.documento.nombre}"
+    """
+    Relaciona un documento con un paso específico y permite añadir notas
+    """
+    paso = models.ForeignKey(Paso, on_delete=models.CASCADE, related_name='documento_paso')
+    documento = models.ForeignKey(Documento, on_delete=models.CASCADE)
+    orden = models.IntegerField(default=1)
+    notas = models.TextField(blank=True, null=True)
     
     class Meta:
-        verbose_name = "Documento de Paso"
-        verbose_name_plural = "Documentos de Pasos"
-        ordering = ['paso', 'orden']
+        verbose_name = "Documento de paso"
+        verbose_name_plural = "Documentos de pasos"
+        ordering = ['orden']
         unique_together = ['paso', 'documento']
+        
+    def save(self, *args, **kwargs):
+        # Si se está creando un nuevo DocumentoPaso (no tiene id aún)
+        if not self.pk:
+            # Verificar si ya existe un documento físico
+            original_doc = self.documento
+            
+            # Si hay archivo físico, crear un nuevo documento con ese archivo en la ubicación correcta
+            if original_doc.archivo:
+                from django.core.files.base import ContentFile
+                import os
+                
+                # Crear un nuevo documento
+                nuevo_doc = Documento()
+                nuevo_doc.nombre = original_doc.nombre
+                nuevo_doc.descripcion = original_doc.descripcion
+                nuevo_doc.procedimiento = original_doc.procedimiento
+                nuevo_doc.extension = original_doc.extension
+                
+                # Marcar el documento para que documento_upload_path sepa que va en carpeta de paso
+                nuevo_doc._saving_from_documento_paso = True
+                nuevo_doc._paso_id = self.paso.numero
+                nuevo_doc._procedimiento_id = self.paso.procedimiento.id
+                
+                # Guardar primero sin archivo para crear el registro
+                nuevo_doc.save()
+                
+                # Ahora abrir y copiar el contenido del archivo original
+                original_doc.archivo.open()
+                content = original_doc.archivo.read()
+                original_doc.archivo.close()
+                
+                # Obtener el nombre del archivo original
+                file_name = os.path.basename(original_doc.archivo.name)
+                
+                # Guardar el archivo en la ubicación del nuevo documento
+                nuevo_doc.archivo.save(file_name, ContentFile(content), save=True)
+                
+                # Actualizar la referencia al documento
+                self.documento = nuevo_doc
+            elif original_doc.url:
+                # Si es una URL, crear también una copia para mantener la organización
+                nuevo_doc = Documento.objects.create(
+                    nombre=original_doc.nombre,
+                    descripcion=original_doc.descripcion,
+                    procedimiento=original_doc.procedimiento,
+                    url=original_doc.url,
+                    extension=original_doc.extension
+                )
+                self.documento = nuevo_doc
+                
+        super().save(*args, **kwargs)
 
 class HistorialProcedimiento(models.Model):
     procedimiento = models.ForeignKey(Procedimiento, on_delete=models.CASCADE, related_name='historial')
