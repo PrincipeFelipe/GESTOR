@@ -1,4 +1,4 @@
-import React, { useContext } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import { 
   AppBar, 
   Toolbar, 
@@ -18,37 +18,56 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../../contexts/AuthContext';
 
-const Header = ({ drawerWidth, handleDrawerToggle }) => {
+const Header = ({ drawerWidth, handleDrawerToggle, headerHeight = '72px' }) => {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
+
+  const [actualWidth, setActualWidth] = useState(`calc(100% - ${drawerWidth}px)`);
+  const [actualMargin, setActualMargin] = useState(`${drawerWidth}px`);
+
+  useEffect(() => {
+    if (window.innerWidth >= 900) { // md breakpoint es 900px
+      setActualWidth(`calc(100% - ${drawerWidth}px)`);
+      setActualMargin(`${drawerWidth}px`);
+    } else {
+      setActualWidth('100%');
+      setActualMargin('0px');
+    }
+  }, [drawerWidth]);
 
   return (
     <AppBar
       position="fixed"
       sx={{
-        width: { xs: '100%', md: `calc(100% - ${drawerWidth}px)` },
-        ml: { xs: 0, md: `${drawerWidth}px` },
+        width: { 
+          xs: '100%', 
+          md: actualWidth
+        },
+        ml: { 
+          xs: 0, 
+          md: actualMargin
+        },
         backgroundColor: 'white',
         color: 'text.primary',
         boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.05)',
-        zIndex: (theme) => theme.zIndex.drawer + 1, // Asegura que esté por encima del drawer en dispositivos móviles
-        transition: 'width 0.3s ease, margin-left 0.3s ease'
+        zIndex: (theme) => theme.zIndex.drawer + 1,
+        transition: 'width 0.3s ease, margin-left 0.3s ease',
+        height: headerHeight
       }}
     >
-      <Toolbar>
+      <Toolbar sx={{ minHeight: `${headerHeight} !important` }}>
         <IconButton
           color="inherit"
           aria-label="open drawer"
           edge="start"
           onClick={handleDrawerToggle}
-          sx={{ mr: 2, display: { md: 'none' } }} // Solo mostrar en dispositivos móviles
+          sx={{ mr: 2, display: { md: 'none' } }}
         >
           <MenuIcon />
         </IconButton>
         
         <Box sx={{ flexGrow: 1 }} />
         
-        {/* Botones a la derecha */}
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
           <Tooltip title="Ayuda">
             <IconButton color="inherit">

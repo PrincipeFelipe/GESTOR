@@ -158,7 +158,26 @@ const PasoItem = ({
   // Función para descargar documentos directamente
   const handleDirectDownload = (e, url) => {
     e.stopPropagation();
-    window.open(url, '_blank');
+    
+    // Crear un elemento <a> temporal
+    const link = document.createElement('a');
+    link.href = url;
+    
+    // Extraer el nombre del archivo de la URL
+    const fileName = url.split('/').pop().split('?')[0];
+    
+    // Establecer el atributo download
+    link.setAttribute('download', fileName);
+    
+    // Hacer la descarga de manera programática
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    
+    // Limpieza: eliminar el elemento después de un breve retraso
+    setTimeout(() => {
+      document.body.removeChild(link);
+    }, 100);
   };
 
   return (
@@ -1231,7 +1250,26 @@ const handleDeletePaso = (pasoId) => {
 // Función para manejar la descarga directa de documentos
 const handleDirectDownload = (e, url) => {
   e.stopPropagation();
-  window.open(url, '_blank');
+  
+  // Crear un elemento <a> temporal
+  const link = document.createElement('a');
+  link.href = url;
+  
+  // Extraer el nombre del archivo de la URL
+  const fileName = url.split('/').pop().split('?')[0];
+  
+  // Establecer el atributo download
+  link.setAttribute('download', fileName);
+  
+  // Hacer la descarga de manera programática
+  link.style.display = 'none';
+  document.body.appendChild(link);
+  link.click();
+  
+  // Limpieza: eliminar el elemento después de un breve retraso
+  setTimeout(() => {
+    document.body.removeChild(link);
+  }, 100);
 };
 
 // Función para manejar la visualización de documentos
@@ -1589,111 +1627,7 @@ const handleDeleteGeneralDoc = (doc) => {
         )}
       </Box>
       
-      {/* Mostrar resumen de pasos */}
-      {!loading && pasos.length > 0 && (
-        <Box sx={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          justifyContent: 'center', 
-          mb: 4, 
-          p: 2, 
-          bgcolor: 'background.paper',
-          borderRadius: '8px',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-        }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', mr: 3 }}>
-            <Typography variant="h5" color="primary">{pasos.length}</Typography>
-            <Typography variant="body2" color="textSecondary" sx={{ ml: 1 }}>pasos</Typography>
-          </Box>
-          
-          <Divider orientation="vertical" flexItem sx={{ mx: 2 }} />
-          
-          <Box sx={{ display: 'flex', alignItems: 'center', mr: 3 }}>
-            <Typography variant="h5" color="info.main">
-              {pasos.reduce((acc, paso) => acc + (paso.documentos?.length || 0), 0)}
-            </Typography>
-            <Typography variant="body2" color="textSecondary" sx={{ ml: 1 }}>documentos</Typography>
-          </Box>
-          
-          <Divider orientation="vertical" flexItem sx={{ mx: 2 }} />
-          
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-            <Typography variant="h5" color="secondary.main">
-              {pasos.reduce((acc, paso) => acc + (paso.bifurcaciones?.length || 0), 0)}
-            </Typography>
-            <Typography variant="body2" color="textSecondary" sx={{ ml: 1 }}>bifurcaciones</Typography>
-          </Box>
-        </Box>
-      )}
-
-      {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-          <CircularProgress />
-        </Box>
-      ) : pasos.length === 0 ? (
-        <Paper sx={{ p: 4, textAlign: 'center', borderRadius: 2 }}>
-          <Typography variant="h6" color="textSecondary" gutterBottom>
-            No hay pasos definidos
-          </Typography>
-          {isAdminOrSuperAdmin && (
-            <Button
-              variant="contained"
-              color="primary"
-              startIcon={<AddIcon />}
-              onClick={() => handleOpenPasoForm()}
-              sx={{ mt: 2 }}
-            >
-              Añadir el primer paso
-            </Button>
-          )}
-        </Paper>
-      ) : (
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={handleDragEnd}
-        >
-          <SortableContext
-            items={pasos.map(paso => paso.id.toString())}
-            strategy={verticalListSortingStrategy}
-          >
-            <Box sx={{ mt: 2 }}>
-              {pasos.map((paso) => (
-                <Box
-                  key={paso.id}
-                  sx={{
-                    animation: 'fadeIn 0.5s ease',
-                    '@keyframes fadeIn': {
-                      '0%': { opacity: 0, transform: 'translateY(10px)' },
-                      '100%': { opacity: 1, transform: 'translateY(0)' }
-                    },
-                  }}
-                >
-                  <SortableItem id={paso.id.toString()}>
-                    <PasoItem
-                      paso={paso}
-                      pasos={pasos}
-                      onEdit={handleOpenPasoForm}
-                      onDelete={handleDeletePaso}
-                      onViewDocuments={handleViewDocuments}
-                      isAdminOrSuperAdmin={isAdminOrSuperAdmin}
-                      expanded={expandedPasos[paso.id] || false}
-                      onToggle={() => {
-                        setExpandedPasos(prev => ({
-                          ...prev,
-                          [paso.id]: !prev[paso.id]
-                        }));
-                      }}
-                    />
-                  </SortableItem>
-                </Box>
-              ))}
-            </Box>
-          </SortableContext>
-        </DndContext>
-      )}
-      
-      {/* Sección de documentación general del procedimiento */}
+      {/* MOVIDO AQUÍ: Sección de documentación general del procedimiento */}
       <Paper 
         sx={{ 
           p: 2, 
@@ -1830,6 +1764,110 @@ const handleDeleteGeneralDoc = (doc) => {
         </Collapse>
       </Paper>
 
+      {/* Mostrar resumen de pasos */}
+      {!loading && pasos.length > 0 && (
+        <Box sx={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center', 
+          mb: 4, 
+          p: 2, 
+          bgcolor: 'background.paper',
+          borderRadius: '8px',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', mr: 3 }}>
+            <Typography variant="h5" color="primary">{pasos.length}</Typography>
+            <Typography variant="body2" color="textSecondary" sx={{ ml: 1 }}>pasos</Typography>
+          </Box>
+          
+          <Divider orientation="vertical" flexItem sx={{ mx: 2 }} />
+          
+          <Box sx={{ display: 'flex', alignItems: 'center', mr: 3 }}>
+            <Typography variant="h5" color="info.main">
+              {pasos.reduce((acc, paso) => acc + (paso.documentos?.length || 0), 0)}
+            </Typography>
+            <Typography variant="body2" color="textSecondary" sx={{ ml: 1 }}>documentos</Typography>
+          </Box>
+          
+          <Divider orientation="vertical" flexItem sx={{ mx: 2 }} />
+          
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <Typography variant="h5" color="secondary.main">
+              {pasos.reduce((acc, paso) => acc + (paso.bifurcaciones?.length || 0), 0)}
+            </Typography>
+            <Typography variant="body2" color="textSecondary" sx={{ ml: 1 }}>bifurcaciones</Typography>
+          </Box>
+        </Box>
+      )}
+
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+          <CircularProgress />
+        </Box>
+      ) : pasos.length === 0 ? (
+        <Paper sx={{ p: 4, textAlign: 'center', borderRadius: 2 }}>
+          <Typography variant="h6" color="textSecondary" gutterBottom>
+            No hay pasos definidos
+          </Typography>
+          {isAdminOrSuperAdmin && (
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<AddIcon />}
+              onClick={() => handleOpenPasoForm()}
+              sx={{ mt: 2 }}
+            >
+              Añadir el primer paso
+            </Button>
+          )}
+        </Paper>
+      ) : (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext
+            items={pasos.map(paso => paso.id.toString())}
+            strategy={verticalListSortingStrategy}
+          >
+            <Box sx={{ mt: 2 }}>
+              {pasos.map((paso) => (
+                <Box
+                  key={paso.id}
+                  sx={{
+                    animation: 'fadeIn 0.5s ease',
+                    '@keyframes fadeIn': {
+                      '0%': { opacity: 0, transform: 'translateY(10px)' },
+                      '100%': { opacity: 1, transform: 'translateY(0)' }
+                    },
+                  }}
+                >
+                  <SortableItem id={paso.id.toString()}>
+                    <PasoItem
+                      paso={paso}
+                      pasos={pasos}
+                      onEdit={handleOpenPasoForm}
+                      onDelete={handleDeletePaso}
+                      onViewDocuments={handleViewDocuments}
+                      isAdminOrSuperAdmin={isAdminOrSuperAdmin}
+                      expanded={expandedPasos[paso.id] || false}
+                      onToggle={() => {
+                        setExpandedPasos(prev => ({
+                          ...prev,
+                          [paso.id]: !prev[paso.id]
+                        }));
+                      }}
+                    />
+                  </SortableItem>
+                </Box>
+              ))}
+            </Box>
+          </SortableContext>
+        </DndContext>
+      )}
+      
       {/* Dialog para crear/editar pasos */}
       <Dialog
         open={dialogOpen}

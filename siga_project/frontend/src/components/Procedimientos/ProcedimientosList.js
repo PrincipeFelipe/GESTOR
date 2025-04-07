@@ -30,7 +30,6 @@ import {
   Add as AddIcon,
   Search as SearchIcon,
   Edit as EditIcon,
-  Visibility as VisibilityIcon,
   Delete as DeleteIcon,
   Assignment as AssignmentIcon
 } from '@mui/icons-material';
@@ -126,10 +125,6 @@ const ProcedimientosList = () => {
   const handleChangeRowsPerPage = (event) => {
     setRowsPerPage(parseInt(event.target.value, 10));
     setPage(0);
-  };
-  
-  const handleViewProcedimiento = (id) => {
-    navigate(`/dashboard/procedimientos/${id}`);
   };
   
   const handleEditProcedimiento = (id) => {
@@ -282,25 +277,8 @@ const ProcedimientosList = () => {
                         </TableCell>
                         <TableCell align="center">
                           <Box display="flex" justifyContent="center">
-                            <Tooltip title="Ver procedimiento">
-                              <IconButton
-                                color="info"
-                                onClick={() => handleViewProcedimiento(procedimiento.id)}
-                              >
-                                <VisibilityIcon />
-                              </IconButton>
-                            </Tooltip>
-                            
                             {isAdmin && (
                               <>
-                                <Tooltip title="Editar procedimiento">
-                                  <IconButton
-                                    color="primary"
-                                    onClick={() => handleEditProcedimiento(procedimiento.id)}
-                                  >
-                                    <EditIcon />
-                                  </IconButton>
-                                </Tooltip>
                                 
                                 <Tooltip title="Gestionar pasos">
                                   <IconButton
@@ -308,6 +286,15 @@ const ProcedimientosList = () => {
                                     onClick={() => handleManagePasos(procedimiento.id)}
                                   >
                                     <AssignmentIcon />
+                                  </IconButton>
+                                </Tooltip>
+                                
+                                <Tooltip title="Editar procedimiento">
+                                  <IconButton
+                                    color="primary"
+                                    onClick={() => handleEditProcedimiento(procedimiento.id)}
+                                  >
+                                    <EditIcon />
                                   </IconButton>
                                 </Tooltip>
                                 

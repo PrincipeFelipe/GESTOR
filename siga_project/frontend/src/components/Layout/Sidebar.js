@@ -1,4 +1,4 @@
-import React, { useContext } from 'react';
+import React, { useContext, useState } from 'react';
 import { 
   Drawer, 
   List, 
@@ -12,7 +12,8 @@ import {
   Typography,
   useMediaQuery,
   useTheme,
-  Button
+  Button,
+  IconButton
 } from '@mui/material';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../../contexts/AuthContext';
@@ -32,6 +33,9 @@ import ExpandMore from '@mui/icons-material/ExpandMore';
 import ListAltIcon from '@mui/icons-material/ListAlt';
 import PolicyIcon from '@mui/icons-material/Policy';
 import LogoutIcon from '@mui/icons-material/Logout';
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import MenuIcon from '@mui/icons-material/Menu';
 
 // Importar el logo
 import logo from '../../assets/images/logo.png';
@@ -55,12 +59,14 @@ const StyledNavLink = styled(NavLink)(({ theme }) => ({
   }
 }));
 
-const Sidebar = ({ drawerWidth = 260, mobileOpen, handleDrawerToggle }) => {
+const Sidebar = ({ drawerWidth = 260, mobileOpen, handleDrawerToggle, isCollapsed, setIsCollapsed, headerHeight = '72px' }) => {
   const { user, logout } = useContext(AuthContext);
   const location = useLocation();
   const theme = useTheme();
   const navigate = useNavigate();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  
+  const actualDrawerWidth = isCollapsed ? 80 : drawerWidth;
   
   const [openMenus, setOpenMenus] = React.useState({
     procedimientos: true,
@@ -71,10 +77,12 @@ const Sidebar = ({ drawerWidth = 260, mobileOpen, handleDrawerToggle }) => {
 
   // Función para manejar la apertura/cierre de menús colapsables
   const handleMenuToggle = (menu) => {
-    setOpenMenus(prev => ({
-      ...prev,
-      [menu]: !prev[menu]
-    }));
+    if (!isCollapsed) {
+      setOpenMenus(prev => ({
+        ...prev,
+        [menu]: !prev[menu]
+      }));
+    }
   };
 
   // Verificar permisos de administrador
@@ -94,23 +102,85 @@ const Sidebar = ({ drawerWidth = 260, mobileOpen, handleDrawerToggle }) => {
         height: '100%',
         overflowY: 'hidden'  // Previene overflow en el contenedor principal
       }}>
-        {/* Logo y Título de la Aplicación */}
+        {/* Logo y Título de la Aplicación - Fijo en la parte superior */}
         <Box sx={{ 
-          p: 2, 
+          p: isCollapsed ? 1 : 2, 
           textAlign: 'center', 
-          backgroundColor: 'background.paper',
+          backgroundColor: 'primary.main',
+          color: 'white',
           display: 'flex', 
-          flexDirection: 'column',
+          flexDirection: 'column', // Cambiar a columna siempre para mejor control
           alignItems: 'center',
-          justifyContent: 'center'
+          justifyContent: 'center',
+          position: 'sticky',
+          top: 0,
+          zIndex: 1,
+          height: headerHeight,
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
         }}>
-          <img src={logo} alt="SIGA Logo" style={{ width: '60px', height: 'auto', marginBottom: '8px' }} />
-          <Typography variant="h6" color="primary" sx={{ fontWeight: 'bold', mb: 0.5 }}>
-            S.I.G.A.
-          </Typography>
-          <Typography variant="caption" color="text.secondary" align="center" sx={{ fontSize: '0.7rem' }}>
-            Sistema Integral de Gestión Administrativa
-          </Typography>
+          {/* Contenedor para el botón de colapsar - en la parte superior */}
+          {!isMobile && (
+            <Box sx={{
+              position: 'absolute',
+              top: '4px',
+              right: '4px',
+              zIndex: 2
+            }}>
+              <IconButton 
+                onClick={() => setIsCollapsed(!isCollapsed)} 
+                sx={{ 
+                  color: 'white', 
+                  padding: '4px'
+                }}
+              >
+                {isCollapsed ? <ChevronRightIcon /> : <ChevronLeftIcon />}
+              </IconButton>
+            </Box>
+          )}
+          
+          {/* Contenedor para el logo y texto - centrado */}
+          <Box sx={{ 
+            display: 'flex', 
+            flexDirection: isCollapsed ? 'column' : 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '100%',
+            height: '100%'
+          }}>
+            <img 
+              src={logo} 
+              alt="SIGA Logo" 
+              style={{ 
+                width: isCollapsed ? '40px' : '45px',
+                height: 'auto', 
+                marginBottom: isCollapsed ? '0' : '0',
+                marginRight: isCollapsed ? '0' : '12px'
+              }} 
+            />
+            {!isCollapsed && (
+              <Box sx={{ minWidth: 0 }}>
+                <Typography variant="h6" sx={{ 
+                  fontWeight: 'bold', 
+                  lineHeight: 1.2, 
+                  whiteSpace: 'nowrap', 
+                  overflow: 'hidden', 
+                  textOverflow: 'ellipsis' 
+                }}>
+                  S.I.G.A.
+                </Typography>
+                <Typography variant="caption" sx={{ 
+                  fontSize: '0.65rem', 
+                  lineHeight: 1.2,
+                  display: 'block',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis'
+                }}>
+                  Sistema Integral de Gestión Administrativa
+                </Typography>
+              </Box>
+            )}
+          </Box>
         </Box>
         
         <Divider />
@@ -140,7 +210,7 @@ const Sidebar = ({ drawerWidth = 260, mobileOpen, handleDrawerToggle }) => {
             <ListItemIcon>
               <DashboardIcon />
             </ListItemIcon>
-            <ListItemText primary="Dashboard" />
+            {!isCollapsed && <ListItemText primary="Dashboard" />}
           </ListItem>
           
           {/* Unidades */}
@@ -148,28 +218,28 @@ const Sidebar = ({ drawerWidth = 260, mobileOpen, handleDrawerToggle }) => {
             <ListItemIcon>
               <AccountTreeIcon />
             </ListItemIcon>
-            <ListItemText primary="Unidades" />
-            {openMenus.unidades ? <ExpandLess /> : <ExpandMore />}
+            {!isCollapsed && <ListItemText primary="Unidades" />}
+            {!isCollapsed && (openMenus.unidades ? <ExpandLess /> : <ExpandMore />)}
           </ListItemButton>
-          <Collapse in={openMenus.unidades} timeout="auto" unmountOnExit>
+          <Collapse in={openMenus.unidades && !isCollapsed} timeout="auto" unmountOnExit>
             <List component="div" disablePadding>
               <ListItem component={StyledNavLink} to="/dashboard/unidades" sx={{ pl: 4 }} end>
                 <ListItemIcon>
                   <ListAltIcon fontSize="small" />
                 </ListItemIcon>
-                <ListItemText primary="Página Principal" />
+                {!isCollapsed && <ListItemText primary="Página Principal" />}
               </ListItem>
               <ListItem component={StyledNavLink} to="/dashboard/unidades/lista" sx={{ pl: 4 }}>
                 <ListItemIcon>
                   <ListAltIcon fontSize="small" />
                 </ListItemIcon>
-                <ListItemText primary="Lista de Unidades" />
+                {!isCollapsed && <ListItemText primary="Lista de Unidades" />}
               </ListItem>
               <ListItem component={StyledNavLink} to="/dashboard/unidades/arbol" sx={{ pl: 4 }}>
                 <ListItemIcon>
                   <AccountTreeIcon fontSize="small" />
                 </ListItemIcon>
-                <ListItemText primary="Árbol Jerárquico" />
+                {!isCollapsed && <ListItemText primary="Árbol Jerárquico" />}
               </ListItem>
             </List>
           </Collapse>
@@ -179,16 +249,16 @@ const Sidebar = ({ drawerWidth = 260, mobileOpen, handleDrawerToggle }) => {
             <ListItemIcon>
               <MilitaryTechIcon />
             </ListItemIcon>
-            <ListItemText primary="Empleos" />
-            {openMenus.empleos ? <ExpandLess /> : <ExpandMore />}
+            {!isCollapsed && <ListItemText primary="Empleos" />}
+            {!isCollapsed && (openMenus.empleos ? <ExpandLess /> : <ExpandMore />)}
           </ListItemButton>
-          <Collapse in={openMenus.empleos} timeout="auto" unmountOnExit>
+          <Collapse in={openMenus.empleos && !isCollapsed} timeout="auto" unmountOnExit>
             <List component="div" disablePadding>
               <ListItem component={StyledNavLink} to="/dashboard/empleos" sx={{ pl: 4 }}>
                 <ListItemIcon>
                   <ListAltIcon fontSize="small" />
                 </ListItemIcon>
-                <ListItemText primary="Lista de Empleos" />
+                {!isCollapsed && <ListItemText primary="Lista de Empleos" />}
               </ListItem>
             </List>
           </Collapse>
@@ -198,16 +268,16 @@ const Sidebar = ({ drawerWidth = 260, mobileOpen, handleDrawerToggle }) => {
             <ListItemIcon>
               <PolicyIcon />
             </ListItemIcon>
-            <ListItemText primary="Procedimientos" />
-            {openMenus.procedimientos ? <ExpandLess /> : <ExpandMore />}
+            {!isCollapsed && <ListItemText primary="Procedimientos" />}
+            {!isCollapsed && (openMenus.procedimientos ? <ExpandLess /> : <ExpandMore />)}
           </ListItemButton>
-          <Collapse in={openMenus.procedimientos} timeout="auto" unmountOnExit>
+          <Collapse in={openMenus.procedimientos && !isCollapsed} timeout="auto" unmountOnExit>
             <List component="div" disablePadding>
               <ListItem component={StyledNavLink} to="/dashboard/procedimientos" sx={{ pl: 4 }} end>
                 <ListItemIcon>
                   <ListAltIcon fontSize="small" />
                 </ListItemIcon>
-                <ListItemText primary="Listado" />
+                {!isCollapsed && <ListItemText primary="Listado" />}
               </ListItem>
               {isAdmin && (
                 <>
@@ -215,9 +285,8 @@ const Sidebar = ({ drawerWidth = 260, mobileOpen, handleDrawerToggle }) => {
                     <ListItemIcon>
                       <CategoryIcon fontSize="small" />
                     </ListItemIcon>
-                    <ListItemText primary="Tipos" />
+                    {!isCollapsed && <ListItemText primary="Tipos" />}
                   </ListItem>
-                  
                 </>
               )}
             </List>
@@ -230,16 +299,16 @@ const Sidebar = ({ drawerWidth = 260, mobileOpen, handleDrawerToggle }) => {
                 <ListItemIcon>
                   <PeopleIcon />
                 </ListItemIcon>
-                <ListItemText primary="Usuarios" />
-                {openMenus.usuarios ? <ExpandLess /> : <ExpandMore />}
+                {!isCollapsed && <ListItemText primary="Usuarios" />}
+                {!isCollapsed && (openMenus.usuarios ? <ExpandLess /> : <ExpandMore />)}
               </ListItemButton>
-              <Collapse in={openMenus.usuarios} timeout="auto" unmountOnExit>
+              <Collapse in={openMenus.usuarios && !isCollapsed} timeout="auto" unmountOnExit>
                 <List component="div" disablePadding>
                   <ListItem component={StyledNavLink} to="/dashboard/usuarios" sx={{ pl: 4 }}>
                     <ListItemIcon>
                       <ListAltIcon fontSize="small" />
                     </ListItemIcon>
-                    <ListItemText primary="Listado" />
+                    {!isCollapsed && <ListItemText primary="Listado" />}
                   </ListItem>
                 </List>
               </Collapse>
@@ -256,14 +325,16 @@ const Sidebar = ({ drawerWidth = 260, mobileOpen, handleDrawerToggle }) => {
             <ListItemIcon>
               <PersonIcon />
             </ListItemIcon>
-            <ListItemText 
-              primary="Mi Perfil" 
-              secondary={user ? `${user.nombre} ${user.apellido1 || ''}` : 'Usuario'} 
-              secondaryTypographyProps={{
-                noWrap: true,
-                style: { fontSize: '0.7rem' }
-              }}
-            />
+            {!isCollapsed && (
+              <ListItemText 
+                primary="Mi Perfil" 
+                secondary={user ? `${user.nombre} ${user.apellido1 || ''}` : 'Usuario'} 
+                secondaryTypographyProps={{
+                  noWrap: true,
+                  style: { fontSize: '0.7rem' }
+                }}
+              />
+            )}
           </ListItem>
           
           {/* Opción para cerrar sesión */}
@@ -272,7 +343,7 @@ const Sidebar = ({ drawerWidth = 260, mobileOpen, handleDrawerToggle }) => {
               <ListItemIcon>
                 <LogoutIcon />
               </ListItemIcon>
-              <ListItemText primary="Cerrar Sesión" />
+              {!isCollapsed && <ListItemText primary="Cerrar Sesión" />}
             </ListItemButton>
           </ListItem>
         </List>
@@ -294,9 +365,8 @@ const Sidebar = ({ drawerWidth = 260, mobileOpen, handleDrawerToggle }) => {
             boxSizing: 'border-box', 
             width: drawerWidth,
             backgroundColor: (theme) => theme.palette.background.default,
-            // El drawer móvil debe aparecer por debajo del AppBar
-            marginTop: '64px',
-            height: 'calc(100% - 64px)'
+            marginTop: headerHeight, // Usar la altura proporcionada
+            height: `calc(100% - ${headerHeight})` // Usar la altura proporcionada
           },
         }}
       >
@@ -310,13 +380,14 @@ const Sidebar = ({ drawerWidth = 260, mobileOpen, handleDrawerToggle }) => {
           display: { xs: 'none', md: 'block' },
           '& .MuiDrawer-paper': { 
             boxSizing: 'border-box', 
-            width: drawerWidth,
+            width: actualDrawerWidth,
             backgroundColor: (theme) => theme.palette.background.default,
             borderRight: (theme) => `1px solid ${theme.palette.divider}`,
-            // Drawer permanente debe estar por debajo del AppBar
-            marginTop: '64px',
-            height: 'calc(100% - 64px)'
+            height: '100vh', // Ocupar toda la altura
+            transition: 'width 0.3s ease'
           },
+          transition: 'width 0.3s ease',
+          width: actualDrawerWidth
         }}
         open
       >
