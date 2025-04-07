@@ -29,7 +29,10 @@ import {
   Container,
   DialogContentText,
   ListItemIcon,
-  ListItemText
+  ListItemText,
+  FormControlLabel,
+  Switch,
+  Tooltip as MuiTooltip // Renombrado para evitar conflicto con el componente Tooltip existente
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -139,7 +142,8 @@ const PasoItem = ({
   isAdminOrSuperAdmin, 
   pasos,
   expanded,
-  onToggle
+  onToggle,
+  setExpandedPasos // Añadir esta prop
 }) => {
   // Estados para la visualización de documentos
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -148,6 +152,7 @@ const PasoItem = ({
   // Determinar características del paso para estilización
   const tieneBifurcaciones = paso.bifurcaciones && paso.bifurcaciones.length > 0;
   const tieneDocumentos = paso.documentos && paso.documentos.length > 0;
+  const esPasoFinal = paso.es_final;
 
   // Función para manejar la previsualización de documentos
   const handlePreviewDocument = (documento) => {
@@ -191,11 +196,19 @@ const PasoItem = ({
         mb: 2.5,
         borderRadius: '8px',
         overflow: 'hidden',
-        border: `1px solid ${expanded ? (tieneBifurcaciones ? '#9c27b0' : '#2196f3') : '#e0e0e0'}`,
+        border: `1px solid ${
+          esPasoFinal 
+            ? '#d32f2f' // Color rojo para pasos finales
+            : expanded 
+              ? (tieneBifurcaciones ? '#9c27b0' : '#2196f3') 
+              : '#e0e0e0'
+        }`,
         transition: 'all 0.3s ease',
         '&:hover': {
           boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
-          borderColor: tieneBifurcaciones ? '#9c27b0' : '#2196f3'
+          borderColor: esPasoFinal 
+            ? '#d32f2f' // Color rojo para pasos finales
+            : tieneBifurcaciones ? '#9c27b0' : '#2196f3'
         }
       }}
     >
@@ -220,9 +233,17 @@ const PasoItem = ({
             width: '36px', 
             height: '36px', 
             borderRadius: '50%', 
-            bgcolor: tieneBifurcaciones ? 'rgba(156, 39, 176, 0.1)' : 'rgba(33, 150, 243, 0.1)', 
+            bgcolor: esPasoFinal 
+              ? 'rgba(211, 47, 47, 0.1)' // Color para pasos finales
+              : tieneBifurcaciones 
+                ? 'rgba(156, 39, 176, 0.1)' 
+                : 'rgba(33, 150, 243, 0.1)', 
             marginRight: '16px',
-            color: tieneBifurcaciones ? 'secondary.main' : 'primary.main',
+            color: esPasoFinal 
+              ? 'error.main' 
+              : tieneBifurcaciones 
+                ? 'secondary.main' 
+                : 'primary.main',
             fontWeight: 'bold',
             fontSize: '1rem'
           }}>
@@ -230,8 +251,17 @@ const PasoItem = ({
           </Box>
           
           <Box>
-            <Typography variant="subtitle1" sx={{ fontWeight: 'medium', mb: 0.5 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 'medium', mb: 0.5, display: 'flex', alignItems: 'center' }}>
               {paso.titulo}
+              {esPasoFinal && (
+                <Chip 
+                  label="Paso final" 
+                  size="small" 
+                  color="error" 
+                  variant="outlined" 
+                  sx={{ ml: 1, height: 20, fontSize: '0.7rem' }}
+                />
+              )}
             </Typography>
             
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
@@ -496,7 +526,7 @@ const PasoItem = ({
           )}
 
           {/* Botón de "Siguiente paso" cuando no hay bifurcaciones */}
-          {!tieneBifurcaciones && paso.numero < pasos.length && (
+          {!tieneBifurcaciones && paso.numero < pasos.length && !paso.es_final && (
             <Box sx={{ mt: 3 }}>
               <Typography variant="subtitle2" color="primary" sx={{ mb: 2, fontWeight: 'bold', display: 'flex', alignItems: 'center' }}>
                 <ArrowForwardIcon fontSize="small" sx={{ mr: 1 }} />
@@ -505,48 +535,65 @@ const PasoItem = ({
               
               <Box>
                 {(() => {
-                  // Encontrar el paso con número inmediatamente superior
-                  const currentNumero = parseInt(paso.numero);
-                  const siguientePaso = pasos.find(p => parseInt(p.numero) === currentNumero + 1);
-                  
+                  // Encontrar el siguiente paso secuencial
+                  const siguientePaso = pasos.find(p => p.numero === paso.numero + 1);
                   if (siguientePaso) {
                     return (
                       <Paper 
-                        variant="outlined"
                         sx={{ 
-                          p: 1.5, 
-                          mb: 1, 
+                          p: 2,
                           display: 'flex',
                           alignItems: 'center',
-                          borderLeft: '3px solid #2196f3', // Color primario en lugar de secundario
-                          cursor: 'pointer',
-                          '&:hover': {
-                            bgcolor: 'rgba(33, 150, 243, 0.05)'
+                          border: '1px dashed rgba(33, 150, 243, 0.5)',
+                          borderRadius: '8px',
+                          backgroundColor: 'rgba(33, 150, 243, 0.04)',
+                          cursor: 'pointer'
+                        }}
+                        onClick={() => {
+                          // Expandir el siguiente paso
+                          setExpandedPasos(prev => ({
+                            ...prev,
+                            [siguientePaso.id]: true
+                          }));
+                          
+                          // Desplazarse al siguiente paso
+                          const element = document.getElementById(`paso-${siguientePaso.id}`);
+                          if (element) {
+                            setTimeout(() => {
+                              element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                            }, 100);
                           }
                         }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          document.dispatchEvent(new CustomEvent('pasoNavigation', {
-                            detail: { pasoId: siguientePaso.id }
-                          }));
-                        }}
                       >
-                        <Typography variant="body2" sx={{ fontWeight: 'medium', flex: 1 }}>
-                          Continuar al siguiente paso
+                        <Box sx={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'center',
+                          width: '28px', 
+                          height: '28px', 
+                          borderRadius: '50%', 
+                          bgcolor: 'rgba(33, 150, 243, 0.1)',
+                          color: 'primary.main',
+                          fontWeight: 'bold',
+                          fontSize: '0.9rem',
+                          mr: 2
+                        }}>
+                          {siguientePaso.numero}
+                        </Box>
+                        
+                        <Typography variant="body2">
+                          {siguientePaso.titulo}
                         </Typography>
                         
-                        <Box sx={{ display: 'flex', alignItems: 'center', ml: 2 }}>
-                          <ArrowForwardIcon fontSize="small" color="primary" sx={{ mr: 1 }} />
-                          <Typography variant="body2">
-                            Ir al paso {siguientePaso.numero}: {siguientePaso.titulo}
-                          </Typography>
+                        <Box sx={{ ml: 'auto' }}>
+                          <ArrowForwardIcon fontSize="small" color="primary" />
                         </Box>
                       </Paper>
                     );
                   } else {
                     return (
-                      <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                        Este es el último paso del procedimiento.
+                      <Typography variant="body2" color="text.secondary">
+                        No hay paso siguiente definido.
                       </Typography>
                     );
                   }
@@ -605,7 +652,8 @@ const PasosManager = () => {
     descripcion: '',
     tiempo_estimado: '',
     responsable: '',
-    bifurcaciones: [] // Nueva propiedad para manejar bifurcaciones
+    bifurcaciones: [],
+    es_final: false // Inicializar como false para nuevos pasos
   });
   const [snackbar, setSnackbar] = useState({
     open: false,
@@ -867,7 +915,7 @@ const PasosManager = () => {
     navigate('/dashboard/procedimientos');
   };
 
-  // Modificar la función handleOpenPasoForm para incluir bifurcaciones
+  // Modificar la función handleOpenPasoForm para incluir bifurcaciones y es_final
 const handleOpenPasoForm = (paso = null) => {
   setPasoActual(paso);
   
@@ -877,7 +925,8 @@ const handleOpenPasoForm = (paso = null) => {
       descripcion: paso.descripcion,
       tiempo_estimado: paso.tiempo_estimado || '',
       responsable: paso.responsable || '',
-      bifurcaciones: paso.bifurcaciones || [] // Cargar bifurcaciones existentes
+      bifurcaciones: paso.bifurcaciones || [],
+      es_final: paso.es_final || false  // Añadir el campo es_final
     });
   } else {
     setFormData({
@@ -885,7 +934,8 @@ const handleOpenPasoForm = (paso = null) => {
       descripcion: '',
       tiempo_estimado: '',
       responsable: '',
-      bifurcaciones: []
+      bifurcaciones: [],
+      es_final: false  // Inicializar como false para nuevos pasos
     });
   }
   
@@ -1905,6 +1955,7 @@ const handleDeleteGeneralDoc = (doc) => {
                           [paso.id]: !prev[paso.id]
                         }));
                       }}
+                      setExpandedPasos={setExpandedPasos} // Añadir esta prop
                     />
                   </SortableItem>
                 </Box>
@@ -1994,7 +2045,25 @@ const handleDeleteGeneralDoc = (doc) => {
                 />
               </Grid>
             </Grid>
-            
+
+            {/* Añadir aquí el control para es_final */}
+            <MuiTooltip 
+              title="Marque esta casilla si este paso finaliza el procedimiento, independientemente de su posición en la secuencia."
+              placement="top"
+            >
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={formData.es_final}
+                    onChange={(e) => setFormData(prev => ({ ...prev, es_final: e.target.checked }))}
+                    name="es_final"
+                    color="primary"
+                  />
+                }
+                label="Este paso finaliza el procedimiento"
+              />
+            </MuiTooltip>
+
             <Divider sx={{ my: 3 }} />
             
             {/* Componente para gestionar bifurcaciones */}
@@ -2004,6 +2073,7 @@ const handleDeleteGeneralDoc = (doc) => {
               onChange={handleBifurcacionesChange}
               pasoActual={pasoActual}
               onSave={handleBifurcationSave} // Añadir esta prop
+              esPasoFinal={formData.es_final} // Añadir esta prop
             />
           </Box>
         </DialogContent>

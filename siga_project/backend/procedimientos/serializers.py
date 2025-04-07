@@ -27,64 +27,37 @@ class DocumentoSerializer(serializers.ModelSerializer):
         return None
 
 class DocumentoPasoSerializer(serializers.ModelSerializer):
-    documento_detalle = DocumentoSerializer(source='documento', read_only=True)
+    documento_detalle = serializers.SerializerMethodField(read_only=True)
     
     class Meta:
         model = DocumentoPaso
         fields = ['id', 'paso', 'documento', 'documento_detalle', 'orden', 'notas']
         read_only_fields = ['id']
+    
+    def get_documento_detalle(self, obj):
+        return DocumentoSerializer(obj.documento).data
 
 class PasoSerializer(serializers.ModelSerializer):
-    documentos = DocumentoPasoSerializer(many=True, read_only=True)
-    documentos_ids = serializers.PrimaryKeyRelatedField(
-        many=True, 
-        write_only=True, 
-        queryset=Documento.objects.all(),
-        required=False,
-        source='documentos_list'
+    documentos = serializers.SerializerMethodField(read_only=True)
+    documentos_ids = serializers.ListField(
+        child=serializers.IntegerField(), 
+        write_only=True,
+        required=False
     )
     
     class Meta:
         model = Paso
         fields = ['id', 'procedimiento', 'numero', 'titulo', 'descripcion', 
-                 'tiempo_estimado', 'responsable', 'documentos', 'documentos_ids', 'bifurcaciones']
+                 'tiempo_estimado', 'responsable', 'documentos', 'documentos_ids', 
+                 'bifurcaciones', 'es_final']
     
-    def create(self, validated_data):
-        documentos_data = validated_data.pop('documentos_list', [])
-        paso = Paso.objects.create(**validated_data)
-        
-        # Crear relaciones con documentos
-        for idx, documento in enumerate(documentos_data, 1):
-            DocumentoPaso.objects.create(
-                paso=paso,
-                documento=documento,
-                orden=idx
-            )
-        
-        return paso
-    
-    def update(self, instance, validated_data):
-        documentos_data = validated_data.pop('documentos_list', None)
-        
-        # Actualizar campos del paso
-        for key, value in validated_data.items():
-            setattr(instance, key, value)
-        instance.save()
-        
-        # Actualizar documentos si se proporcionaron
-        if documentos_data is not None:
-            # Eliminar relaciones existentes
-            instance.documentos.all().delete()
-            
-            # Crear nuevas relaciones
-            for idx, documento in enumerate(documentos_data, 1):
-                DocumentoPaso.objects.create(
-                    paso=instance,
-                    documento=documento,
-                    orden=idx
-                )
-        
-        return instance
+    def get_documentos(self, obj):
+        """
+        Obtiene los documentos asociados al paso y los serializa.
+        """
+        from .models import DocumentoPaso
+        documentos_paso = DocumentoPaso.objects.filter(paso=obj)
+        return DocumentoPasoSerializer(documentos_paso, many=True).data
 
 class HistorialProcedimientoSerializer(serializers.ModelSerializer):
     usuario_detalle = UserSerializer(source='usuario', read_only=True)

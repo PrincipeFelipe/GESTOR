@@ -92,7 +92,8 @@ class Paso(models.Model):
     descripcion = models.TextField()
     tiempo_estimado = models.CharField(max_length=100, blank=True, null=True)
     responsable = models.CharField(max_length=100, blank=True, null=True)
-    bifurcaciones = models.JSONField(default=list, blank=True)  # Añadir este campo
+    bifurcaciones = models.JSONField(default=list, blank=True)  
+    es_final = models.BooleanField(default=False, help_text="Indica si este paso finaliza el procedimiento")
     
     def __str__(self):
         return f"{self.procedimiento.nombre} - Paso {self.numero}: {self.titulo}"

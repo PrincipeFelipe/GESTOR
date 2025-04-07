@@ -28,6 +28,7 @@ const ProcedimientoEjecutor = () => {
   const [respuestaCondicion, setRespuestaCondicion] = useState('');
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [finProcedimiento, setFinProcedimiento] = useState(false);
 
   useEffect(() => {
     const cargarProcedimiento = async () => {
@@ -99,6 +100,13 @@ const ProcedimientoEjecutor = () => {
       }
     }
     
+    // Verificar si el paso actual es final, y si es así, terminar el procedimiento
+    if (pasoActual.es_final) {
+      // Mostrar alguna indicación de que el procedimiento ha finalizado
+      setFinProcedimiento(true);
+      return;
+    }
+    
     // Si no hay bifurcación seleccionada o no se encontró el paso destino,
     // continuar con el siguiente paso secuencial
     const siguienteNumero = pasoActual.numero + 1;
@@ -139,6 +147,10 @@ const ProcedimientoEjecutor = () => {
 
   if (!procedimiento || pasos.length === 0) {
     return <Alert severity="info">No se encontró el procedimiento o no tiene pasos definidos.</Alert>;
+  }
+
+  if (finProcedimiento) {
+    return <Alert severity="success">El procedimiento ha finalizado.</Alert>;
   }
 
   return (

@@ -12,7 +12,8 @@ import {
   Grid,
   Chip,
   Divider,
-  Paper
+  Paper,
+  Alert
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -22,7 +23,7 @@ import {
 } from '@mui/icons-material';
 import { usePermissions } from '../../hooks/usePermissions';
 
-const BifurcacionesManager = ({ bifurcaciones = [], pasos = [], onChange, pasoActual, onBifurcacionClick, readonly = false }) => {
+const BifurcacionesManager = ({ bifurcaciones = [], pasos = [], onChange, pasoActual, onBifurcacionClick, readonly = false, esPasoFinal = false }) => {
   const { isAdmin } = usePermissions();
   
   const [editingIndex, setEditingIndex] = useState(null);
@@ -108,6 +109,16 @@ const BifurcacionesManager = ({ bifurcaciones = [], pasos = [], onChange, pasoAc
 
   return (
     <Box sx={{ mt: 3 }}>
+      {esPasoFinal && bifurcaciones.length > 0 && (
+        <Alert 
+          severity="warning" 
+          sx={{ mb: 2 }}
+          variant="outlined"
+        >
+          Este paso está marcado como final del procedimiento, pero tiene bifurcaciones definidas. 
+          Las bifurcaciones sólo se utilizarán si el paso no es el último en ejecutarse.
+        </Alert>
+      )}
 
       {bifurcaciones.length > 0 && (
         <Box sx={{ mb: 3 }}>
