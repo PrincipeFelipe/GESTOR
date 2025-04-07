@@ -28,6 +28,7 @@ import TiposProcedimiento from './components/Procedimientos/TiposProcedimiento';
 import DocumentosList from './components/Procedimientos/DocumentosList';
 import ProcedimientoView from './components/Procedimientos/ProcedimientoView';
 import PasoDocumentosManager from './components/Procedimientos/PasoDocumentosManager';
+import ProcedimientoCadena from './components/Procedimientos/ProcedimientoCadena';
 
 // Unidades
 import UnidadesPage from './pages/UnidadesPage';
@@ -173,6 +174,7 @@ const App = () => {
                 <Route path=":procedimientoId/editar" element={<ProcedimientoForm />} />
                 <Route path=":procedimientoId/pasos" element={<PasosManager />} />
                 <Route path=":procedimientoId/pasos/:pasoId/documentos" element={<PasoDocumentosManager />} />
+                <Route path=":procedimientoId/cadena" element={<ProcedimientoCadena />} />
               </Route>
               
               {/* Rutas de Perfil */}

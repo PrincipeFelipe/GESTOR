@@ -54,7 +54,10 @@ import {
   InsertDriveFile as FileIcon,
   ExpandLess as ExpandLessIcon,
   Description as DocumentIcon,
-  ArrowForward as ArrowForwardIcon
+  ArrowForward as ArrowForwardIcon,
+  ArrowUpward as ArrowUpwardIcon,
+  ArrowDownward as ArrowDownwardIcon,
+  AccountTree as AccountTreeIcon
 } from '@mui/icons-material';
 import { AuthContext } from '../../contexts/AuthContext';
 import procedimientosService from '../../assets/services/procedimientos.service';
@@ -1606,25 +1609,68 @@ const handleDeleteGeneralDoc = (doc) => {
             {procedimiento?.tipo_nombre || ''}
             {procedimiento && ` • Versión ${procedimiento.version || '1.0'}`}
           </Typography>
+
+          {/* Añadir esta sección debajo del nombre del procedimiento */}
+          {procedimiento?.procedimiento_relacionado_info && (
+            <Box sx={{ mt: 1, mb: 2, display: 'flex', alignItems: 'center' }}>
+              <Typography variant="body2" color="text.secondary">
+                Este procedimiento continúa en nivel superior: 
+              </Typography>
+              <Button 
+                variant="text" 
+                size="small"
+                onClick={() => navigate(`/dashboard/procedimientos/${procedimiento.procedimiento_relacionado}/pasos`)}
+                startIcon={<ArrowUpwardIcon />}
+              >
+                {procedimiento.procedimiento_relacionado_info.nombre} ({procedimiento.procedimiento_relacionado_info.nivel_display})
+              </Button>
+            </Box>
+          )}
+
+          {procedimiento?.procedimientos_derivados?.length > 0 && (
+            <Box sx={{ mt: 1, mb: 2 }}>
+              <Typography variant="body2" color="text.secondary">
+                Este procedimiento recibe de:
+              </Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 0.5 }}>
+                {procedimiento.procedimientos_derivados.map(proc => (
+                  <Chip
+                    key={proc.id}
+                    label={`${proc.nombre} (${proc.nivel_display})`}
+                    onClick={() => navigate(`/dashboard/procedimientos/${proc.id}/pasos`)}
+                    icon={<ArrowDownwardIcon />}
+                    clickable
+                    color="primary"
+                    variant="outlined"
+                    size="small"
+                  />
+                ))}
+              </Box>
+            </Box>
+          )}
         </Box>
         
-        {isAdminOrSuperAdmin && (
+        <Box sx={{ display: 'flex', gap: 2 }}>
           <Button
-            variant="contained"
-            color="primary"
-            startIcon={<AddIcon />}
-            onClick={() => handleOpenPasoForm()}
-            sx={{ 
-              borderRadius: '8px',
-              px: 3,
-              py: 1.2,
-              mt: { xs: 2, md: 0 },
-              boxShadow: '0 3px 5px rgba(0,0,0,0.1)'
-            }}
+            variant="outlined"
+            color="info"
+            onClick={() => navigate(`/dashboard/procedimientos/${procedimientoId}/cadena`)}
+            startIcon={<AccountTreeIcon />}
           >
-            Nuevo paso
+            Ver cadena completa
           </Button>
-        )}
+          
+          {isAdminOrSuperAdmin && (
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<AddIcon />}
+              onClick={() => handleOpenPasoForm()}
+            >
+              Nuevo paso
+            </Button>
+          )}
+        </Box>
       </Box>
       
       {/* MOVIDO AQUÍ: Sección de documentación general del procedimiento */}

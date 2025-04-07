@@ -37,10 +37,13 @@ const ProcedimientoForm = () => {
     nombre: '',
     descripcion: '',
     tipo: '',
+    nivel: 'GENERAL', // Valor por defecto para el nuevo campo nivel
     estado: 'BORRADOR',
     version: '1.0',
+    procedimiento_relacionado: '' // Añadimos el campo para procedimiento relacionado
   });
   const [tipos, setTipos] = useState([]);
+  const [procedimientosRelacionados, setProcedimientosRelacionados] = useState([]); // Para los procedimientos relacionables
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(isEditMode);
   const [errors, setErrors] = useState({});
@@ -49,6 +52,32 @@ const ProcedimientoForm = () => {
     message: '',
     severity: 'success'
   });
+
+  // Definir los niveles disponibles
+  const NIVEL_CHOICES = [
+    { value: 'PUESTO', label: 'Puesto' },
+    { value: 'COMPANIA', label: 'Compañía' },
+    { value: 'COMANDANCIA', label: 'Comandancia' },
+    { value: 'ZONA', label: 'Zona' },
+    { value: 'DIRECCION', label: 'Dirección General' },
+    { value: 'GENERAL', label: 'General' }
+  ];
+
+  // Función auxiliar para obtener la etiqueta del siguiente nivel
+  const getNextNivelLabel = (nivelActual) => {
+    switch(nivelActual) {
+      case 'PUESTO': 
+        return 'Compañía';
+      case 'COMPANIA': 
+        return 'Comandancia';
+      case 'COMANDANCIA': 
+        return 'Zona';
+      case 'ZONA': 
+        return 'Dirección General';
+      default:
+        return '';
+    }
+  };
 
   // Cargar tipos de procedimiento al montar el componente
   useEffect(() => {
@@ -66,8 +95,31 @@ const ProcedimientoForm = () => {
       }
     };
 
+    // Cargar procedimientos que pueden ser relacionados
+    const fetchProcedimientosRelacionados = async () => {
+      try {
+        const response = await procedimientosService.getProcedimientos({
+          page_size: 100 // Cargar un número razonable de procedimientos
+        });
+        
+        // Filtrar procedimientos según la estructura jerárquica
+        const procs = response.data.results || response.data || [];
+        
+        // Filtrar el procedimiento actual si estamos en modo edición
+        setProcedimientosRelacionados(
+          isEditMode 
+            ? procs.filter(p => p.id !== parseInt(procedimientoId)) 
+            : procs
+        );
+        
+      } catch (error) {
+        console.error('Error al cargar procedimientos relacionados:', error);
+      }
+    };
+
     fetchTipos();
-  }, []);
+    fetchProcedimientosRelacionados();
+  }, [isEditMode, procedimientoId]);
 
   // Cargar datos del procedimiento en modo edición
   useEffect(() => {
@@ -82,8 +134,10 @@ const ProcedimientoForm = () => {
             nombre: procedimiento.nombre || '',
             descripcion: procedimiento.descripcion || '',
             tipo: procedimiento.tipo || '',
+            nivel: procedimiento.nivel || 'GENERAL', // Inicializar el campo nivel
             estado: procedimiento.estado || 'BORRADOR',
             version: procedimiento.version || '1.0',
+            procedimiento_relacionado: procedimiento.procedimiento_relacionado || ''
           });
         } catch (error) {
           console.error('Error al cargar el procedimiento:', error);
@@ -103,10 +157,53 @@ const ProcedimientoForm = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    
+    // Si se está cambiando el nivel, verificar si hay que limpiar el procedimiento relacionado
+    if (name === 'nivel') {
+      if (value === 'DIRECCION' || value === 'GENERAL') {
+        // Si es un nivel superior, eliminar cualquier procedimiento relacionado
+        setFormData(prev => ({
+          ...prev,
+          [name]: value,
+          procedimiento_relacionado: '' // Limpiar el procedimiento relacionado
+        }));
+      } else {
+        // Si es otro nivel, verificar si el procedimiento relacionado actual es válido
+        const nivelSiguienteValido = {
+          'PUESTO': 'COMPANIA',
+          'COMPANIA': 'COMANDANCIA',
+          'COMANDANCIA': 'ZONA',
+          'ZONA': 'DIRECCION'
+        };
+        
+        // Si hay un procedimiento seleccionado, verificar si sigue siendo válido
+        if (formData.procedimiento_relacionado) {
+          const procRelacionado = procedimientosRelacionados.find(p => p.id === parseInt(formData.procedimiento_relacionado));
+          
+          // Si el procedimiento no es del nivel adecuado, limpiarlo
+          if (!procRelacionado || procRelacionado.nivel !== nivelSiguienteValido[value]) {
+            setFormData(prev => ({
+              ...prev,
+              [name]: value,
+              procedimiento_relacionado: ''
+            }));
+            return;
+          }
+        }
+        
+        // Caso normal: solo actualizar el nivel
+        setFormData(prev => ({
+          ...prev,
+          [name]: value
+        }));
+      }
+    } else {
+      // Comportamiento normal para otros campos
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    }
     
     // Limpiar el error cuando el usuario modifica el campo
     if (errors[name]) {
@@ -127,6 +224,10 @@ const ProcedimientoForm = () => {
     
     if (!formData.tipo) {
       newErrors.tipo = 'El tipo de procedimiento es obligatorio';
+    }
+    
+    if (!formData.nivel) {
+      newErrors.nivel = 'El nivel del procedimiento es obligatorio';
     }
     
     setErrors(newErrors);
@@ -238,6 +339,32 @@ const ProcedimientoForm = () => {
             </FormControl>
           </Grid>
 
+          {/* Nuevo campo para el nivel */}
+          <Grid item xs={12} sm={6}>
+            <FormControl fullWidth error={!!errors.nivel} required>
+              <InputLabel id="nivel-label">Nivel del Procedimiento</InputLabel>
+              <Select
+                labelId="nivel-label"
+                name="nivel"
+                value={formData.nivel}
+                onChange={handleChange}
+                label="Nivel del Procedimiento"
+                disabled={loading}
+              >
+                {NIVEL_CHOICES.map((nivel) => (
+                  <MenuItem key={nivel.value} value={nivel.value}>
+                    {nivel.label}
+                  </MenuItem>
+                ))}
+              </Select>
+              {errors.nivel && (
+                <Typography variant="caption" color="error">
+                  {errors.nivel}
+                </Typography>
+              )}
+            </FormControl>
+          </Grid>
+
           {isEditMode && (
             <Grid item xs={12} sm={6}>
               <FormControl fullWidth>
@@ -270,6 +397,52 @@ const ProcedimientoForm = () => {
               />
             </Grid>
           )}
+          
+          {/* Campo para el procedimiento relacionado */}
+          <Grid item xs={12} sm={6}>
+            <FormControl fullWidth disabled={formData.nivel === 'DIRECCION' || formData.nivel === 'GENERAL'}>
+              <InputLabel id="procedimiento-relacionado-label">Continúa en Nivel Superior</InputLabel>
+              <Select
+                labelId="procedimiento-relacionado-label"
+                name="procedimiento_relacionado"
+                value={formData.nivel === 'DIRECCION' || formData.nivel === 'GENERAL' ? '' : formData.procedimiento_relacionado}
+                onChange={handleChange}
+                label="Continúa en Nivel Superior"
+                disabled={loading || formData.nivel === 'DIRECCION' || formData.nivel === 'GENERAL'}
+              >
+                <MenuItem value="">Ninguno</MenuItem>
+                {procedimientosRelacionados
+                  .filter(p => {
+                    // Lógica de jerarquía estricta según los requisitos
+                    switch(formData.nivel) {
+                      case 'PUESTO': 
+                        return p.nivel === 'COMPANIA';
+                      case 'COMPANIA': 
+                        return p.nivel === 'COMANDANCIA';
+                      case 'COMANDANCIA': 
+                        return p.nivel === 'ZONA';
+                      case 'ZONA': 
+                        return p.nivel === 'DIRECCION';
+                      case 'DIRECCION':
+                      case 'GENERAL':
+                      default:
+                        return false; // No hay opciones para los niveles superiores
+                    }
+                  })
+                  .map((proc) => (
+                    <MenuItem key={proc.id} value={proc.id}>
+                      {proc.nombre} ({proc.nivel_display || proc.nivel})
+                    </MenuItem>
+                  ))
+                }
+              </Select>
+              <Typography variant="caption" color="text.secondary">
+                {formData.nivel === 'DIRECCION' || formData.nivel === 'GENERAL' 
+                  ? 'Este nivel no puede tener un procedimiento superior' 
+                  : `Un procedimiento de nivel ${NIVEL_CHOICES.find(n => n.value === formData.nivel)?.label || ''} solo puede continuar en ${getNextNivelLabel(formData.nivel)}`}
+              </Typography>
+            </FormControl>
+          </Grid>
 
           <Grid item xs={12}>
             <TextField

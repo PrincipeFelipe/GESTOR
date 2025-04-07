@@ -41,8 +41,8 @@ class ProcedimientoViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAdminOrSuperAdminOrReadOnly]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter, DjangoFilterBackend]
     search_fields = ['nombre', 'descripcion']
-    ordering_fields = ['nombre', 'tipo__nombre', 'estado', 'fecha_actualizacion']
-    filterset_fields = ['tipo', 'estado', 'creado_por']
+    ordering_fields = ['nombre', 'tipo__nombre', 'nivel', 'estado', 'fecha_actualizacion']
+    filterset_fields = ['tipo', 'nivel', 'estado', 'creado_por']
     
     def get_serializer_class(self):
         if self.action == 'list':
@@ -109,6 +109,33 @@ class ProcedimientoViewSet(viewsets.ModelViewSet):
         
         serializer = self.get_serializer(procedimiento)
         return Response(serializer.data)
+    
+    @action(detail=True, methods=['get'])
+    def cadena_completa(self, request, pk=None):
+        """Devuelve la cadena completa de procedimientos relacionados"""
+        procedimiento = self.get_object()
+        
+        # Encontrar el procedimiento inicial (nivel más bajo)
+        proc_inicial = procedimiento
+        while Procedimiento.objects.filter(procedimiento_relacionado=proc_inicial).exists():
+            proc_inicial = Procedimiento.objects.filter(procedimiento_relacionado=proc_inicial).first()
+        
+        # Construir la cadena completa desde el inicial
+        cadena = [proc_inicial]
+        proc_actual = proc_inicial
+        
+        while proc_actual.procedimiento_relacionado:
+            proc_actual = proc_actual.procedimiento_relacionado
+            cadena.append(proc_actual)
+        
+        # Serializar la cadena
+        serializer = ProcedimientoListSerializer(cadena, many=True)
+        
+        return Response({
+            'cadena_completa': serializer.data,
+            'procedimiento_actual': int(pk),
+            'total_niveles': len(cadena)
+        })
 
 # Modificar la clase PasoViewSet
 

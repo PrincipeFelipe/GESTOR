@@ -20,9 +20,19 @@ class Procedimiento(models.Model):
         ('OBSOLETO', 'Obsoleto'),
     ]
     
+    NIVEL_CHOICES = [
+        ('PUESTO', 'Puesto'),
+        ('COMPANIA', 'Compañía'),
+        ('COMANDANCIA', 'Comandancia'),
+        ('ZONA', 'Zona'),
+        ('DIRECCION', 'Dirección General'),
+        ('GENERAL', 'General'),  # Para procedimientos que aplican a todos los niveles
+    ]
+    
     nombre = models.CharField(max_length=200)
     descripcion = models.TextField()
     tipo = models.ForeignKey(TipoProcedimiento, on_delete=models.CASCADE, related_name='procedimientos')
+    nivel = models.CharField(max_length=20, choices=NIVEL_CHOICES, default='GENERAL')
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='BORRADOR')
     fecha_creacion = models.DateTimeField(auto_now_add=True)
     fecha_actualizacion = models.DateTimeField(auto_now=True)
@@ -30,13 +40,50 @@ class Procedimiento(models.Model):
     creado_por = models.ForeignKey(Usuario, on_delete=models.SET_NULL, null=True, related_name='procedimientos_creados')
     actualizado_por = models.ForeignKey(Usuario, on_delete=models.SET_NULL, null=True, related_name='procedimientos_actualizados')
     
+    # Nuevo campo para relacionar procedimientos de distintos niveles
+    procedimiento_relacionado = models.ForeignKey(
+        'self', 
+        on_delete=models.SET_NULL,
+        null=True, 
+        blank=True,
+        related_name='procedimientos_derivados',
+        help_text="Procedimiento de nivel superior al que se envía este procedimiento"
+    )
+    
     def __str__(self):
-        return f"{self.nombre} (v{self.version})"
+        return f"{self.nombre} (v{self.version}, {self.get_nivel_display()})"
+    
+    # Método para obtener la cadena completa de procedimientos relacionados
+    def get_cadena_procedimientos(self):
+        """Devuelve la cadena completa de procedimientos relacionados de menor a mayor nivel"""
+        cadena = [self]
+        proc_actual = self
+        
+        # Buscar hacia arriba (niveles superiores)
+        while proc_actual.procedimiento_relacionado:
+            proc_actual = proc_actual.procedimiento_relacionado
+            cadena.append(proc_actual)
+        
+        return cadena
+    
+    # Método para verificar si este procedimiento es el inicio de un proceso
+    @property
+    def es_inicio_proceso(self):
+        """Determina si este procedimiento es el inicio de un proceso (no tiene predecesores)"""
+        return not Procedimiento.objects.filter(procedimiento_relacionado=self).exists()
+    
+    # Método para verificar si este procedimiento es el final de un proceso
+    @property
+    def es_fin_proceso(self):
+        """Determina si este procedimiento es el final de un proceso (no tiene procedimiento relacionado)"""
+        return self.procedimiento_relacionado is None
     
     class Meta:
         verbose_name = "Procedimiento"
         verbose_name_plural = "Procedimientos"
         ordering = ['-fecha_actualizacion']
+        # Añadir restricción única para nombre+tipo+nivel
+        unique_together = ['nombre', 'tipo', 'nivel']
 
 class Paso(models.Model):
     procedimiento = models.ForeignKey(Procedimiento, on_delete=models.CASCADE, related_name='pasos')

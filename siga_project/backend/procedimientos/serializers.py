@@ -95,32 +95,45 @@ class HistorialProcedimientoSerializer(serializers.ModelSerializer):
         read_only_fields = ['fecha_cambio']
 
 class ProcedimientoListSerializer(serializers.ModelSerializer):
-    tipo_nombre = serializers.ReadOnlyField(source='tipo.nombre')
-    creado_por_nombre = serializers.SerializerMethodField()
+    tipo_nombre = serializers.CharField(source='tipo.nombre', read_only=True)
+    nivel_display = serializers.CharField(source='get_nivel_display', read_only=True)
     
     class Meta:
         model = Procedimiento
-        fields = ['id', 'nombre', 'tipo', 'tipo_nombre', 'estado', 'version', 'fecha_actualizacion', 'creado_por', 'creado_por_nombre']
-    
-    def get_creado_por_nombre(self, obj):
-        if obj.creado_por:
-            return f"{obj.creado_por.nombre} {obj.creado_por.apellido1}"
-        return None
+        fields = ['id', 'nombre', 'descripcion', 'tipo', 'tipo_nombre', 'nivel', 'nivel_display', 'estado', 'version', 'fecha_actualizacion']
 
 class ProcedimientoDetailSerializer(serializers.ModelSerializer):
-    tipo_detalle = TipoProcedimientoSerializer(source='tipo', read_only=True)
-    creado_por_detalle = UserSerializer(source='creado_por', read_only=True)
-    actualizado_por_detalle = UserSerializer(source='actualizado_por', read_only=True)
+    tipo_nombre = serializers.CharField(source='tipo.nombre', read_only=True)
+    nivel_display = serializers.CharField(source='get_nivel_display', read_only=True)
     pasos = PasoSerializer(many=True, read_only=True)
-    historial = HistorialProcedimientoSerializer(many=True, read_only=True)
+    procedimiento_relacionado_info = serializers.SerializerMethodField(read_only=True)
+    procedimientos_derivados = serializers.SerializerMethodField(read_only=True)
     
     class Meta:
         model = Procedimiento
-        fields = [
-            'id', 'nombre', 'descripcion', 'tipo', 'tipo_detalle', 
-            'estado', 'fecha_creacion', 'fecha_actualizacion', 
-            'version', 'creado_por', 'creado_por_detalle', 
-            'actualizado_por', 'actualizado_por_detalle',
-            'pasos', 'historial'
-        ]
-        read_only_fields = ['fecha_creacion', 'fecha_actualizacion']
+        fields = ['id', 'nombre', 'descripcion', 'tipo', 'tipo_nombre', 'nivel', 'nivel_display', 
+                  'estado', 'version', 'fecha_creacion', 'fecha_actualizacion', 
+                  'creado_por', 'actualizado_por', 'pasos', 
+                  'procedimiento_relacionado', 'procedimiento_relacionado_info',
+                  'procedimientos_derivados']
+    
+    def get_procedimiento_relacionado_info(self, obj):
+        if obj.procedimiento_relacionado:
+            return {
+                'id': obj.procedimiento_relacionado.id,
+                'nombre': obj.procedimiento_relacionado.nombre,
+                'nivel': obj.procedimiento_relacionado.nivel,
+                'nivel_display': obj.procedimiento_relacionado.get_nivel_display()
+            }
+        return None
+    
+    def get_procedimientos_derivados(self, obj):
+        derivados = Procedimiento.objects.filter(procedimiento_relacionado=obj)
+        if derivados.exists():
+            return [{
+                'id': proc.id,
+                'nombre': proc.nombre,
+                'nivel': proc.nivel,
+                'nivel_display': proc.get_nivel_display()
+            } for proc in derivados]
+        return []

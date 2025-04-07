@@ -27,6 +27,11 @@ const crearNuevaVersion = (id, data) => {
   return api.post(`${BASE_URL}/procedimientos/${id}/nueva_version/`, data);
 };
 
+// Añadir esta función al servicio
+const getProcedimientoCadena = (id) => {
+  return api.get(`${BASE_URL}/procedimientos/${id}/cadena_completa/`);
+};
+
 // Tipos de Procedimiento
 const getTiposProcedimiento = () => {
   return api.get(`${BASE_URL}/tipos/`);
@@ -244,7 +249,8 @@ const procedimientosService = {
   removeDocumentoPaso,
   
   getHistorial,
-  getNextAvailableNumber
+  getNextAvailableNumber,
+  getProcedimientoCadena
 };
 
 export default procedimientosService;

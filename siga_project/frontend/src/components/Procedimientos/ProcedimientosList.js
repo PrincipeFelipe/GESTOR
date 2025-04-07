@@ -52,6 +52,7 @@ const ProcedimientosList = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filtroTipo, setFiltroTipo] = useState('');
   const [filtroEstado, setFiltroEstado] = useState('');
+  const [filtroNivel, setFiltroNivel] = useState('');
   const [openSnackbar, setOpenSnackbar] = useState(false);
   const [alertMessage, setAlertMessage] = useState('');
   const [alertSeverity, setAlertSeverity] = useState('success');
@@ -79,7 +80,8 @@ const ProcedimientosList = () => {
           page_size: rowsPerPage,
           search: searchTerm,
           tipo: filtroTipo,
-          estado: filtroEstado
+          estado: filtroEstado,
+          nivel: filtroNivel
         };
         
         console.log('Parámetros de búsqueda:', params);
@@ -116,7 +118,7 @@ const ProcedimientosList = () => {
     };
     
     fetchProcedimientos();
-  }, [page, rowsPerPage, searchTerm, filtroTipo, filtroEstado]);
+  }, [page, rowsPerPage, searchTerm, filtroTipo, filtroEstado, filtroNivel]);
   
   const handleChangePage = (event, newPage) => {
     setPage(newPage);
@@ -244,6 +246,26 @@ const ProcedimientosList = () => {
               </Select>
             </FormControl>
           </Grid>
+
+          <Grid item xs={12} md={3}>
+            <FormControl fullWidth>
+              <InputLabel id="nivel-filter-label">Nivel</InputLabel>
+              <Select
+                labelId="nivel-filter-label"
+                value={filtroNivel}
+                label="Nivel"
+                onChange={(e) => setFiltroNivel(e.target.value)}
+              >
+                <MenuItem value="">Todos</MenuItem>
+                <MenuItem value="PUESTO">Puesto</MenuItem>
+                <MenuItem value="COMPANIA">Compañía</MenuItem>
+                <MenuItem value="COMANDANCIA">Comandancia</MenuItem>
+                <MenuItem value="ZONA">Zona</MenuItem>
+                <MenuItem value="DIRECCION">Dirección General</MenuItem>
+                <MenuItem value="GENERAL">General</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
         </Grid>
         
         {loading ? (
@@ -258,6 +280,7 @@ const ProcedimientosList = () => {
                   <TableRow>
                     <TableCell><strong>Nombre</strong></TableCell>
                     <TableCell><strong>Tipo</strong></TableCell>
+                    <TableCell><strong>Nivel</strong></TableCell>
                     <TableCell><strong>Estado</strong></TableCell>
                     <TableCell><strong>Versión</strong></TableCell>
                     <TableCell><strong>Actualización</strong></TableCell>
@@ -270,6 +293,7 @@ const ProcedimientosList = () => {
                       <TableRow key={procedimiento.id} hover>
                         <TableCell>{procedimiento.nombre}</TableCell>
                         <TableCell>{procedimiento.tipo_nombre}</TableCell>
+                        <TableCell>{procedimiento.nivel_display}</TableCell>
                         <TableCell>{getEstadoChip(procedimiento.estado)}</TableCell>
                         <TableCell>{procedimiento.version}</TableCell>
                         <TableCell>
@@ -314,7 +338,7 @@ const ProcedimientosList = () => {
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={6} align="center">
+                      <TableCell colSpan={7} align="center">
                         No se encontraron procedimientos
                       </TableCell>
                     </TableRow>

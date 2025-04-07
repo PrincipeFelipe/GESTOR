@@ -26,8 +26,8 @@ class TipoProcedimientoAdmin(admin.ModelAdmin):
 
 @admin.register(Procedimiento)
 class ProcedimientoAdmin(admin.ModelAdmin):
-    list_display = ('nombre', 'tipo', 'estado', 'version', 'fecha_actualizacion', 'creado_por')
-    list_filter = ('tipo', 'estado', 'creado_por')
+    list_display = ('nombre', 'tipo', 'nivel', 'estado', 'version', 'fecha_actualizacion', 'creado_por')
+    list_filter = ('tipo', 'nivel', 'estado', 'creado_por')
     search_fields = ('nombre', 'descripcion')
     readonly_fields = ('fecha_creacion', 'fecha_actualizacion')
     inlines = [PasoInline, HistorialInline]
