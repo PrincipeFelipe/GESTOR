@@ -1,102 +1,129 @@
 from rest_framework import serializers
+from django.contrib.auth.password_validation import validate_password
 from .models import Usuario
+from unidades.models import Unidad
+from empleos.models import Empleo
 from unidades.serializers import UnidadSerializer
 from empleos.serializers import EmpleoSerializer
 
-class UserSerializer(serializers.ModelSerializer):
+class UnidadMinSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Unidad
+        fields = ['id', 'nombre', 'cod_unidad', 'tipo_unidad', 'tipo_unidad_display']
+
+class EmpleoMinSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Empleo
+        fields = ['id', 'nombre']
+
+class UserCreateSerializer(serializers.ModelSerializer):
+    """Serializador para la creación de usuarios"""
+    password = serializers.CharField(write_only=True, required=False)
+    
     class Meta:
         model = Usuario
         fields = [
-            'id', 
-            'nombre', 
-            'apellido1', 
-            'apellido2', 
-            'ref', 
-            'telefono', 
-            'email', 
-            'unidad', 
-            'empleo', 
-            'tip', 
-            'password', 
-            'tipo_usuario',
-            'estado'
+            'id', 'nombre', 'apellido1', 'apellido2', 'email', 'telefono', 'ref',
+            'unidad', 'unidad_destino', 'unidad_acceso', 'empleo', 'tip', 'estado', 
+            'tipo_usuario', 'password'
         ]
         extra_kwargs = {
-            'password': {'write_only': True}
+            'password': {'write_only': True},
+            'ref': {'required': False}  # Hacer el campo ref opcional
         }
-
+    
     def create(self, validated_data):
-        user = Usuario(
-            nombre=validated_data['nombre'],
-            apellido1=validated_data['apellido1'],
-            apellido2=validated_data.get('apellido2', ''),
-            ref=validated_data.get('ref', ''),
-            telefono=validated_data.get('telefono', ''),
-            email=validated_data['email'],
-            unidad=validated_data.get('unidad', None),
-            empleo=validated_data.get('empleo', None),
-            tip=validated_data['tip'],
-            tipo_usuario=validated_data.get('tipo_usuario', Usuario.USER),
-            estado=validated_data.get('estado', True)
-        )
-        user.set_password(validated_data['password'])
-        user.save()
-        return user
+        # Si no viene 'ref', generarlo a partir del nombre y apellidos
+        if 'ref' not in validated_data or not validated_data['ref']:
+            nombre = validated_data.get('nombre', '')
+            apellido1 = validated_data.get('apellido1', '')
+            apellido2 = validated_data.get('apellido2', '')
+            
+            # Crear el ref usando la primera letra de cada campo
+            ref = ''
+            if nombre: ref += nombre[0]
+            if apellido1: ref += apellido1[0]
+            if apellido2: ref += apellido2[0]
+            
+            validated_data['ref'] = ref.upper()
+        
+        # Continuar con la creación normal
+        return super().create(validated_data)
 
-    def update(self, instance, validated_data):
-        instance.nombre = validated_data.get('nombre', instance.nombre)
-        instance.apellido1 = validated_data.get('apellido1', instance.apellido1)
-        instance.apellido2 = validated_data.get('apellido2', instance.apellido2)
-        instance.ref = validated_data.get('ref', instance.ref)
-        instance.telefono = validated_data.get('telefono', instance.telefono)
-        instance.email = validated_data.get('email', instance.email)
-        instance.unidad = validated_data.get('unidad', instance.unidad)
-        instance.empleo = validated_data.get('empleo', instance.empleo)
-        instance.tip = validated_data.get('tip', instance.tip)
-        instance.tipo_usuario = validated_data.get('tipo_usuario', instance.tipo_usuario)
-        instance.estado = validated_data.get('estado', instance.estado)
-
-        password = validated_data.get('password', None)
-        if password:
-            instance.set_password(password)
-
-        instance.save()
-        return instance
-
-# Nuevo serializador para perfil de usuario con detalles de unidad y empleo
-class ProfileSerializer(serializers.ModelSerializer):
-    unidad_details = UnidadSerializer(source='unidad', read_only=True)
-    empleo_details = EmpleoSerializer(source='empleo', read_only=True)
+class UserUpdateSerializer(serializers.ModelSerializer):
+    """Serializador para la actualización de usuarios"""
+    password = serializers.CharField(write_only=True, required=False)
     
     class Meta:
         model = Usuario
         fields = [
-            'id', 
-            'nombre', 
-            'apellido1', 
-            'apellido2', 
-            'ref', 
-            'telefono', 
-            'email', 
-            'unidad', 
-            'unidad_details',
-            'empleo',
-            'empleo_details',
-            'tip', 
-            'tipo_usuario',
-            'estado',
-            'date_joined',
-            'last_login'
+            'id', 'nombre', 'apellido1', 'apellido2', 'email', 'telefono', 'ref',
+            'unidad', 'unidad_destino', 'unidad_acceso', 'empleo', 'tip', 'estado', 
+            'tipo_usuario', 'password'
         ]
-        read_only_fields = ['id', 'tipo_usuario', 'date_joined', 'last_login']
+        extra_kwargs = {
+            'password': {'write_only': True},
+            'ref': {'required': False}  # Hacer el campo ref opcional para actualizaciones también
+        }
+        
+    def update(self, instance, validated_data):
+        # Si no viene 'ref' o está vacío, generarlo a partir del nombre y apellidos
+        if ('ref' not in validated_data or not validated_data['ref']) and instance.ref == '':
+            nombre = validated_data.get('nombre', instance.nombre)
+            apellido1 = validated_data.get('apellido1', instance.apellido1) 
+            apellido2 = validated_data.get('apellido2', instance.apellido2)
+            
+            # Crear el ref usando la primera letra de cada campo
+            ref = ''
+            if nombre: ref += nombre[0]
+            if apellido1: ref += apellido1[0]
+            if apellido2: ref += apellido2[0]
+            
+            validated_data['ref'] = ref.upper()
+        
+        # Continuar con la actualización normal
+        return super().update(instance, validated_data)
 
-# Serializador para cambio de contraseña
-class PasswordChangeSerializer(serializers.Serializer):
-    current_password = serializers.CharField(required=True)
-    new_password = serializers.CharField(required=True, min_length=8)
-    confirm_password = serializers.CharField(required=True)
+class UserSerializer(serializers.ModelSerializer):
+    """Serializador completo para usuarios con información de relaciones"""
+    unidad_nombre = serializers.CharField(source='unidad.nombre', read_only=True)
+    unidad_destino_nombre = serializers.CharField(source='unidad_destino.nombre', read_only=True, default='')
+    unidad_acceso_nombre = serializers.CharField(source='unidad_acceso.nombre', read_only=True, default='')
+    empleo_nombre = serializers.CharField(source='empleo.nombre', read_only=True, default='')
     
-    def validate(self, data):
-        if data.get('new_password') != data.get('confirm_password'):
-            raise serializers.ValidationError("Las contraseñas no coinciden.")
-        return data
+    class Meta:
+        model = Usuario
+        fields = [
+            'id', 'nombre', 'apellido1', 'apellido2', 'ref', 'email', 'telefono',
+            'unidad', 'unidad_nombre', 'unidad_destino', 'unidad_destino_nombre',
+            'unidad_acceso', 'unidad_acceso_nombre', 'empleo', 'empleo_nombre',
+            'tip', 'estado', 'tipo_usuario', 'date_joined', 'last_login'
+        ]
+
+class PasswordChangeSerializer(serializers.Serializer):
+    """Serializador para el cambio de contraseña"""
+    current_password = serializers.CharField(required=True)
+    new_password = serializers.CharField(required=True)
+    
+    def validate_new_password(self, value):
+        if len(value) < 8:
+            raise serializers.ValidationError("La contraseña debe tener al menos 8 caracteres.")
+        return value
+
+class ProfileSerializer(serializers.ModelSerializer):
+    """Serializador para ver el perfil del usuario"""
+    unidad_nombre = serializers.CharField(source='unidad.nombre', read_only=True, default='')
+    unidad_destino_nombre = serializers.CharField(source='unidad_destino.nombre', read_only=True, default='')
+    unidad_acceso_nombre = serializers.CharField(source='unidad_acceso.nombre', read_only=True, default='')
+    unidad_tipo = serializers.CharField(source='unidad.tipo_unidad', read_only=True, default='')
+    empleo_nombre = serializers.CharField(source='empleo.nombre', read_only=True, default='')
+    
+    class Meta:
+        model = Usuario
+        fields = [
+            'id', 'nombre', 'apellido1', 'apellido2', 'ref', 'email', 'telefono',
+            'unidad', 'unidad_nombre', 'unidad_tipo', 
+            'unidad_destino', 'unidad_destino_nombre',
+            'unidad_acceso', 'unidad_acceso_nombre',
+            'empleo', 'empleo_nombre', 'tip', 'estado', 'tipo_usuario'
+        ]
