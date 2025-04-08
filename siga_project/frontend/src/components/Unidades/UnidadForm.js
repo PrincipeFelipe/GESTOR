@@ -4,50 +4,61 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  TextField,
   Button,
+  TextField,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
-  IconButton,
+  Grid,
+  Typography,
   Box
 } from '@mui/material';
-import { Close as CloseIcon } from '@mui/icons-material';
 
 const UnidadForm = ({ open, onClose, unidad, unidades, onSave }) => {
   const [formData, setFormData] = useState({
     id: null,
+    cod_unidad: '',
     nombre: '',
-    id_padre: null
+    id_padre: '',
+    tipo_unidad: 'PUESTO',
+    descripcion: ''
   });
+  
   const [errors, setErrors] = useState({});
-
+  
   useEffect(() => {
-    if (unidad) {
+    if (open && unidad) {
       setFormData({
         id: unidad.id,
+        cod_unidad: unidad.cod_unidad || '',
         nombre: unidad.nombre || '',
-        id_padre: unidad.id_padre || null
+        id_padre: unidad.id_padre || '',
+        tipo_unidad: unidad.tipo_unidad || 'PUESTO',
+        descripcion: unidad.descripcion || ''
       });
-    } else {
+    } else if (open) {
+      // Reset para un nuevo formulario
       setFormData({
         id: null,
+        cod_unidad: '', // Este campo ahora se deja vacío para nuevas unidades
         nombre: '',
-        id_padre: null
+        id_padre: '',
+        tipo_unidad: 'PUESTO',
+        descripcion: ''
       });
     }
+    // Resetear errores al abrir el formulario
     setErrors({});
-  }, [unidad, open]);
-
+  }, [open, unidad]);
+  
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData({
       ...formData,
       [name]: value
     });
-    
-    // Limpiar error cuando se modifica el campo
+    // Limpiar errores cuando el usuario cambia un campo
     if (errors[name]) {
       setErrors({
         ...errors,
@@ -55,121 +66,148 @@ const UnidadForm = ({ open, onClose, unidad, unidades, onSave }) => {
       });
     }
   };
-
-  const validate = () => {
+  
+  const validateForm = () => {
     const newErrors = {};
-    
     if (!formData.nombre.trim()) {
-      newErrors.nombre = 'El nombre es obligatorio';
+      newErrors.nombre = "El nombre es obligatorio";
     }
     
-    // Verificar que una unidad no pueda ser su propio padre
-    // o que no se creen ciclos en la jerarquía
-    if (formData.id && formData.id_padre) {
-      // Verificar si la unidad seleccionada como padre es la misma unidad
-      if (formData.id === formData.id_padre) {
-        newErrors.id_padre = 'Una unidad no puede ser su propio padre';
-      }
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return false;
     }
     
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    return true;
   };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    
-    if (validate()) {
-      // Crear un objeto nuevo sin propiedades undefined
-      const unidadToSave = {
-        ...(formData.id && { id: formData.id }), // Solo incluir ID si existe
-        nombre: formData.nombre,
+  
+  const handleSubmit = () => {
+    if (validateForm()) {
+      // Preparar los datos para enviar al servidor
+      const dataToSubmit = {
+        ...formData,
         id_padre: formData.id_padre || null
       };
       
-      onSave(unidadToSave);
+      // Si estamos creando una nueva unidad, eliminar el cod_unidad para que el backend lo genere
+      if (!formData.id) {
+        delete dataToSubmit.cod_unidad;
+      }
+      
+      console.log("Datos a enviar:", dataToSubmit);
+      onSave(dataToSubmit);
     }
   };
-
+  
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>
-        {unidad ? 'Editar Unidad' : 'Nueva Unidad'}
-        <IconButton
-          aria-label="close"
-          onClick={onClose}
-          sx={{
-            position: 'absolute',
-            right: 8,
-            top: 8,
-            color: (theme) => theme.palette.grey[500],
-          }}
-        >
-          <CloseIcon />
-        </IconButton>
+        {formData.id ? 'Editar Unidad' : 'Nueva Unidad'}
       </DialogTitle>
-      <form onSubmit={handleSubmit}>
-        <DialogContent dividers>
-          <Box sx={{ pt: 1 }}>
+      
+      <DialogContent>
+        <Grid container spacing={2} sx={{ mt: 1 }}>
+          <Grid item xs={12}>
             <TextField
+              fullWidth
+              label="Nombre"
               name="nombre"
-              label="Nombre de la unidad"
               value={formData.nombre}
               onChange={handleChange}
-              fullWidth
-              required
               error={!!errors.nombre}
               helperText={errors.nombre}
-              margin="normal"
+              required
             />
-            
-            {unidad && unidad.cod_unidad && (
-              <TextField
-                label="Código jerárquico"
-                value={unidad.cod_unidad}
-                fullWidth
-                margin="normal"
-                disabled
-                InputProps={{
-                  readOnly: true,
-                }}
-                helperText="Este código se genera automáticamente basado en la jerarquía"
-              />
-            )}
-            
-            <FormControl fullWidth margin="normal">
-              <InputLabel id="id-padre-label">Unidad superior</InputLabel>
+          </Grid>
+          
+          <Grid item xs={12}>
+            <FormControl fullWidth>
+              <InputLabel id="tipo-unidad-label">Tipo de Unidad</InputLabel>
               <Select
-                labelId="id-padre-label"
+                labelId="tipo-unidad-label"
+                name="tipo_unidad"
+                value={formData.tipo_unidad}
+                onChange={handleChange}
+                label="Tipo de Unidad"
+              >
+                <MenuItem value="DIRECCION">Dirección General</MenuItem>
+                <MenuItem value="ZONA">Zona</MenuItem>
+                <MenuItem value="COMANDANCIA">Comandancia</MenuItem>
+                <MenuItem value="COMPANIA">Compañía</MenuItem>
+                <MenuItem value="PUESTO">Puesto</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
+          
+          <Grid item xs={12}>
+            <FormControl fullWidth>
+              <InputLabel id="unidad-padre-label">Unidad Superior</InputLabel>
+              <Select
+                labelId="unidad-padre-label"
                 name="id_padre"
                 value={formData.id_padre || ''}
                 onChange={handleChange}
-                label="Unidad superior"
+                label="Unidad Superior"
               >
-                <MenuItem value="">
-                  <em>Ninguna (Unidad principal)</em>
-                </MenuItem>
+                <MenuItem value="">Ninguna (Unidad Raíz)</MenuItem>
                 {unidades
-                  .filter(u => u.id !== formData.id) // No mostrar la unidad actual como padre
-                  .map((u) => (
+                  .filter(u => u.id !== formData.id) // Evitar selección circular
+                  .map(u => (
                     <MenuItem key={u.id} value={u.id}>
-                      {u.nombre}
+                      {u.cod_unidad} - {u.nombre}
                     </MenuItem>
                   ))
                 }
               </Select>
             </FormControl>
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={onClose} color="inherit">
-            Cancelar
-          </Button>
-          <Button type="submit" variant="contained" color="primary">
-            {unidad ? 'Actualizar' : 'Crear'}
-          </Button>
-        </DialogActions>
-      </form>
+          </Grid>
+          
+          <Grid item xs={12}>
+            <TextField
+              fullWidth
+              label="Descripción"
+              name="descripcion"
+              value={formData.descripcion}
+              onChange={handleChange}
+              multiline
+              rows={3}
+            />
+          </Grid>
+
+          {/* Mostrar el código solo si estamos editando una unidad existente */}
+          {formData.id && (
+            <Grid item xs={12}>
+              <TextField
+                name="cod_unidad"
+                label="Código de Unidad"
+                value={formData.cod_unidad}
+                onChange={handleChange}
+                fullWidth
+                disabled={true} // Siempre deshabilitado, ya que se genera automáticamente
+                helperText="Generado automáticamente"
+              />
+            </Grid>
+          )}
+          
+          {/* Mensaje informativo para nuevas unidades */}
+          {!formData.id && (
+            <Grid item xs={12}>
+              <Box sx={{ p: 2, bgcolor: 'background.paper', borderRadius: 1 }}>
+                <Typography variant="body2" color="text.secondary">
+                  El código de unidad se generará automáticamente después de crear la unidad.
+                </Typography>
+              </Box>
+            </Grid>
+          )}
+        </Grid>
+      </DialogContent>
+      
+      <DialogActions>
+        <Button onClick={onClose}>Cancelar</Button>
+        <Button onClick={handleSubmit} variant="contained" color="primary">
+          {formData.id ? 'Actualizar' : 'Crear'}
+        </Button>
+      </DialogActions>
     </Dialog>
   );
 };

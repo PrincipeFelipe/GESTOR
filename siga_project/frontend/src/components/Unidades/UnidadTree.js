@@ -31,9 +31,25 @@ const UnidadTree = () => {
   const fetchUnidades = async () => {
     try {
       setLoading(true);
-      const response = await unidadesService.getAll(1, 1000);
-      const unidadesData = response.results || response;
+      
+      // Solicitar todas las unidades sin paginación
+      const response = await unidadesService.getAll(1, 1000, true);
+      
+      // Procesar los datos según la estructura de respuesta
+      let unidadesData;
+      
+      if (response && Array.isArray(response)) {
+        unidadesData = response;
+      } else if (response && Array.isArray(response.results)) {
+        unidadesData = response.results;
+      } else {
+        unidadesData = [];
+      }
+      
+      // Establecer los datos de unidades
       setUnidades(unidadesData);
+      
+      console.log("Unidades cargadas:", unidadesData.length);
     } catch (error) {
       console.error("Error al cargar unidades:", error);
     } finally {

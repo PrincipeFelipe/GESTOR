@@ -1,16 +1,56 @@
 from django.db import models
 from django.dispatch import receiver
 from django.db.models.signals import post_save
+from django.utils import timezone
 import uuid
 
 class Unidad(models.Model):
+    # Definir las constantes para tipos de unidad
+    TIPO_DIRECCION = 'DIRECCION'
+    TIPO_ZONA = 'ZONA'
+    TIPO_COMANDANCIA = 'COMANDANCIA'
+    TIPO_COMPANIA = 'COMPANIA'
+    TIPO_PUESTO = 'PUESTO'
+    
+    TIPO_CHOICES = [
+        (TIPO_DIRECCION, 'Dirección General'),
+        (TIPO_ZONA, 'Zona'),
+        (TIPO_COMANDANCIA, 'Comandancia'),
+        (TIPO_COMPANIA, 'Compañía'),
+        (TIPO_PUESTO, 'Puesto'),
+    ]
+    
     nombre = models.CharField(max_length=255)
     id_padre = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='subunidades')
     cod_unidad = models.CharField(max_length=50, unique=True, help_text="Código jerárquico correlativo")
     nivel = models.IntegerField(default=1, help_text="Nivel jerárquico (calculado automáticamente)")
     
+    # Nuevo campo para el tipo de unidad
+    tipo_unidad = models.CharField(
+        max_length=15,
+        choices=TIPO_CHOICES,
+        default=TIPO_PUESTO,
+        help_text="Tipo/categoría de la unidad"
+    )
+    
+    # Campos adicionales útiles
+    descripcion = models.TextField(blank=True, null=True, verbose_name='Descripción')
+    fecha_creacion = models.DateTimeField(auto_now_add=True, verbose_name='Fecha de Creación')
+    fecha_actualizacion = models.DateTimeField(auto_now=True, verbose_name='Fecha de Actualización')
+    
     def save(self, *args, **kwargs):
         is_new = self.pk is None  # Verificar si es un objeto nuevo
+        
+        # Verificar si es una actualización sin código de unidad
+        if not is_new and not self.cod_unidad:
+            # Si es una actualización sin código, recuperar el valor anterior
+            try:
+                old_unidad = Unidad.objects.get(pk=self.pk)
+                self.cod_unidad = old_unidad.cod_unidad
+            except Unidad.DoesNotExist:
+                # Si no existe, generar un código temporal
+                self.cod_unidad = f"temp_{uuid.uuid4()}"
+        
         old_parent = None
         
         # Si ya existe, guardar el padre anterior
@@ -102,6 +142,11 @@ class Unidad(models.Model):
     
     def __str__(self):
         return f"{self.nombre} ({self.cod_unidad})"
+    
+    # Propiedad para obtener la representación amigable del tipo de unidad
+    @property
+    def tipo_unidad_display(self):
+        return dict(self.TIPO_CHOICES).get(self.tipo_unidad, self.tipo_unidad)
     
     class Meta:
         verbose_name = 'Unidad'

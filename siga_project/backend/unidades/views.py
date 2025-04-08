@@ -10,6 +10,23 @@ class UnidadViewSet(viewsets.ModelViewSet):
     queryset = Unidad.objects.all()
     serializer_class = UnidadSerializer
 
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        
+        # Aplicar filtros si es necesario
+        # ... tu código de filtrado existente ...
+        
+        return queryset
+        
+    def list(self, request, *args, **kwargs):
+        # Verificar si se solicita sin paginación
+        pagination_param = request.query_params.get('pagination', 'true')
+        if pagination_param.lower() == 'false':
+            # Desactivar paginación para esta solicitud
+            self.pagination_class = None
+        
+        return super().list(request, *args, **kwargs)
+
     def create(self, request, *args, **kwargs):
         try:
             # Eliminar cod_unidad si viene en la petición (lo generamos automáticamente)
@@ -51,18 +68,18 @@ class UnidadViewSet(viewsets.ModelViewSet):
 
     def update(self, request, *args, **kwargs):
         try:
-            # Eliminar cod_unidad si viene en la petición (no se puede modificar directamente)
-            if 'cod_unidad' in request.data:
-                mutable_data = request.data.copy()
-                mutable_data.pop('cod_unidad', None)
-                partial = kwargs.pop('partial', False)
-                instance = self.get_object()
-                serializer = self.get_serializer(instance, data=mutable_data, partial=partial)
-            else:
-                partial = kwargs.pop('partial', False)
-                instance = self.get_object()
-                serializer = self.get_serializer(instance, data=request.data, partial=partial)
-                
+            # Obtener la instancia existente
+            instance = self.get_object()
+            
+            # Preparar los datos para la actualización
+            mutable_data = request.data.copy() if hasattr(request.data, 'copy') else dict(request.data)
+            
+            # Aquí está el cambio clave: NO removemos cod_unidad, sino que usamos el existente si no viene
+            if 'cod_unidad' not in mutable_data or not mutable_data['cod_unidad']:
+                mutable_data['cod_unidad'] = instance.cod_unidad
+                    
+            partial = kwargs.pop('partial', False)
+            serializer = self.get_serializer(instance, data=mutable_data, partial=partial)
             serializer.is_valid(raise_exception=True)
             
             # Comprobar si ha cambiado el padre

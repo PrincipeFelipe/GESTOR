@@ -129,6 +129,18 @@ const UnidadesList = () => {
     return unidadPadre ? unidadPadre.nombre : 'Unidad no encontrada';
   };
 
+  // Función auxiliar para obtener el tipo de unidad
+  const getTipoDisplay = (tipo) => {
+    const tipos = {
+      'DIRECCION': 'Dirección General',
+      'ZONA': 'Zona',
+      'COMANDANCIA': 'Comandancia',
+      'COMPANIA': 'Compañía',
+      'PUESTO': 'Puesto'
+    };
+    return tipos[tipo] || tipo;
+  };
+
   // Función para determinar si una unidad tiene hijos
   const hasChildren = (unidadId) => {
     return unidades.some(u => u.id_padre === unidadId);
@@ -155,76 +167,45 @@ const UnidadesList = () => {
     setTimeout(() => setCurrentUnidad(null), 300);
   };
 
-  // Modificar la función handleSaveUnidad para manejar la actualización de códigos jerárquicos
-
   const handleSaveUnidad = async (unidadData) => {
     try {
+      console.log("Guardando unidad:", unidadData);
+      
+      // Solo verificar cod_unidad para actualizaciones, no para creaciones nuevas
       if (unidadData.id) {
-        // Actualizar unidad existente
-        const unidadExistente = unidades.find(u => u.id === unidadData.id);
-        const cambioJerarquico = unidadExistente && unidadExistente.id_padre !== unidadData.id_padre;
-        
-        // Si hay cambio jerárquico, mostrar aviso antes de continuar
-        if (cambioJerarquico) {
-          // Contar unidades dependientes que se verán afectadas
-          const unidadesDependientes = contarUnidadesDependientes(unidadData.id);
-          
-          if (unidadesDependientes > 0) {
-            setConfirmDialog({
+        // Si es una actualización y no tiene código, buscar el código actual
+        if (!unidadData.cod_unidad) {
+          const unidadActual = unidades.find(u => u.id === unidadData.id);
+          if (unidadActual) {
+            unidadData.cod_unidad = unidadActual.cod_unidad;
+          } else {
+            // Si no se puede recuperar el código, mostrar error solo para actualizaciones
+            setSnackbar({
               open: true,
-              title: 'Cambio en la estructura jerárquica',
-              content: `Al cambiar la unidad superior, se actualizará el código jerárquico de esta unidad y de sus ${unidadesDependientes} unidades dependientes. ¿Desea continuar?`,
-              onConfirm: async () => {
-                setConfirmDialog({...confirmDialog, open: false});
-                await realizarActualizacion(unidadData, true);
-              },
-              onCancel: () => {
-                setConfirmDialog({...confirmDialog, open: false});
-              }
+              message: 'El código de unidad es obligatorio para actualizar',
+              severity: 'error'
             });
             return;
           }
         }
         
-        // Continuar con la actualización normal
+        // Ahora realizar la actualización
         await realizarActualizacion(unidadData);
       } else {
-        // Crear nueva unidad
+        // Para creación nueva, NO verificar cod_unidad (se generará automáticamente)
         const response = await unidadesService.create(unidadData);
-        fetchUnidades(); // Recargar para mantener la consistencia
-        
-        setSnackbar({
-          open: true,
-          message: 'Unidad creada correctamente',
-          severity: 'success'
-        });
+        handleCreateSuccess(response);
       }
       
-      // Cerrar formulario
       handleCloseForm();
+      await fetchUnidades();
+      
     } catch (error) {
       console.error("Error al guardar unidad:", error);
-      
-      // Mostrar mensaje específico según el error
-      let errorMessage = 'Error al guardar los datos de la unidad';
-      let severity = 'error';
-      
-      // Extraer el mensaje de error del objeto de error
-      if (error.message) {
-        if (error.message.includes("Duplicate entry") && error.message.includes("cod_unidad")) {
-          errorMessage = "Ya existe una unidad con el mismo código jerárquico. Intente nuevamente.";
-        } else if (error.message.includes("límite de 9 unidades")) {
-          errorMessage = "Se ha alcanzado el límite de unidades para este nivel jerárquico.";
-        } else {
-          // Usar el mensaje de error original si existe
-          errorMessage = error.message;
-        }
-      }
-      
       setSnackbar({
         open: true,
-        message: errorMessage,
-        severity: severity
+        message: `Error al guardar unidad: ${error.message}`,
+        severity: 'error'
       });
     }
   };
@@ -256,6 +237,29 @@ const UnidadesList = () => {
         severity: 'success'
       });
     }
+  };
+
+  // Añade esta función después de la definición de realizarActualizacion
+  // y antes de contarUnidadesDependientes
+  const handleCreateSuccess = (response) => {
+    // Agregar la nueva unidad a la lista con un efecto de resaltado
+    const nuevaUnidad = { ...response.data, _highlight: true };
+    
+    // Si estamos en la primera página, añadir la unidad a la lista actual
+    if (page === 0) {
+      // Añadir al principio para que sea más visible
+      setUnidades([nuevaUnidad, ...unidades.slice(0, rowsPerPage - 1)]);
+    }
+    
+    // Incrementar el contador total
+    setTotalRows(prevTotal => prevTotal + 1);
+    
+    // Mostrar mensaje de éxito
+    setSnackbar({
+      open: true,
+      message: 'Unidad creada correctamente',
+      severity: 'success'
+    });
   };
 
   // Función recursiva para contar cuántas unidades dependen de una unidad dada
@@ -368,13 +372,14 @@ const UnidadesList = () => {
   // Función para exportar a CSV
   const handleExportCSV = () => {
     // Definir cabeceras
-    const headers = ['ID', 'Código', 'Nombre', 'Unidad Superior']; // Añadido "Código"
+    const headers = ['ID', 'Código', 'Nombre', 'Tipo de Unidad', 'Unidad Superior']; // Añadido "Tipo de Unidad"
     
     // Preparar datos para CSV
     const csvData = unidades.map(unidad => [
       unidad.id,
-      unidad.cod_unidad, // Añadido código
+      unidad.cod_unidad,
       unidad.nombre,
+      unidad.tipo_unidad_display || getTipoDisplay(unidad.tipo_unidad), // Añadido tipo de unidad
       getNombreUnidadPadre(unidad.id_padre)
     ]);
     
@@ -513,19 +518,9 @@ const UnidadesList = () => {
               <TableHead>
                 <TableRow>
                   <TableCell>ID</TableCell>
-                  <TableCell 
-                    sortDirection={orderBy === 'cod_unidad' ? order : false}
-                    onClick={() => handleRequestSort('cod_unidad')}
-                    style={{ cursor: 'pointer' }}
-                  >
-                    Código
-                    {orderBy === 'cod_unidad' && (
-                      <Box component="span" sx={{ ml: 1, color: 'text.secondary' }}>
-                        {order === 'asc' ? '↑' : '↓'}
-                      </Box>
-                    )}
-                  </TableCell>
+                  <TableCell>Código</TableCell>
                   <TableCell>Nombre</TableCell>
+                  <TableCell>Tipo de Unidad</TableCell>
                   <TableCell>Unidad Superior</TableCell>
                   <TableCell align="right">Acciones</TableCell>
                 </TableRow>
@@ -533,7 +528,7 @@ const UnidadesList = () => {
               <TableBody>
                 {unidades.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} align="center">No hay unidades disponibles</TableCell>
+                    <TableCell colSpan={6} align="center">No hay unidades disponibles</TableCell>
                   </TableRow>
                 ) : (
                   unidades.map((unidad) => (
@@ -551,6 +546,7 @@ const UnidadesList = () => {
                       <TableCell>{unidad.id}</TableCell>
                       <TableCell>{unidad.cod_unidad}</TableCell>
                       <TableCell>{unidad.nombre}</TableCell>
+                      <TableCell>{unidad.tipo_unidad_display || getTipoDisplay(unidad.tipo_unidad)}</TableCell>
                       <TableCell>{getNombreUnidadPadre(unidad.id_padre)}</TableCell>
                       <TableCell align="right">
                         <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
@@ -616,7 +612,7 @@ const UnidadesList = () => {
             </Table>
           </TableContainer>
           <TablePagination
-            rowsPerPageOptions={[5, 10, 25]}
+            rowsPerPageOptions={[5, 10, 25, 50]}
             component="div"
             count={totalRows}
             rowsPerPage={rowsPerPage}
@@ -693,6 +689,12 @@ const UnidadesList = () => {
                   <Grid item xs={6}>
                     <Typography variant="body2" color="textSecondary">Unidad Superior:</Typography>
                     <Typography variant="body1">{getNombreUnidadPadre(selectedUnidad.id_padre)}</Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="body2" color="textSecondary">Tipo de Unidad:</Typography>
+                    <Typography variant="body1" sx={{ mb: 1 }}>
+                      {selectedUnidad.tipo_unidad_display || getTipoDisplay(selectedUnidad.tipo_unidad)}
+                    </Typography>
                   </Grid>
                 </Grid>
               </Paper>
