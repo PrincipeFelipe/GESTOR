@@ -78,6 +78,23 @@ class Procedimiento(models.Model):
         """Determina si este procedimiento es el final de un proceso (no tiene procedimiento relacionado)"""
         return self.procedimiento_relacionado is None
     
+    # Método para verificar aplicabilidad
+    def es_aplicable_a_unidad(self, unidad):
+        """
+        Determina si este procedimiento es aplicable a una unidad específica,
+        teniendo en cuenta los casos especiales de unidades híbridas.
+        """
+        # Si el procedimiento es para ZONA
+        if self.nivel == 'ZONA':
+            return unidad.tipo_unidad in ['ZONA', 'ZONA_COMANDANCIA']
+            
+        # Si el procedimiento es para COMANDANCIA
+        if self.nivel == 'COMANDANCIA':
+            return unidad.tipo_unidad in ['COMANDANCIA', 'ZONA_COMANDANCIA']
+            
+        # Para otros niveles, comparación directa
+        return self.nivel == unidad.tipo_unidad
+    
     class Meta:
         verbose_name = "Procedimiento"
         verbose_name_plural = "Procedimientos"

@@ -133,6 +133,7 @@ const UnidadForm = ({ open, onClose, unidad, unidades, onSave }) => {
                 <MenuItem value="DIRECCION">Dirección General</MenuItem>
                 <MenuItem value="ZONA">Zona</MenuItem>
                 <MenuItem value="COMANDANCIA">Comandancia</MenuItem>
+                <MenuItem value="ZONA_COMANDANCIA">Zona-Comandancia</MenuItem> {/* Nuevo tipo híbrido */}
                 <MenuItem value="COMPANIA">Compañía</MenuItem>
                 <MenuItem value="PUESTO">Puesto</MenuItem>
               </Select>

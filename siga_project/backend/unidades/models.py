@@ -9,6 +9,7 @@ class Unidad(models.Model):
     TIPO_DIRECCION = 'DIRECCION'
     TIPO_ZONA = 'ZONA'
     TIPO_COMANDANCIA = 'COMANDANCIA'
+    TIPO_ZONA_COMANDANCIA = 'ZONA_COMANDANCIA'  # Nuevo tipo híbrido
     TIPO_COMPANIA = 'COMPANIA'
     TIPO_PUESTO = 'PUESTO'
     
@@ -16,6 +17,7 @@ class Unidad(models.Model):
         (TIPO_DIRECCION, 'Dirección General'),
         (TIPO_ZONA, 'Zona'),
         (TIPO_COMANDANCIA, 'Comandancia'),
+        (TIPO_ZONA_COMANDANCIA, 'Zona-Comandancia'),  # Opción híbrida
         (TIPO_COMPANIA, 'Compañía'),
         (TIPO_PUESTO, 'Puesto'),
     ]
@@ -27,7 +29,7 @@ class Unidad(models.Model):
     
     # Nuevo campo para el tipo de unidad
     tipo_unidad = models.CharField(
-        max_length=15,
+        max_length=30,
         choices=TIPO_CHOICES,
         default=TIPO_PUESTO,
         help_text="Tipo/categoría de la unidad"

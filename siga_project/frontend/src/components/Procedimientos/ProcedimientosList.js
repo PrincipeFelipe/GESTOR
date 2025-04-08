@@ -39,7 +39,7 @@ import api from '../../assets/services/api';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
-const ProcedimientosList = () => {
+  const ProcedimientosList = () => {
   const navigate = useNavigate();
   const { isAdmin, user } = usePermissions();
   
@@ -56,6 +56,7 @@ const ProcedimientosList = () => {
   const [openSnackbar, setOpenSnackbar] = useState(false);
   const [alertMessage, setAlertMessage] = useState('');
   const [alertSeverity, setAlertSeverity] = useState('success');
+  const [unidadActual, setUnidadActual] = useState(null); // Estado para la unidad actual
   
   useEffect(() => {
     const fetchTipos = async () => {
@@ -172,6 +173,22 @@ const ProcedimientosList = () => {
         return <Chip label={estado} size="small" />;
     }
   };
+
+  const procedimientosAplicables = procedimientos.filter(proc => {
+    // Si el usuario es SuperAdmin, mostrar todos los procedimientos
+    if (user && user.tipo_usuario === 'SuperAdmin') {
+      return true;
+    }
+    
+    // Si la unidad actual es de tipo híbrido
+    if (unidadActual?.tipo_unidad === 'ZONA_COMANDANCIA') {
+      // Mostrar procedimientos tanto de nivel ZONA como COMANDANCIA
+      return proc.nivel === 'ZONA' || proc.nivel === 'COMANDANCIA' || proc.nivel === 'ZONA_COMANDANCIA';
+    }
+    
+    // Para otras unidades, filtrado normal
+    return proc.nivel === unidadActual?.tipo_unidad;
+  });
   
   return (
     <Box>
@@ -288,8 +305,8 @@ const ProcedimientosList = () => {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {procedimientos.length > 0 ? (
-                    procedimientos.map((procedimiento) => (
+                  {procedimientosAplicables.length > 0 ? (
+                    procedimientosAplicables.map((procedimiento) => (
                       <TableRow key={procedimiento.id} hover>
                         <TableCell>{procedimiento.nombre}</TableCell>
                         <TableCell>{procedimiento.tipo_nombre}</TableCell>
