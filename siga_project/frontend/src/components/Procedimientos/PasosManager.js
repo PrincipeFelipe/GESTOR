@@ -723,7 +723,13 @@ const PasosManager = () => {
     try {
       // Usar la función específica para documentos generales
       const response = await procedimientosService.getDocumentosGenerales(procedimientoId);
-      setDocumentosGenerales(response.data);
+      
+      // Solo mostrar documentos que no pertenecen a pasos y que están en la carpeta general
+      const documentosGeneralesFiltrados = response.data.filter(doc => 
+        doc.archivo_url && doc.archivo_url.includes('/general/')
+      );
+      
+      setDocumentosGenerales(documentosGeneralesFiltrados);
     } catch (error) {
       console.error('Error al cargar documentos generales:', error);
       setSnackbar({

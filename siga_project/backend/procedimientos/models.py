@@ -107,23 +107,46 @@ class Paso(models.Model):
 import os
 from django.utils.text import slugify
 from datetime import datetime
+from django.conf import settings
 
 def documento_upload_path(instance, filename):
     """Define la ruta donde se guardarán los documentos"""
-    # Primero comprobamos si el documento se está guardando desde DocumentoPaso
-    # Podemos detectarlo verificando si el documento ya está siendo procesado por DocumentoPaso.save()
-    if hasattr(instance, '_saving_from_documento_paso') and instance._saving_from_documento_paso:
-        # Si proviene de DocumentoPaso, ya tenemos el paso y el procedimiento
-        paso_id = instance._paso_id
-        procedimiento_id = instance._procedimiento_id
-        return f'procedimientos/{procedimiento_id}/paso_{paso_id}/{filename}'
+    import os
+    from django.conf import settings
     
-    # Caso habitual para documentos generales del procedimiento
-    if instance.procedimiento:
-        return f'procedimientos/{instance.procedimiento.id}/general/{filename}'
+    # Sanitizar el nombre del archivo para evitar problemas
+    filename = os.path.basename(filename)
+    
+    if hasattr(instance, '_para_paso') and instance._para_paso:
+        # Ruta para documentos de pasos (ahora usando una carpeta común)
+        relative_path = f'procedimientos/{instance._procedimiento_id}/pasos'
+        full_path = os.path.join(settings.MEDIA_ROOT, relative_path)
+        
+        # Crear las carpetas si no existen
+        os.makedirs(full_path, exist_ok=True)
+        
+        # Si tenemos información adicional del paso, añadirla al nombre del archivo
+        if hasattr(instance, '_paso_id') and instance._paso_id:
+            # Añadir prefijo al nombre del archivo con el ID del paso
+            nombre_base, extension = os.path.splitext(filename)
+            filename = f"{nombre_base}{extension}"
+        
+        return f'{relative_path}/{filename}'
+    
+    elif instance.procedimiento:
+        # Ruta para documentos generales
+        relative_path = f'procedimientos/{instance.procedimiento.id}/general'
+        full_path = os.path.join(settings.MEDIA_ROOT, relative_path)
+        
+        # Crear las carpetas si no existen
+        os.makedirs(full_path, exist_ok=True)
+        
+        return f'{relative_path}/{filename}'
     
     # Caso para documentos sin procedimiento asociado
-    return f'procedimientos/otros/{filename}'
+    other_path = 'procedimientos/otros'
+    os.makedirs(os.path.join(settings.MEDIA_ROOT, other_path), exist_ok=True)
+    return f'{other_path}/{filename}'
 
 class Documento(models.Model):
     nombre = models.CharField(max_length=200)
@@ -194,27 +217,31 @@ class DocumentoPaso(models.Model):
                 nuevo_doc.procedimiento = original_doc.procedimiento
                 nuevo_doc.extension = original_doc.extension
                 
-                # Marcar el documento para que documento_upload_path sepa que va en carpeta de paso
-                nuevo_doc._saving_from_documento_paso = True
+                # Marcar el documento para que documento_upload_path sepa que va en carpeta de pasos
+                nuevo_doc._para_paso = True
                 nuevo_doc._paso_id = self.paso.numero
                 nuevo_doc._procedimiento_id = self.paso.procedimiento.id
                 
                 # Guardar primero sin archivo para crear el registro
                 nuevo_doc.save()
                 
-                # Ahora abrir y copiar el contenido del archivo original
+                # Abrir y copiar el contenido del archivo original
                 original_doc.archivo.open()
                 content = original_doc.archivo.read()
                 original_doc.archivo.close()
                 
-                # Obtener el nombre del archivo original
-                file_name = os.path.basename(original_doc.archivo.name)
+                # Obtener el nombre del archivo original y añadir prefijo del paso
+                nombre_base, extension = os.path.splitext(os.path.basename(original_doc.archivo.name))
+                nuevo_nombre = f"{nombre_base}{extension}"
                 
-                # Guardar el archivo en la ubicación del nuevo documento
-                nuevo_doc.archivo.save(file_name, ContentFile(content), save=True)
+                # Guardar el archivo en la ubicación común para todos los pasos
+                nuevo_doc.archivo.save(nuevo_nombre, ContentFile(content), save=True)
                 
-                # Actualizar la referencia al documento
+                # Reemplazar la referencia al documento original con el nuevo
                 self.documento = nuevo_doc
+                
+                # En este punto, el archivo original en 'general' debería eliminarse en la vista
+                
             elif original_doc.url:
                 # Si es una URL, crear también una copia para mantener la organización
                 nuevo_doc = Documento.objects.create(

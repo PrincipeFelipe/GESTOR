@@ -81,8 +81,15 @@ const PasoDocumentosManager = ({
     try {
       // Usar la nueva función específica para documentos de paso
       const docResponse = await procedimientosService.getDocumentosPorPaso(pasoId);
-      console.log("Documentos desde endpoint específico:", docResponse.data);
-      setDocumentosPaso(docResponse.data);
+      
+      // Con la nueva estructura, sólo necesitamos verificar que estén en la carpeta 'pasos'
+      const documentosPasoFiltrados = docResponse.data.filter(docPaso => 
+        !docPaso.documento_detalle.archivo_url || 
+        docPaso.documento_detalle.archivo_url.includes('/pasos/')
+      );
+      
+      console.log("Documentos de paso filtrados:", documentosPasoFiltrados);
+      setDocumentosPaso(documentosPasoFiltrados);
     } catch (error) {
       console.error("Error al cargar documentos del paso:", error);
       setSnackbar({
@@ -111,7 +118,8 @@ const PasoDocumentosManager = ({
       const documentoData = {
         ...data,
         procedimiento: procedimientoId,
-        paso: pasoId  // Importante: asegurar que se envía el ID del paso
+        paso: pasoId,  // Importante: asegurar que se envía el ID del paso
+        para_paso: true // Añadir este flag para indicar que es para un paso específico
       };
       
       if (data.id) {
