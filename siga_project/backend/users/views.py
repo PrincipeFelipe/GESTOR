@@ -20,7 +20,7 @@ class UserViewSet(viewsets.ModelViewSet):
     serializer_class = UserSerializer
     filter_backends = [filters.SearchFilter, DjangoFilterBackend, filters.OrderingFilter]
     search_fields = ['nombre', 'apellido1', 'apellido2', 'email', 'tip', 'ref']
-    filterset_fields = ['tipo_usuario', 'estado', 'unidad', 'unidad_destino', 'unidad_acceso', 'empleo']
+    filterset_fields = ['tipo_usuario', 'estado', 'unidad_destino', 'unidad_acceso', 'empleo']  # Eliminamos 'unidad'
     ordering_fields = ['nombre', 'apellido1', 'fecha_joined', 'tipo_usuario']
     
     def get_permissions(self):
@@ -28,13 +28,13 @@ class UserViewSet(viewsets.ModelViewSet):
         Establece permisos según la acción:
         - Lista, detalle: Administrador o SuperAdmin
         - Crear, actualizar, eliminar: Solo SuperAdmin
-        - Perfil, cambio de contraseña: Usuario autenticado
+        - Perfil, cambio de contraseña, me: Usuario autenticado
         """
         if self.action in ['list', 'retrieve']:
             return [IsSuperAdminOrAdmin()]
         elif self.action in ['create', 'update', 'partial_update', 'destroy']:
             return [IsSuperAdmin()]
-        # Para acciones como 'profile' y 'change_password'
+        # Para acciones como 'profile', 'me' y 'change_password'
         return [IsAuthenticated()]
     
     def get_serializer_class(self):
@@ -131,7 +131,7 @@ class UserViewSet(viewsets.ModelViewSet):
             'detail': f'Contraseña de {user.nombre} {user.apellido1} restablecida correctamente'
         }, status=status.HTTP_200_OK)
     
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
     def me(self, request):
         """
         Endpoint para obtener información del usuario actual, incluyendo permisos y unidades accesibles
@@ -206,24 +206,13 @@ class UserViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'], permission_classes=[IsSuperAdmin])
     def assign_units(self, request, pk=None):
         """
-        Asignar unidades a un usuario (principal, destino y acceso)
+        Asignar unidades a un usuario (destino y acceso)
         """
         user = self.get_object()
         
         # Obtener IDs de unidades del request
-        unidad_id = request.data.get('unidad')
         unidad_destino_id = request.data.get('unidad_destino')
         unidad_acceso_id = request.data.get('unidad_acceso')
-        
-        # Validar y asignar unidad principal
-        if unidad_id:
-            try:
-                user.unidad = Unidad.objects.get(id=unidad_id)
-            except Unidad.DoesNotExist:
-                return Response({'error': 'Unidad principal no encontrada'}, 
-                               status=status.HTTP_400_BAD_REQUEST)
-        else:
-            user.unidad = None
         
         # Validar y asignar unidad de destino
         if unidad_destino_id:
@@ -250,7 +239,6 @@ class UserViewSet(viewsets.ModelViewSet):
         
         return Response({
             'detail': f'Unidades asignadas correctamente a {user.nombre} {user.apellido1}',
-            'unidad': user.unidad.nombre if user.unidad else None,
             'unidad_destino': user.unidad_destino.nombre if user.unidad_destino else None,
             'unidad_acceso': user.unidad_acceso.nombre if user.unidad_acceso else None
         }, status=status.HTTP_200_OK)

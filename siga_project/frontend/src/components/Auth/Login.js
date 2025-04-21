@@ -39,67 +39,18 @@ const Login = () => {
   }, [location]);
 
   const handleLogin = async (e) => {
-    if (e) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-    
-    // Validación
-    if (!tip || !password) {
-      setErrorMsg('TIP y contraseña son requeridos');
-      setOpenSnackbar(true);
-      setIsLoading(false);
-      return false;
-    }
+    e.preventDefault();
+    setIsLoading(true);
+    setErrorMsg('');
     
     try {
-      setIsLoading(true);
-      setErrorMsg('');
-      
-      // Llamar a la función login del contexto
-      const result = await login(tip, password);
-      
-      if (result && result.success) {
-        console.log('Login exitoso, usuario:', result.user);
-        
-        // Usar setTimeout para asegurar que el estado se actualiza antes de navegar
-        setTimeout(() => {
-          console.log("Redirigiendo a dashboard...");
-          navigate('/dashboard', { replace: true });
-        }, 100);
-        
-        return true;
-      } else {
-        throw new Error('No se pudo iniciar sesión correctamente');
-      }
-    } catch (error) {
-      console.error("Error en el inicio de sesión:", error);
-      
-      // Extraer mensaje de error amigable
-      if (error.response && error.response.data) {
-        if (typeof error.response.data === 'object') {
-          // Formatear errores del objeto
-          const errorMessages = Object.keys(error.response.data)
-            .map(key => {
-              const msgs = error.response.data[key];
-              if (Array.isArray(msgs)) {
-                return `${key}: ${msgs.join(', ')}`;
-              }
-              return `${key}: ${msgs}`;
-            })
-            .join('; ');
-          setErrorMsg(errorMessages);
-        } else if (error.response.data.detail) {
-          setErrorMsg(error.response.data.detail);
-        } else {
-          setErrorMsg('Credenciales inválidas');
-        }
-      } else {
-        setErrorMsg('Error al conectar con el servidor');
-      }
-      
-      setOpenSnackbar(true);
-      return false;
+      console.log('Intentando iniciar sesión...');
+      await login({ tip, password });
+      console.log('Inicio de sesión exitoso');
+      navigate('/dashboard');
+    } catch (err) {
+      console.error('Error en el inicio de sesión:', err);
+      setErrorMsg(err.message || 'Error al iniciar sesión. Por favor intente nuevamente.');
     } finally {
       setIsLoading(false);
     }

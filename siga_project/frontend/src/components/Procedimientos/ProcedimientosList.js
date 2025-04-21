@@ -39,7 +39,7 @@ import api from '../../assets/services/api';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
-  const ProcedimientosList = () => {
+const ProcedimientosList = () => {
   const navigate = useNavigate();
   const { isAdmin, user } = usePermissions();
   
@@ -120,6 +120,16 @@ import { es } from 'date-fns/locale';
     
     fetchProcedimientos();
   }, [page, rowsPerPage, searchTerm, filtroTipo, filtroEstado, filtroNivel]);
+  
+  useEffect(() => {
+    if (user && user.unidad_destino) {
+      setUnidadActual({
+        id: user.unidad_destino,
+        nombre: user.unidad_destino_nombre,
+        tipo_unidad: user.unidad_destino_tipo
+      });
+    }
+  }, [user]);
   
   const handleChangePage = (event, newPage) => {
     setPage(newPage);

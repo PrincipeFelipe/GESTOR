@@ -9,30 +9,10 @@ import {
   Grid,
   Divider,
   Box,
-  Paper,
-  Chip,
-  Avatar,
-  CircularProgress,
-  IconButton,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemIcon,
-  Card,
-  CardContent
+  TextField,
+  IconButton
 } from '@mui/material';
-import {
-  Close as CloseIcon,
-  Email as EmailIcon,
-  Phone as PhoneIcon,
-  Business as BusinessIcon,
-  Person as PersonIcon,
-  Security as SecurityIcon,
-  AdminPanelSettings as AdminIcon,
-  Check as CheckIcon,
-  Clear as ClearIcon,
-  Badge as BadgeIcon
-} from '@mui/icons-material';
+import { Close as CloseIcon } from '@mui/icons-material';
 import api from '../../assets/services/api';
 
 const UserDetail = ({ open, onClose, user }) => {
@@ -109,313 +89,179 @@ const UserDetail = ({ open, onClose, user }) => {
     }, 300);
   };
   
-  // Obtener las iniciales para el avatar
-  const getInitials = () => {
-    if (!userData) return '';
-    
-    const firstInitial = userData.nombre ? userData.nombre.charAt(0) : '';
-    const lastInitial = userData.apellido1 ? userData.apellido1.charAt(0) : '';
-    
-    return `${firstInitial}${lastInitial}`.toUpperCase();
-  };
-  
-  // Obtener color para el tipo de usuario
-  const getUserTypeColor = (tipo) => {
-    switch (tipo) {
-      case 'SuperAdmin':
-        return 'error';
-      case 'Admin':
-        return 'warning';
-      case 'Gestor':
-        return 'info';
-      default:
-        return 'default';
-    }
-  };
-  
   if (!user) return null;
   
   return (
-    <Dialog
-      open={open}
-      onClose={handleClose}
-      maxWidth="md"
-      fullWidth
-      PaperProps={{ sx: { borderRadius: 2 } }}
-    >
-      <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Typography variant="h6">Detalles del Usuario</Typography>
-        <IconButton onClick={handleClose} size="small">
-          <CloseIcon />
-        </IconButton>
+    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+      <DialogTitle>
+        <Box display="flex" alignItems="center" justifyContent="space-between">
+          <Typography variant="h6">{user?.nombre} {user?.apellido1} {user?.apellido2 || ''}</Typography>
+          <IconButton onClick={onClose}>
+            <CloseIcon />
+          </IconButton>
+        </Box>
       </DialogTitle>
       
       <DialogContent dividers>
-        {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-            <CircularProgress />
-          </Box>
-        ) : userData ? (
-          <Grid container spacing={3}>
-            <Grid item xs={12} md={4}>
-              {/* Tarjeta perfil */}
-              <Card sx={{ height: '100%', borderRadius: 2 }}>
-                <Box 
-                  sx={{ 
-                    p: 3, 
-                    display: 'flex', 
-                    flexDirection: 'column', 
-                    alignItems: 'center',
-                    bgcolor: 'primary.light',
-                    color: 'white'
-                  }}
-                >
-                  <Avatar 
-                    sx={{ 
-                      width: 80, 
-                      height: 80, 
-                      mb: 2, 
-                      bgcolor: 'primary.main',
-                      fontSize: '1.8rem',
-                      fontWeight: 'bold'
-                    }}
-                  >
-                    {getInitials()}
-                  </Avatar>
-                  
-                  <Typography variant="h6">
-                    {userData.nombre} {userData.apellido1}
-                  </Typography>
-                  
-                  <Typography variant="subtitle2" gutterBottom>
-                    {userData.apellido2 || ''}
-                  </Typography>
-                  
-                  <Chip 
-                    label={userData.tipo_usuario} 
-                    color={getUserTypeColor(userData.tipo_usuario)}
-                    sx={{ mt: 1, fontWeight: 'bold' }}
-                  />
-                </Box>
-                
-                <CardContent>
-                  <List dense>
-                    <ListItem>
-                      <ListItemIcon>
-                        <BadgeIcon color="primary" />
-                      </ListItemIcon>
-                      <ListItemText 
-                        primary="TIP"
-                        secondary={userData.tip || 'No asignado'}
-                      />
-                    </ListItem>
-                    
-                    <ListItem>
-                      <ListItemIcon>
-                        <EmailIcon color="primary" />
-                      </ListItemIcon>
-                      <ListItemText 
-                        primary="Email"
-                        secondary={userData.email || 'No asignado'}
-                      />
-                    </ListItem>
-                    
-                    <ListItem>
-                      <ListItemIcon>
-                        <PhoneIcon color="primary" />
-                      </ListItemIcon>
-                      <ListItemText 
-                        primary="Teléfono"
-                        secondary={userData.telefono || 'No asignado'}
-                      />
-                    </ListItem>
-                    
-                    <Divider sx={{ my: 1 }} />
-                    
-                    <ListItem>
-                      <ListItemIcon>
-                        <SecurityIcon color="primary" />
-                      </ListItemIcon>
-                      <ListItemText 
-                        primary="Estado"
-                        secondary={
-                          <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5 }}>
-                            {userData.estado ? (
-                              <>
-                                <CheckIcon fontSize="small" color="success" sx={{ mr: 0.5 }} />
-                                <Typography variant="body2" color="success.main">
-                                  Activo
-                                </Typography>
-                              </>
-                            ) : (
-                              <>
-                                <ClearIcon fontSize="small" color="error" sx={{ mr: 0.5 }} />
-                                <Typography variant="body2" color="error">
-                                  Inactivo
-                                </Typography>
-                              </>
-                            )}
-                          </Box>
-                        }
-                      />
-                    </ListItem>
-                    
-                    <ListItem>
-                      <ListItemIcon>
-                        <AdminIcon color="primary" />
-                      </ListItemIcon>
-                      <ListItemText 
-                        primary="Referencia"
-                        secondary={userData.ref || 'No asignada'}
-                      />
-                    </ListItem>
-                  </List>
-                </CardContent>
-              </Card>
-            </Grid>
-            
-            <Grid item xs={12} md={8}>
-              {/* Información de unidades */}
-              <Paper sx={{ p: 2, borderRadius: 2, mb: 2 }}>
-                <Typography variant="h6" gutterBottom>
-                  Unidades Asignadas
-                </Typography>
-                
-                <Grid container spacing={2}>
-                  <Grid item xs={12}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                      <BusinessIcon color="primary" sx={{ mr: 1 }} />
-                      <Typography variant="subtitle1">
-                        Unidad Principal
-                      </Typography>
-                    </Box>
-                    
-                    {unidadData && unidadData.id ? (
-                      <Box sx={{ pl: 4 }}>
-                        <Typography variant="body1" fontWeight="medium">
-                          {unidadData.nombre}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          Código: {unidadData.cod_unidad}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          Tipo: {unidadData.tipo_unidad_display || unidadData.tipo_unidad}
-                        </Typography>
-                      </Box>
-                    ) : (
-                      <Box sx={{ pl: 4 }}>
-                        <Typography variant="body2" color="text.secondary" fontStyle="italic">
-                          No tiene unidad principal asignada
-                        </Typography>
-                      </Box>
-                    )}
-                  </Grid>
-                  
-                  {unidadDestinoData && (
-                    <Grid item xs={12}>
-                      <Divider sx={{ my: 1 }} />
-                      <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                        <BusinessIcon color="info" sx={{ mr: 1 }} />
-                        <Typography variant="subtitle1">
-                          Unidad de Destino
-                          <Chip 
-                            label="Temporal" 
-                            size="small" 
-                            color="info" 
-                            variant="outlined"
-                            sx={{ ml: 1, height: 20 }}
-                          />
-                        </Typography>
-                      </Box>
-                      
-                      <Box sx={{ pl: 4 }}>
-                        <Typography variant="body1" fontWeight="medium">
-                          {unidadDestinoData.nombre}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          Código: {unidadDestinoData.cod_unidad}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          Tipo: {unidadDestinoData.tipo_unidad_display || unidadDestinoData.tipo_unidad}
-                        </Typography>
-                      </Box>
-                    </Grid>
-                  )}
-                  
-                  {unidadAccesoData && (
-                    <Grid item xs={12}>
-                      <Divider sx={{ my: 1 }} />
-                      <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                        <BusinessIcon color="secondary" sx={{ mr: 1 }} />
-                        <Typography variant="subtitle1">
-                          Unidad de Acceso
-                          <Chip 
-                            label="Adicional" 
-                            size="small" 
-                            color="secondary" 
-                            variant="outlined"
-                            sx={{ ml: 1, height: 20 }}
-                          />
-                        </Typography>
-                      </Box>
-                      
-                      <Box sx={{ pl: 4 }}>
-                        <Typography variant="body1" fontWeight="medium">
-                          {unidadAccesoData.nombre}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          Código: {unidadAccesoData.cod_unidad}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          Tipo: {unidadAccesoData.tipo_unidad_display || unidadAccesoData.tipo_unidad}
-                        </Typography>
-                      </Box>
-                    </Grid>
-                  )}
-                </Grid>
-              </Paper>
-              
-              {/* Información adicional */}
-              <Paper sx={{ p: 2, borderRadius: 2 }}>
-                <Typography variant="h6" gutterBottom>
-                  Información adicional
-                </Typography>
-                
-                <Grid container spacing={2}>
-                  <Grid item xs={12} sm={6}>
-                    <Typography variant="subtitle1" color="primary">
-                      Empleo
-                    </Typography>
-                    <Typography variant="body1">
-                      {userData.empleo_nombre || 'No asignado'}
-                    </Typography>
-                  </Grid>
-                  
-                  <Grid item xs={12} sm={6}>
-                    <Typography variant="subtitle1" color="primary">
-                      Fecha de Registro
-                    </Typography>
-                    <Typography variant="body1">
-                      {userData.date_joined ? new Date(userData.date_joined).toLocaleDateString('es-ES', { 
-                        year: 'numeric', 
-                        month: 'long', 
-                        day: 'numeric' 
-                      }) : 'No disponible'}
-                    </Typography>
-                  </Grid>
-                </Grid>
-              </Paper>
-            </Grid>
+        <Grid container spacing={2}>
+          {/* Información personal */}
+          <Grid item xs={12}>
+            <Typography variant="subtitle1" gutterBottom fontWeight="bold">
+              Información Personal
+            </Typography>
+            <Divider />
           </Grid>
-        ) : (
-          <Typography variant="body1" align="center">
-            No se encontraron datos del usuario
-          </Typography>
-        )}
+          
+          <Grid item xs={12} sm={6}>
+            <TextField
+              label="TIP"
+              value={user?.tip || ''}
+              InputProps={{ readOnly: true }}
+              fullWidth
+              variant="filled"
+              size="small"
+            />
+          </Grid>
+          
+          <Grid item xs={12} sm={6}>
+            <TextField
+              label="Email"
+              value={user?.email || ''}
+              InputProps={{ readOnly: true }}
+              fullWidth
+              variant="filled"
+              size="small"
+            />
+          </Grid>
+          
+          <Grid item xs={12} sm={6}>
+            <TextField
+              label="Teléfono"
+              value={user?.telefono || ''}
+              InputProps={{ readOnly: true }}
+              fullWidth
+              variant="filled"
+              size="small"
+            />
+          </Grid>
+          
+          <Grid item xs={12} sm={6}>
+            <TextField
+              label="Referencia"
+              value={user?.ref || ''}
+              InputProps={{ readOnly: true }}
+              fullWidth
+              variant="filled"
+              size="small"
+            />
+          </Grid>
+          
+          {/* Información profesional */}
+          <Grid item xs={12} sx={{ mt: 2 }}>
+            <Typography variant="subtitle1" gutterBottom fontWeight="bold">
+              Información Profesional
+            </Typography>
+            <Divider />
+          </Grid>
+          
+          <Grid item xs={12} sm={6}>
+            <TextField
+              label="Tipo de Usuario"
+              value={user?.tipo_usuario || ''}
+              InputProps={{ readOnly: true }}
+              fullWidth
+              variant="filled"
+              size="small"
+            />
+          </Grid>
+          
+          <Grid item xs={12} sm={6}>
+            <TextField
+              label="Empleo"
+              value={user?.empleo_nombre || 'No asignado'}
+              InputProps={{ readOnly: true }}
+              fullWidth
+              variant="filled"
+              size="small"
+            />
+          </Grid>
+          
+          <Grid item xs={12} sm={6}>
+            <TextField
+              label="Estado"
+              value={user?.estado ? 'Activo' : 'Inactivo'}
+              InputProps={{ readOnly: true }}
+              fullWidth
+              variant="filled"
+              size="small"
+            />
+          </Grid>
+          
+          {/* Unidades */}
+          <Grid item xs={12} sx={{ mt: 2 }}>
+            <Typography variant="subtitle1" gutterBottom fontWeight="bold">
+              Unidades Asignadas
+            </Typography>
+            <Divider />
+          </Grid>
+          
+          {/* Cambio aquí: mostrar solo unidad_destino_nombre en lugar de unidad_nombre */}
+          <Grid item xs={12} sm={6}>
+            <TextField
+              label="Unidad de Destino"
+              value={user?.unidad_destino_nombre || 'No asignada'}
+              InputProps={{ readOnly: true }}
+              fullWidth
+              variant="filled"
+              size="small"
+            />
+          </Grid>
+          
+          <Grid item xs={12} sm={6}>
+            <TextField
+              label="Unidad de Acceso"
+              value={user?.unidad_acceso_nombre || 'No asignada'}
+              InputProps={{ readOnly: true }}
+              fullWidth
+              variant="filled"
+              size="small"
+            />
+          </Grid>
+          
+          {/* Fechas */}
+          <Grid item xs={12} sx={{ mt: 2 }}>
+            <Typography variant="subtitle1" gutterBottom fontWeight="bold">
+              Información del Sistema
+            </Typography>
+            <Divider />
+          </Grid>
+          
+          <Grid item xs={12} sm={6}>
+            <TextField
+              label="Fecha de Alta"
+              value={user?.date_joined ? new Date(user.date_joined).toLocaleString() : ''}
+              InputProps={{ readOnly: true }}
+              fullWidth
+              variant="filled"
+              size="small"
+            />
+          </Grid>
+          
+          <Grid item xs={12} sm={6}>
+            <TextField
+              label="Último Acceso"
+              value={user?.last_login ? new Date(user.last_login).toLocaleString() : 'Nunca'}
+              InputProps={{ readOnly: true }}
+              fullWidth
+              variant="filled"
+              size="small"
+            />
+          </Grid>
+        </Grid>
       </DialogContent>
       
       <DialogActions>
-        <Button onClick={handleClose} variant="outlined">
+        <Button onClick={onClose} color="primary">
           Cerrar
         </Button>
       </DialogActions>

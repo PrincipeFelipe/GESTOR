@@ -305,18 +305,8 @@ const UsersList = () => {
                   </Box>
                 </TableCell>
                 <TableCell>TIP</TableCell>
-                <TableCell 
-                  onClick={() => handleSort('email')}
-                  sx={{ cursor: 'pointer', fontWeight: 'bold' }}
-                >
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    Email
-                    {orderBy === 'email' && (
-                      orderDirection === 'asc' ? <SortUpIcon fontSize="small" /> : <SortDownIcon fontSize="small" />
-                    )}
-                  </Box>
-                </TableCell>
-                <TableCell>Unidad</TableCell>
+                <TableCell>Email</TableCell>
+                <TableCell>Unidades</TableCell>
                 <TableCell>Empleo</TableCell>
                 <TableCell>Tipo</TableCell>
                 <TableCell>Estado</TableCell>
@@ -346,18 +336,23 @@ const UsersList = () => {
                   <TableCell>{user.tip}</TableCell>
                   <TableCell>{user.email}</TableCell>
                   <TableCell>
-                    {user.unidad_nombre || "—"}
-                    {user.unidad_destino && (
-                      <Box mt={0.5}>
+                    {/* Mostrar solo unidad_destino y unidad_acceso */}
+                    {user.unidad_destino_nombre ? (
+                      <Box>
                         <Chip 
-                          label={`Destino: ${user.unidad_destino_nombre || ''}`}
-                          color="info" 
+                          label={`Destino: ${user.unidad_destino_nombre}`}
+                          color="primary" 
                           size="small" 
                           variant="outlined" 
                           sx={{ fontSize: '0.7rem' }}
                         />
                       </Box>
+                    ) : (
+                      <Typography variant="body2" color="text.secondary">
+                        Sin unidad de destino
+                      </Typography>
                     )}
+                    
                     {user.unidad_acceso && (
                       <Box mt={0.5}>
                         <Chip 

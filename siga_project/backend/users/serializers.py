@@ -24,12 +24,12 @@ class UserCreateSerializer(serializers.ModelSerializer):
         model = Usuario
         fields = [
             'id', 'nombre', 'apellido1', 'apellido2', 'email', 'telefono', 'ref',
-            'unidad', 'unidad_destino', 'unidad_acceso', 'empleo', 'tip', 'estado', 
+            'unidad_destino', 'unidad_acceso', 'empleo', 'tip', 'estado', 
             'tipo_usuario', 'password'
         ]
         extra_kwargs = {
             'password': {'write_only': True},
-            'ref': {'required': False}  # Hacer el campo ref opcional
+            'ref': {'required': False}
         }
     
     def create(self, validated_data):
@@ -58,12 +58,12 @@ class UserUpdateSerializer(serializers.ModelSerializer):
         model = Usuario
         fields = [
             'id', 'nombre', 'apellido1', 'apellido2', 'email', 'telefono', 'ref',
-            'unidad', 'unidad_destino', 'unidad_acceso', 'empleo', 'tip', 'estado', 
+            'unidad_destino', 'unidad_acceso', 'empleo', 'tip', 'estado', 
             'tipo_usuario', 'password'
         ]
         extra_kwargs = {
             'password': {'write_only': True},
-            'ref': {'required': False}  # Hacer el campo ref opcional para actualizaciones también
+            'ref': {'required': False}
         }
         
     def update(self, instance, validated_data):
@@ -86,7 +86,6 @@ class UserUpdateSerializer(serializers.ModelSerializer):
 
 class UserSerializer(serializers.ModelSerializer):
     """Serializador completo para usuarios con información de relaciones"""
-    unidad_nombre = serializers.CharField(source='unidad.nombre', read_only=True)
     unidad_destino_nombre = serializers.CharField(source='unidad_destino.nombre', read_only=True, default='')
     unidad_acceso_nombre = serializers.CharField(source='unidad_acceso.nombre', read_only=True, default='')
     empleo_nombre = serializers.CharField(source='empleo.nombre', read_only=True, default='')
@@ -95,7 +94,7 @@ class UserSerializer(serializers.ModelSerializer):
         model = Usuario
         fields = [
             'id', 'nombre', 'apellido1', 'apellido2', 'ref', 'email', 'telefono',
-            'unidad', 'unidad_nombre', 'unidad_destino', 'unidad_destino_nombre',
+            'unidad_destino', 'unidad_destino_nombre',
             'unidad_acceso', 'unidad_acceso_nombre', 'empleo', 'empleo_nombre',
             'tip', 'estado', 'tipo_usuario', 'date_joined', 'last_login'
         ]
@@ -112,18 +111,16 @@ class PasswordChangeSerializer(serializers.Serializer):
 
 class ProfileSerializer(serializers.ModelSerializer):
     """Serializador para ver el perfil del usuario"""
-    unidad_nombre = serializers.CharField(source='unidad.nombre', read_only=True, default='')
     unidad_destino_nombre = serializers.CharField(source='unidad_destino.nombre', read_only=True, default='')
     unidad_acceso_nombre = serializers.CharField(source='unidad_acceso.nombre', read_only=True, default='')
-    unidad_tipo = serializers.CharField(source='unidad.tipo_unidad', read_only=True, default='')
+    unidad_destino_tipo = serializers.CharField(source='unidad_destino.tipo_unidad', read_only=True, default='')
     empleo_nombre = serializers.CharField(source='empleo.nombre', read_only=True, default='')
     
     class Meta:
         model = Usuario
         fields = [
             'id', 'nombre', 'apellido1', 'apellido2', 'ref', 'email', 'telefono',
-            'unidad', 'unidad_nombre', 'unidad_tipo', 
-            'unidad_destino', 'unidad_destino_nombre',
+            'unidad_destino', 'unidad_destino_nombre', 'unidad_destino_tipo', 
             'unidad_acceso', 'unidad_acceso_nombre',
             'empleo', 'empleo_nombre', 'tip', 'estado', 'tipo_usuario'
         ]

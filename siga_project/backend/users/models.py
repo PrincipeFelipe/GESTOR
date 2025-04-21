@@ -50,15 +50,11 @@ class Usuario(AbstractUser):
     telefono = models.CharField(max_length=15, blank=True)
     email = models.EmailField(unique=True)
     
-    # Unidad actual/principal a la que pertenece el usuario
-    unidad = models.ForeignKey('unidades.Unidad', on_delete=models.SET_NULL, null=True, related_name='usuarios_asignados')
-    
-    # Nueva unidad de destino (puede ser diferente a la unidad principal)
+    # Eliminamos el campo unidad, quedando solo estos dos
     unidad_destino = models.ForeignKey('unidades.Unidad', on_delete=models.SET_NULL, null=True, 
                                       blank=True, related_name='usuarios_destinados',
-                                      help_text="Unidad a la que el usuario está destinado temporalmente")
+                                      help_text="Unidad a la que el usuario está destinado")
     
-    # Nueva unidad de acceso para permisos especiales
     unidad_acceso = models.ForeignKey('unidades.Unidad', on_delete=models.SET_NULL, null=True, 
                                      blank=True, related_name='usuarios_con_acceso',
                                      help_text="Unidad adicional a la que el usuario tiene acceso")
@@ -89,7 +85,7 @@ class Usuario(AbstractUser):
                        (self.apellido2[0] if self.apellido2 else '')
             self.ref = iniciales.upper()
         super().save(*args, **kwargs)
-        
+    
     @property
     def is_superadmin(self):
         return self.tipo_usuario == self.SUPERADMIN
@@ -105,10 +101,9 @@ class Usuario(AbstractUser):
     def get_unidades_accesibles(self):
         """
         Determina las unidades a las que el usuario tiene acceso, basado en su:
-        1. Unidad principal
-        2. Unidad de destino
-        3. Unidad de acceso
-        4. Tipo de usuario (si es Admin o SuperAdmin puede ver unidades dependientes)
+        1. Unidad de destino
+        2. Unidad de acceso
+        3. Tipo de usuario (si es Admin o SuperAdmin puede ver unidades dependientes)
         
         Retorna un QuerySet de unidades.
         """
@@ -120,8 +115,6 @@ class Usuario(AbstractUser):
         unidades_base = []
         
         # Añadir las unidades directamente asignadas
-        if self.unidad:
-            unidades_base.append(self.unidad)
         if self.unidad_destino:
             unidades_base.append(self.unidad_destino)
         if self.unidad_acceso:

@@ -2,18 +2,17 @@
 import axios from 'axios';
 import { navigateTo } from './navigation.service';
 
-// Base URL para todas las peticiones
-const API_URL = 'http://localhost:8000/api';
+const baseURL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
 
-// Crear instancia de axios
 const api = axios.create({
-  baseURL: API_URL,
+  baseURL,
+  timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Interceptor para añadir token a las peticiones
+// Interceptor para agregar token a todas las solicitudes
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
@@ -29,50 +28,47 @@ api.interceptors.request.use(
   }
 );
 
-// Interceptor para manejar errores de respuesta
+// Interceptor para refrescar token
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    return response;
+  },
   async (error) => {
     const originalRequest = error.config;
     
-    // Si es error 401 (no autorizado) y no es un retry
-    if (error.response && error.response.status === 401 && !originalRequest._retry) {
+    if (
+      error.response &&
+      error.response.status === 401 &&
+      !originalRequest._retry
+    ) {
       originalRequest._retry = true;
       
       try {
-        // Intentar refresh token
-        const refreshToken = localStorage.getItem('refreshToken');
+        const refreshToken = localStorage.getItem('refresh_token');
         
         if (!refreshToken) {
-          // No hay refresh token, forzar logout
+          // No hay token de refresco, forzar inicio de sesión
           localStorage.removeItem('token');
-          localStorage.removeItem('refreshToken');
-          navigateTo('/login', { state: { error: 'Sesión expirada' } });
+          window.location.href = '/login';
           return Promise.reject(error);
         }
         
-        // Hacer petición de refresh
-        const response = await axios.post(`${API_URL}/token/refresh/`, {
-          refresh: refreshToken
+        const response = await axios.post(`${baseURL}/token/refresh/`, {
+          refresh: refreshToken,
         });
         
-        if (response.data && response.data.access) {
-          // Guardar nuevo token
-          localStorage.setItem('token', response.data.access);
-          
-          // Actualizar el header de autorización
-          api.defaults.headers.common['Authorization'] = `Bearer ${response.data.access}`;
-          originalRequest.headers['Authorization'] = `Bearer ${response.data.access}`;
-          
-          // Reintentar la petición original
-          return api(originalRequest);
-        }
+        const { access } = response.data;
+        localStorage.setItem('token', access);
+        api.defaults.headers.common['Authorization'] = `Bearer ${access}`;
+        originalRequest.headers['Authorization'] = `Bearer ${access}`;
+        
+        return api(originalRequest);
       } catch (refreshError) {
-        console.error('Error al refrescar token:', refreshError);
-        // Limpiar storage y redirigir a login
+        // Error al refrescar token, forzar inicio de sesión
         localStorage.removeItem('token');
-        localStorage.removeItem('refreshToken');
-        navigateTo('/login', { state: { error: 'Sesión expirada. Por favor, inicie sesión nuevamente.' } });
+        localStorage.removeItem('refresh_token');
+        window.location.href = '/login';
+        return Promise.reject(refreshError);
       }
     }
     

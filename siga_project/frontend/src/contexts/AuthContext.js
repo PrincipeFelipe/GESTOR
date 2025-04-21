@@ -7,6 +7,48 @@ import { registerNavigate } from '../assets/services/navigation.service';
 
 export const AuthContext = createContext();
 
+const getUserData = (userData) => {
+  // Si existe unidad_destino, úsala como unidad principal
+  if (userData.unidad_destino) {
+    userData.unidad_principal = userData.unidad_destino;
+    userData.unidad_principal_nombre = userData.unidad_destino_nombre;
+  } else {
+    userData.unidad_principal = null;
+    userData.unidad_principal_nombre = null;
+  }
+  
+  return userData;
+};
+
+// Función para cargar el token en Axios
+const setAuthToken = (token) => {
+  if (token) {
+    // Aplicar token a todas las solicitudes
+    api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    // También guardar en localStorage para persistencia
+    localStorage.setItem('token', token);
+  } else {
+    // Eliminar token si no hay
+    delete api.defaults.headers.common['Authorization'];
+    localStorage.removeItem('token');
+  }
+};
+
+// Obtener detalles del usuario
+const getUserDetails = async () => {
+  try {
+    console.log('Obteniendo detalles del usuario...');
+    console.log('Headers:', api.defaults.headers.common);
+    const response = await api.get('/users/me/');
+    console.log('Respuesta obtenida:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('Error al obtener detalles del usuario:', error);
+    // Si hay error, intentar limpiar e iniciar sesión de nuevo
+    throw error;
+  }
+};
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -15,99 +57,100 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     registerNavigate(navigate);
-
-    const initAuth = async () => {
+    
+    // Verificar si hay token almacenado
+    const checkAuth = async () => {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setLoading(false);
+        return;
+      }
+      
       try {
-        const token = localStorage.getItem('token');
+        // Configurar el token en axios
+        setAuthToken(token);
         
-        if (!token) {
+        // Verificar si el token es válido decodificándolo
+        const decoded = jwtDecode(token);
+        const currentTime = Date.now() / 1000;
+        
+        if (decoded.exp < currentTime) {
+          // Token expirado
+          setAuthToken(null);
+          setUser(null);
           setLoading(false);
+          navigate('/login');
           return;
         }
         
-        api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-        
-        try {
-          const decoded = jwtDecode(token);
-          
-          if (decoded && decoded.user_id) {
-            const response = await api.get(`/users/${decoded.user_id}/`);
-            
-            if (response && response.data) {
-              setUser(response.data);
-              console.log("Usuario cargado correctamente:", response.data);
-            }
-          }
-        } catch (decodeError) {
-          console.error("Error al decodificar token:", decodeError);
-          localStorage.removeItem('token');
-          localStorage.removeItem('refreshToken');
-        }
+        // Obtener datos del usuario
+        const userData = await getUserDetails();
+        setUser(getUserData(userData));
       } catch (err) {
-        console.error("Error al inicializar autenticación:", err);
+        console.error('Error en autenticación:', err);
+        setAuthToken(null);
+        setUser(null);
+        setError('La sesión ha expirado o no es válida. Por favor, inicie sesión nuevamente.');
       } finally {
         setLoading(false);
       }
     };
-
-    initAuth();
+    
+    checkAuth();
   }, [navigate]);
-
-  const login = async (tip, password) => {
+  
+  // Función de inicio de sesión
+  const login = async (credentials) => {
+    setError(null);
     try {
-      setLoading(true);
-      const response = await api.post('/token/', { tip, password });
+      console.log('Haciendo petición de login a:', '/token/');
+      const response = await api.post('/token/', credentials);
+      const { access, refresh } = response.data;
       
-      if (response.data && response.data.access) {
-        localStorage.setItem('token', response.data.access);
-        localStorage.setItem('refreshToken', response.data.refresh);
-        
-        api.defaults.headers.common['Authorization'] = `Bearer ${response.data.access}`;
-        
-        const decoded = jwtDecode(response.data.access);
-        
-        if (decoded && decoded.user_id) {
-          const userResponse = await api.get(`/users/${decoded.user_id}/`);
-          
-          if (userResponse && userResponse.data) {
-            setUser(userResponse.data);
-            console.log("Usuario iniciado sesión:", userResponse.data);
-            
-            return {
-              success: true,
-              user: userResponse.data
-            };
-          }
-        }
+      // Guardar tokens
+      localStorage.setItem('refresh_token', refresh);
+      
+      // Configurar token en axios
+      setAuthToken(access);
+      
+      // Obtener datos del usuario
+      const userData = await getUserDetails();
+      
+      // Actualizar estado con datos del usuario
+      setUser(getUserData(userData));
+      
+      return userData;
+    } catch (err) {
+      console.error('Error en login:', err);
+      if (err.response && err.response.status === 401) {
+        setError('Credenciales incorrectas. Por favor, verifique su TIP y contraseña.');
+      } else {
+        setError('Error al iniciar sesión. Por favor, inténtelo de nuevo.');
       }
-      
-      throw new Error('No se pudo obtener la información del usuario');
-    } catch (error) {
-      console.error('Error en login:', error);
-      setError(error.message || 'Error de autenticación');
-      throw error;
-    } finally {
-      setLoading(false);
+      throw err;
     }
   };
-
+  
+  // Función de cierre de sesión
   const logout = () => {
-    console.log("Cerrando sesión...");
-    localStorage.removeItem('token');
-    localStorage.removeItem('refreshToken');
+    setAuthToken(null);
     setUser(null);
-    delete api.defaults.headers.common['Authorization'];
-    navigate('/login', { replace: true });
+    navigate('/login');
   };
-
+  
+  // Valor del contexto
+  const contextValue = {
+    user,
+    setUser,
+    loading,
+    error,
+    login,
+    logout,
+    isAuthenticated: !!user
+  };
+  
   return (
-    <AuthContext.Provider value={{
-      user,
-      loading,
-      error,
-      login,
-      logout
-    }}>
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );
