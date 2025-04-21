@@ -65,12 +65,18 @@ const ProcedimientosList = () => {
         setTipos(response.data.results || response.data);
       } catch (error) {
         console.error('Error al cargar tipos de procedimiento:', error);
-        showAlert('Error al cargar tipos de procedimiento', 'error');
+        // No mostrar alerta para usuarios normales, solo log en consola
+        // Si es admin, mostrar la alerta
+        if (isAdmin) {
+          showAlert('Error al cargar tipos de procedimiento', 'error');
+        }
+        // Establecer tipos como array vacío para que la aplicación siga funcionando
+        setTipos([]);
       }
     };
     
     fetchTipos();
-  }, []);
+  }, [isAdmin]);
   
   useEffect(() => {
     const fetchProcedimientos = async () => {

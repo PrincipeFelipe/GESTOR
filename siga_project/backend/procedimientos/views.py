@@ -22,10 +22,18 @@ from .permissions import IsAdminOrSuperAdmin, IsAdminOrSuperAdminOrReadOnly
 class TipoProcedimientoViewSet(viewsets.ModelViewSet):
     queryset = TipoProcedimiento.objects.all()
     serializer_class = TipoProcedimientoSerializer
-    permission_classes = [IsAdminOrSuperAdmin]
-    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ['nombre', 'descripcion']
-    ordering_fields = ['nombre']
+    
+    def get_permissions(self):
+        """
+        Modificación de permisos:
+        - Listar y recuperar detalles: cualquier usuario autenticado
+        - Crear, actualizar, eliminar: solo administradores
+        """
+        if self.action in ['list', 'retrieve']:
+            # Permitir listado y consulta a cualquier usuario autenticado
+            return [IsAuthenticated()]
+        # Para otras acciones (crear, actualizar, eliminar), mantener restricción a admins
+        return [IsSuperAdminOrAdmin()]
 
 class DocumentoViewSet(viewsets.ModelViewSet):
     queryset = Documento.objects.all()
