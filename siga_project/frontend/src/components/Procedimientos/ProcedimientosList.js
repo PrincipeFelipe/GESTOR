@@ -31,7 +31,8 @@ import {
   Search as SearchIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
-  Assignment as AssignmentIcon
+  Assignment as AssignmentIcon,
+  Visibility as VisibilityIcon  // Nuevo icono
 } from '@mui/icons-material';
 import { usePermissions } from '../../hooks/usePermissions';
 import procedimientosService from '../../assets/services/procedimientos.service';
@@ -196,16 +197,25 @@ const ProcedimientosList = () => {
       return true;
     }
     
+    // Para los procedimientos de tipo GENERAL, mostrarlos a todos los usuarios
+    if (proc.nivel === 'GENERAL') {
+      return true;
+    }
+    
     // Si la unidad actual es de tipo híbrido
     if (unidadActual?.tipo_unidad === 'ZONA_COMANDANCIA') {
       // Mostrar procedimientos tanto de nivel ZONA como COMANDANCIA
       return proc.nivel === 'ZONA' || proc.nivel === 'COMANDANCIA' || proc.nivel === 'ZONA_COMANDANCIA';
     }
     
-    // Para otras unidades, filtrado normal
+    // Para otras unidades, mostrar los procedimientos del mismo nivel
     return proc.nivel === unidadActual?.tipo_unidad;
   });
   
+  const handleViewProcedimiento = (id) => {
+    navigate(`/dashboard/procedimientos/${id}/ver`);
+  };
+
   return (
     <Box>
       <Paper sx={{ p: 3, mb: 3 }}>
@@ -334,9 +344,19 @@ const ProcedimientosList = () => {
                         </TableCell>
                         <TableCell align="center">
                           <Box display="flex" justifyContent="center">
+                            {/* Botón para ver procedimiento - visible para TODOS los usuarios */}
+                            <Tooltip title="Ver procedimiento">
+                              <IconButton
+                                color="info"
+                                onClick={() => handleViewProcedimiento(procedimiento.id)}
+                              >
+                                <VisibilityIcon />
+                              </IconButton>
+                            </Tooltip>
+                            
+                            {/* Botones de administración - solo para admins */}
                             {isAdmin && (
                               <>
-                                
                                 <Tooltip title="Gestionar pasos">
                                   <IconButton
                                     color="secondary"

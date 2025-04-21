@@ -26,7 +26,7 @@ import ProcedimientoForm from './components/Procedimientos/ProcedimientoForm';
 import PasosManager from './components/Procedimientos/PasosManager';
 import TiposProcedimiento from './components/Procedimientos/TiposProcedimiento';
 import DocumentosList from './components/Procedimientos/DocumentosList';
-import ProcedimientoView from './components/Procedimientos/ProcedimientoView';
+import ProcedimientoViewer from './components/Procedimientos/ProcedimientoViewer';
 import PasoDocumentosManager from './components/Procedimientos/PasoDocumentosManager';
 import ProcedimientoCadena from './components/Procedimientos/ProcedimientoCadena';
 
@@ -170,7 +170,8 @@ const App = () => {
                 <Route path="nuevo" element={<ProcedimientoForm />} />
                 <Route path="tipos" element={<TiposProcedimiento />} />
                 <Route path="documentos" element={<DocumentosList />} />
-                <Route path=":procedimientoId" element={<ProcedimientoView />} />
+                <Route path=":procedimientoId" element={<ProcedimientoViewer />} />
+                <Route path=":procedimientoId/ver" element={<ProcedimientoViewer />} /> {/* Añadir esta ruta */}
                 <Route path=":procedimientoId/editar" element={<ProcedimientoForm />} />
                 <Route path=":procedimientoId/pasos" element={<PasosManager />} />
                 <Route path=":procedimientoId/pasos/:pasoId/documentos" element={<PasoDocumentosManager />} />
