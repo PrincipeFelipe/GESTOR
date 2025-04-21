@@ -4,7 +4,7 @@ import {
   Alert as MuiAlert, 
   IconButton
 } from '@mui/material';
-import { Close as CloseIcon } from '@mui/icons-material';
+import CloseIcon from '@mui/icons-material/Close';
 
 const Alert = ({ open, message, severity = 'info', duration = 6000, onClose }) => {
   return (

@@ -17,12 +17,10 @@ import {
   CircularProgress,
   Chip
 } from '@mui/material';
-import {
-  CloudUpload as UploadIcon,
-  Cancel as CancelIcon,
-  Description as FileIcon,
-  Link as LinkIcon
-} from '@mui/icons-material';
+import UploadIcon from '@mui/icons-material/CloudUpload';
+import CancelIcon from '@mui/icons-material/Cancel';
+import FileIcon from '@mui/icons-material/Description';
+import LinkIcon from '@mui/icons-material/Link';
 
 const DocumentoForm = ({ open, onClose, onSubmit, initialData, procedimientoId, pasoId }) => {
   const [formData, setFormData] = useState({

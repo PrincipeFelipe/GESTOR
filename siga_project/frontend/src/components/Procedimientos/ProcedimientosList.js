@@ -26,14 +26,12 @@ import {
   Snackbar,
   Alert
 } from '@mui/material';
-import {
-  Add as AddIcon,
-  Search as SearchIcon,
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  Assignment as AssignmentIcon,
-  Visibility as VisibilityIcon  // Nuevo icono
-} from '@mui/icons-material';
+import AddIcon from '@mui/icons-material/Add';
+import SearchIcon from '@mui/icons-material/Search';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
+import AssignmentIcon from '@mui/icons-material/Assignment';
+import VisibilityIcon from '@mui/icons-material/Visibility';  // Nuevo icono
 import { usePermissions } from '../../hooks/usePermissions';
 import procedimientosService from '../../assets/services/procedimientos.service';
 import api from '../../assets/services/api';

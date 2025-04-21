@@ -1,385 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Dialog, 
-  DialogTitle, 
-  DialogContent, 
-  Button, 
-  Box, 
-  CircularProgress, 
-  Typography,
-  IconButton,
-  Paper,
-  Snackbar,
-  Alert
-} from '@mui/material';
-import { 
-  Close as CloseIcon,
-  Download as DownloadIcon,
-  OpenInNew as OpenInNewIcon
-} from '@mui/icons-material';
-import axios from 'axios'; // Usar axios directamente para más control
+import CloseIcon from '@mui/icons-material/Close';
+import DownloadIcon from '@mui/icons-material/Download';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import axios from 'axios';
 
-const DocumentPreview = ({ 
-  open, 
-  onClose, 
-  documentUrl, 
-  documentName, 
-  documentType = 'auto' 
-}) => {
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [localBlobUrl, setLocalBlobUrl] = useState(null);
-  const [fileType, setFileType] = useState(documentType);
-  const [downloadProgress, setDownloadProgress] = useState(false);
-  const [notification, setNotification] = useState(null);
-
-  // Función para determinar el tipo de archivo basado en la extensión
-  const getFileType = () => {
-    if (!documentUrl) return 'other';
-    
-    const fileName = documentUrl.toLowerCase();
-    if (fileName.endsWith('.pdf')) return 'pdf';
-    if (fileName.endsWith('.jpg') || fileName.endsWith('.jpeg') || 
-        fileName.endsWith('.png') || fileName.endsWith('.gif')) return 'image';
-    return 'other';
-  };
-
-  // Función para determinar si la URL es absoluta
-  const isAbsoluteUrl = (url) => {
-    return /^(?:[a-z]+:)?\/\//i.test(url);
-  };
-
-  // Función para obtener la URL completa del documento
-  const getFullUrl = (url) => {
-    if (!url) return '';
-    
-    // Si ya es una URL absoluta, devolverla tal cual
-    if (isAbsoluteUrl(url)) {
-      return url;
-    }
-    
-    // Si comienza con /api/media, quitamos el /api
-    if (url.startsWith('/api/media')) {
-      url = url.replace('/api/media', '/media');
-    }
-    
-    // Si no comienza con /, añadir /
-    if (!url.startsWith('/')) {
-      url = '/' + url;
-    }
-    
-    // Combinar con la URL base
-    const baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:8000';
-    return `${baseUrl}${url}`;
-  };
-
-  // Función para adivinar el tipo MIME basado en la extensión
-  const getMimeType = (url) => {
-    const ext = url.split('.').pop().toLowerCase();
-    const mimeTypes = {
-      'pdf': 'application/pdf',
-      'jpg': 'image/jpeg',
-      'jpeg': 'image/jpeg',
-      'png': 'image/png',
-      'gif': 'image/gif',
-      'doc': 'application/msword',
-      'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'xls': 'application/vnd.ms-excel',
-      'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'ppt': 'application/vnd.ms-powerpoint',
-      'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
-    };
-    return mimeTypes[ext] || 'application/octet-stream';
-  };
-
-  // Función para cargar el documento como blob
-  const fetchDocumentBlob = async () => {
-    if (!documentUrl) {
-      setError("URL de documento no proporcionada");
-      setLoading(false);
-      return;
-    }
-
-    try {
-      setLoading(true);
-      setError(null);
-
-      // Determinar la URL completa del documento
-      const fullUrl = getFullUrl(documentUrl);
-      console.log("Cargando documento desde:", fullUrl);
-      
-      // Usar axios para descargar el documento con responseType blob
-      const response = await axios.get(fullUrl, {
-        responseType: 'blob',
-        headers: {
-          'Cache-Control': 'no-cache',
-          'Pragma': 'no-cache',
-          'Expires': '0'
-        }
-      });
-      
-      // Crear un blob y su URL
-      const blob = new Blob([response.data], { 
-        type: response.headers['content-type'] || getMimeType(documentUrl) 
-      });
-      
-      const url = URL.createObjectURL(blob);
-      
-      // Guardar la URL del blob
-      setLocalBlobUrl(url);
-      setLoading(false);
-      setError(null);
-      
-      // Detectar el tipo de archivo
-      setFileType(getFileType());
-    } catch (error) {
-      console.error('Error al cargar el documento:', error);
-      setError(error.message || "Error al cargar el documento");
-      setLoading(false);
-    }
-  };
-
-  // Cargar el documento cuando el modal se abre
-  useEffect(() => {
-    if (open && documentUrl) {
-      fetchDocumentBlob();
-    }
-    
-    return () => {
-      // Limpiar la URL del blob cuando el componente se desmonte
-      if (localBlobUrl) {
-        URL.revokeObjectURL(localBlobUrl);
-        setLocalBlobUrl(null);
-      }
-    };
-  }, [documentUrl, open]);
-
-  // Función para abrir en nueva pestaña
-  const handleOpenInNewTab = () => {
-    const fullUrl = getFullUrl(documentUrl);
-    window.open(fullUrl, '_blank');
-  };
-
-  // Función para manejar la descarga del documento
-  const handleDownload = async () => {
-    if (!documentUrl || downloadProgress) return;
-    
-    setDownloadProgress(true);
-    
-    try {
-      const fileName = documentUrl.split('/').pop();
-      const fullUrl = getFullUrl(documentUrl);
-      
-      // Verificar si ya tenemos el blob en memoria
-      if (localBlobUrl && !error) {
-        // Si ya tenemos el blob, crear un enlace y simulamos click
-        const link = document.createElement('a');
-        link.href = localBlobUrl;
-        link.download = fileName;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        setNotification({
-          message: `Descarga iniciada: ${fileName}`,
-          severity: 'success'
-        });
-      } else {
-        // Si no tenemos el blob, lo descargamos directamente
-        const response = await axios({
-          url: fullUrl,
-          method: 'GET',
-          responseType: 'blob'
-        });
-        
-        // Crear un blob URL
-        const blob = new Blob([response.data], { 
-          type: response.headers['content-type'] || getMimeType(documentUrl) 
-        });
-        const blobUrl = URL.createObjectURL(blob);
-        
-        // Crear un enlace y simular click
-        const link = document.createElement('a');
-        link.href = blobUrl;
-        link.download = fileName;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        // Liberar el blob URL después de un breve retraso
-        setTimeout(() => {
-          URL.revokeObjectURL(blobUrl);
-        }, 100);
-        
-        setNotification({
-          message: `Descarga iniciada: ${fileName}`,
-          severity: 'success'
-        });
-      }
-    } catch (error) {
-      console.error('Error al descargar el documento:', error);
-      setNotification({
-        message: `Error al descargar: ${error.message}`,
-        severity: 'error'
-      });
-    } finally {
-      setDownloadProgress(false);
-    }
-  };
-
-  const handleClose = () => {
-    if (localBlobUrl) {
-      URL.revokeObjectURL(localBlobUrl);
-      setLocalBlobUrl(null);
-    }
-    setLoading(true);
-    setError(null);
-    onClose();
-  };
-
-  return (
-    <>
-      <Dialog
-        open={open}
-        onClose={handleClose}
-        maxWidth="lg"
-        fullWidth
-        PaperProps={{
-          sx: { 
-            height: '80vh',
-            display: 'flex',
-            flexDirection: 'column'
-          }
-        }}
-      >
-        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 1 }}>
-          <Typography variant="h6" component="div" sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {documentName || 'Vista previa del documento'}
-          </Typography>
-          <Box>
-            <IconButton 
-              onClick={handleDownload}
-              disabled={downloadProgress}
-              title="Descargar"
-              sx={{ mr: 1 }}
-              size="small"
-            >
-              {downloadProgress ? <CircularProgress size={18} /> : <DownloadIcon />}
-            </IconButton>
-            <IconButton 
-              onClick={handleOpenInNewTab}
-              title="Abrir en nueva ventana"
-              sx={{ mr: 1 }}
-              size="small"
-            >
-              <OpenInNewIcon />
-            </IconButton>
-            <IconButton onClick={handleClose} size="small">
-              <CloseIcon />
-            </IconButton>
-          </Box>
-        </DialogTitle>
-        
-        <DialogContent sx={{ flexGrow: 1, overflow: 'hidden', p: 0 }}>
-          {loading && (
-            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-              <CircularProgress />
-            </Box>
-          )}
-          
-          {!loading && !error && fileType === 'pdf' && localBlobUrl && (
-            <iframe
-              src={`${localBlobUrl}#toolbar=0`}
-              title={documentName || "PDF Preview"}
-              width="100%"
-              height="100%"
-              style={{ border: 'none' }}
-            />
-          )}
-          
-          {!loading && !error && fileType === 'image' && localBlobUrl && (
-            <Box sx={{ 
-              height: '100%', 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center',
-              overflow: 'auto',
-              background: '#f5f5f5',
-              p: 2
-            }}>
-              <img
-                src={localBlobUrl}
-                alt={documentName || "Vista previa de imagen"}
-                style={{ 
-                  maxWidth: '100%', 
-                  maxHeight: '100%', 
-                  objectFit: 'contain'
-                }}
-              />
-            </Box>
-          )}
-          
-          {(error || fileType === 'other' || (!localBlobUrl && !loading)) && (
-            <Box sx={{ 
-              display: 'flex', 
-              justifyContent: 'center', 
-              alignItems: 'center', 
-              flexDirection: 'column',
-              height: '100%',
-              p: 3,
-              textAlign: 'center' 
-            }}>
-              <Paper sx={{ p: 4, maxWidth: '80%' }}>
-                <Typography variant="h6" gutterBottom>
-                  {error ? 'Error al cargar el documento' : 'Vista previa no disponible'}
-                </Typography>
-                <Typography variant="body1" paragraph>
-                  {error ? 
-                    'Ha ocurrido un error al intentar mostrar este documento.' : 
-                    'Este tipo de documento no se puede previsualizar directamente en el navegador.'}
-                </Typography>
-                <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2, mt: 3 }}>
-                  <Button 
-                    variant="contained" 
-                    onClick={handleOpenInNewTab}
-                    startIcon={<OpenInNewIcon />}
-                  >
-                    Abrir en nueva pestaña
-                  </Button>
-                  <Button 
-                    variant="outlined" 
-                    onClick={handleDownload}
-                    disabled={downloadProgress}
-                    startIcon={downloadProgress ? <CircularProgress size={20} /> : <DownloadIcon />}
-                  >
-                    Descargar
-                  </Button>
-                </Box>
-              </Paper>
-            </Box>
-          )}
-        </DialogContent>
-      </Dialog>
-      
-      {/* Notificación de estado */}
-      <Snackbar
-        open={notification !== null}
-        autoHideDuration={5000}
-        onClose={() => setNotification(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        {notification && (
-          <Alert 
-            onClose={() => setNotification(null)} 
-            severity={notification.severity} 
-            sx={{ width: '100%' }}
-          >
-            {notification.message}
-          </Alert>
-        )}
-      </Snackbar>
-    </>
-  );
-};
-
-export default DocumentPreview;
+import {   Dialog,   DialogTitle,   DialogContent,   Button,   Box,   CircularProgress,   Typography,  IconButton,  Paper,  Snackbar,  Alert} from '@mui/material'; // Usar axios directamente para más controlconst DocumentPreview = ({   open,   onClose,   documentUrl,   documentName,   documentType = 'auto' }) => {  const [loading, setLoading] = useState(true);  const [error, setError] = useState(null);  const [localBlobUrl, setLocalBlobUrl] = useState(null);  const [fileType, setFileType] = useState(documentType);  const [downloadProgress, setDownloadProgress] = useState(false);  const [notification, setNotification] = useState(null);  // Función para determinar el tipo de archivo basado en la extensión  const getFileType = () => {    if (!documentUrl) return 'other';    const fileName = documentUrl.toLowerCase();    if (fileName.endsWith('.pdf')) return 'pdf';    if (fileName.endsWith('.jpg') || fileName.endsWith('.jpeg') ||         fileName.endsWith('.png') || fileName.endsWith('.gif')) return 'image';    return 'other';  };  // Función para determinar si la URL es absoluta  const isAbsoluteUrl = (url) => {    return /^(?:[a-z]+:)?\/\//i.test(url);  };  // Función para obtener la URL completa del documento  const getFullUrl = (url) => {    if (!url) return '';    // Si ya es una URL absoluta, devolverla tal cual    if (isAbsoluteUrl(url)) {      return url;    }    // Si comienza con /api/media, quitamos el /api    if (url.startsWith('/api/media')) {      url = url.replace('/api/media', '/media');    }    // Si no comienza con /, añadir /    if (!url.startsWith('/')) {      url = '/' + url;    }    // Combinar con la URL base    const baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:8000';    return `${baseUrl}${url}`;  };  // Función para adivinar el tipo MIME basado en la extensión  const getMimeType = (url) => {    const ext = url.split('.').pop().toLowerCase();    const mimeTypes = {      'pdf': 'application/pdf',      'jpg': 'image/jpeg',      'jpeg': 'image/jpeg',      'png': 'image/png',      'gif': 'image/gif',      'doc': 'application/msword',      'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',      'xls': 'application/vnd.ms-excel',      'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',      'ppt': 'application/vnd.ms-powerpoint',      'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation'    };    return mimeTypes[ext] || 'application/octet-stream';  };  // Función para cargar el documento como blob  const fetchDocumentBlob = async () => {    if (!documentUrl) {      setError("URL de documento no proporcionada");      setLoading(false);      return;    }    try {      setLoading(true);      setError(null);      // Determinar la URL completa del documento      const fullUrl = getFullUrl(documentUrl);      console.log("Cargando documento desde:", fullUrl);      // Usar axios para descargar el documento con responseType blob      const response = await axios.get(fullUrl, {        responseType: 'blob',        headers: {          'Cache-Control': 'no-cache',          'Pragma': 'no-cache',          'Expires': '0'        }      });      // Crear un blob y su URL      const blob = new Blob([response.data], {         type: response.headers['content-type'] || getMimeType(documentUrl)       });      const url = URL.createObjectURL(blob);      // Guardar la URL del blob      setLocalBlobUrl(url);      setLoading(false);      setError(null);      // Detectar el tipo de archivo      setFileType(getFileType());    } catch (error) {      console.error('Error al cargar el documento:', error);      setError(error.message || "Error al cargar el documento");      setLoading(false);    }  };  // Cargar el documento cuando el modal se abre  useEffect(() => {    if (open && documentUrl) {      fetchDocumentBlob();    }    return () => {      // Limpiar la URL del blob cuando el componente se desmonte      if (localBlobUrl) {        URL.revokeObjectURL(localBlobUrl);        setLocalBlobUrl(null);      }    };  }, [documentUrl, open]);  // Función para abrir en nueva pestaña  const handleOpenInNewTab = () => {    const fullUrl = getFullUrl(documentUrl);    window.open(fullUrl, '_blank');  };  // Función para manejar la descarga del documento  const handleDownload = async () => {    if (!documentUrl || downloadProgress) return;    setDownloadProgress(true);    try {      const fileName = documentUrl.split('/').pop();      const fullUrl = getFullUrl(documentUrl);      // Verificar si ya tenemos el blob en memoria      if (localBlobUrl && !error) {        // Si ya tenemos el blob, crear un enlace y simulamos click        const link = document.createElement('a');        link.href = localBlobUrl;        link.download = fileName;        document.body.appendChild(link);        link.click();        document.body.removeChild(link);        setNotification({          message: `Descarga iniciada: ${fileName}`,          severity: 'success'        });      } else {        // Si no tenemos el blob, lo descargamos directamente        const response = await axios({          url: fullUrl,          method: 'GET',          responseType: 'blob'        });        // Crear un blob URL        const blob = new Blob([response.data], {           type: response.headers['content-type'] || getMimeType(documentUrl)         });        const blobUrl = URL.createObjectURL(blob);        // Crear un enlace y simular click        const link = document.createElement('a');        link.href = blobUrl;        link.download = fileName;        document.body.appendChild(link);        link.click();        document.body.removeChild(link);        // Liberar el blob URL después de un breve retraso        setTimeout(() => {          URL.revokeObjectURL(blobUrl);        }, 100);        setNotification({          message: `Descarga iniciada: ${fileName}`,          severity: 'success'        });      }    } catch (error) {      console.error('Error al descargar el documento:', error);      setNotification({        message: `Error al descargar: ${error.message}`,        severity: 'error'      });    } finally {      setDownloadProgress(false);    }  };  const handleClose = () => {    if (localBlobUrl) {      URL.revokeObjectURL(localBlobUrl);      setLocalBlobUrl(null);    }    setLoading(true);    setError(null);    onClose();  };  return (    <>      <Dialog        open={open}        onClose={handleClose}        maxWidth="lg"        fullWidth        PaperProps={{          sx: {             height: '80vh',            display: 'flex',            flexDirection: 'column'          }        }}      >        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 1 }}>          <Typography variant="h6" component="div" sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>            {documentName || 'Vista previa del documento'}          </Typography>          <Box>            <IconButton               onClick={handleDownload}              disabled={downloadProgress}              title="Descargar"              sx={{ mr: 1 }}              size="small"            >              {downloadProgress ? <CircularProgress size={18} /> : <DownloadIcon />}            </IconButton>            <IconButton               onClick={handleOpenInNewTab}              title="Abrir en nueva ventana"              sx={{ mr: 1 }}              size="small"            >              <OpenInNewIcon />            </IconButton>            <IconButton onClick={handleClose} size="small">              <CloseIcon />            </IconButton>          </Box>        </DialogTitle>        <DialogContent sx={{ flexGrow: 1, overflow: 'hidden', p: 0 }}>          {loading && (            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>              <CircularProgress />            </Box>          )}          {!loading && !error && fileType === 'pdf' && localBlobUrl && (            <iframe              src={`${localBlobUrl}#toolbar=0`}              title={documentName || "PDF Preview"}              width="100%"              height="100%"              style={{ border: 'none' }}            />          )}          {!loading && !error && fileType === 'image' && localBlobUrl && (            <Box sx={{               height: '100%',               display: 'flex',               alignItems: 'center',               justifyContent: 'center',              overflow: 'auto',              background: '#f5f5f5',              p: 2            }}>              <img                src={localBlobUrl}                alt={documentName || "Vista previa de imagen"}                style={{                   maxWidth: '100%',                   maxHeight: '100%',                   objectFit: 'contain'                }}              />            </Box>          )}          {(error || fileType === 'other' || (!localBlobUrl && !loading)) && (            <Box sx={{               display: 'flex',               justifyContent: 'center',               alignItems: 'center',               flexDirection: 'column',              height: '100%',              p: 3,              textAlign: 'center'             }}>              <Paper sx={{ p: 4, maxWidth: '80%' }}>                <Typography variant="h6" gutterBottom>                  {error ? 'Error al cargar el documento' : 'Vista previa no disponible'}                </Typography>                <Typography variant="body1" paragraph>                  {error ?                     'Ha ocurrido un error al intentar mostrar este documento.' :                     'Este tipo de documento no se puede previsualizar directamente en el navegador.'}                </Typography>                <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2, mt: 3 }}>                  <Button                     variant="contained"                     onClick={handleOpenInNewTab}                    startIcon={<OpenInNewIcon />}                  >                    Abrir en nueva pestaña                  </Button>                  <Button                     variant="outlined"                     onClick={handleDownload}                    disabled={downloadProgress}                    startIcon={downloadProgress ? <CircularProgress size={20} /> : <DownloadIcon />}                  >                    Descargar                  </Button>                </Box>              </Paper>            </Box>          )}        </DialogContent>      </Dialog>      {/* Notificación de estado */}      <Snackbar        open={notification !== null}        autoHideDuration={5000}        onClose={() => setNotification(null)}        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}      >        {notification && (          <Alert             onClose={() => setNotification(null)}             severity={notification.severity}             sx={{ width: '100%' }}          >            {notification.message}          </Alert>        )}      </Snackbar>    </>  );};export default DocumentPreview;

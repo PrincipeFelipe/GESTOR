@@ -1,272 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  Typography,
-  Grid,
-  Divider,
-  Box,
-  TextField,
-  IconButton
-} from '@mui/material';
-import { Close as CloseIcon } from '@mui/icons-material';
+import CloseIcon from '@mui/icons-material/Close';
 import api from '../../assets/services/api';
 
-const UserDetail = ({ open, onClose, user }) => {
-  const [loading, setLoading] = useState(false);
-  const [userData, setUserData] = useState(null);
-  const [unidadData, setUnidadData] = useState({});
-  const [unidadAccesoData, setUnidadAccesoData] = useState(null);
-  const [unidadDestinoData, setUnidadDestinoData] = useState(null);
-  
-  useEffect(() => {
-    const fetchUserDetails = async () => {
-      if (!user || !open) return;
-      
-      try {
-        setLoading(true);
-        
-        // Obtener datos actualizados del usuario
-        const response = await api.get(`/users/${user.id}/`);
-        setUserData(response.data);
-        
-        // Cargar datos de las unidades si existen
-        const unidadesPromises = [];
-        
-        if (response.data.unidad) {
-          unidadesPromises.push(
-            api.get(`/unidades/${response.data.unidad}/`)
-              .then(res => setUnidadData(res.data))
-              .catch(err => console.error(`Error al cargar unidad ${response.data.unidad}:`, err))
-          );
-        }
-        
-        if (response.data.unidad_destino) {
-          unidadesPromises.push(
-            api.get(`/unidades/${response.data.unidad_destino}/`)
-              .then(res => setUnidadDestinoData(res.data))
-              .catch(err => console.error(`Error al cargar unidad destino ${response.data.unidad_destino}:`, err))
-          );
-        }
-        
-        if (response.data.unidad_acceso) {
-          unidadesPromises.push(
-            api.get(`/unidades/${response.data.unidad_acceso}/`)
-              .then(res => setUnidadAccesoData(res.data))
-              .catch(err => console.error(`Error al cargar unidad acceso ${response.data.unidad_acceso}:`, err))
-          );
-        }
-        
-        // Esperar a que se carguen todos los datos
-        if (unidadesPromises.length > 0) {
-          await Promise.all(unidadesPromises);
-        }
-      } catch (error) {
-        console.error("Error al cargar detalles de usuario:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    fetchUserDetails();
-    
-    return () => {
-      // Limpiar estados al cerrar
-      setUnidadData({});
-      setUnidadAccesoData(null);
-      setUnidadDestinoData(null);
-    };
-  }, [user, open]);
-  
-  const handleClose = () => {
-    onClose();
-    // Pequeña demora para limpiar datos después de que se cierre el diálogo
-    setTimeout(() => {
-      setUserData(null);
-    }, 300);
-  };
-  
-  if (!user) return null;
-  
-  return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>
-        <Box display="flex" alignItems="center" justifyContent="space-between">
-          <Typography variant="h6">{user?.nombre} {user?.apellido1} {user?.apellido2 || ''}</Typography>
-          <IconButton onClick={onClose}>
-            <CloseIcon />
-          </IconButton>
-        </Box>
-      </DialogTitle>
-      
-      <DialogContent dividers>
-        <Grid container spacing={2}>
-          {/* Información personal */}
-          <Grid item xs={12}>
-            <Typography variant="subtitle1" gutterBottom fontWeight="bold">
-              Información Personal
-            </Typography>
-            <Divider />
-          </Grid>
-          
-          <Grid item xs={12} sm={6}>
-            <TextField
-              label="TIP"
-              value={user?.tip || ''}
-              InputProps={{ readOnly: true }}
-              fullWidth
-              variant="filled"
-              size="small"
-            />
-          </Grid>
-          
-          <Grid item xs={12} sm={6}>
-            <TextField
-              label="Email"
-              value={user?.email || ''}
-              InputProps={{ readOnly: true }}
-              fullWidth
-              variant="filled"
-              size="small"
-            />
-          </Grid>
-          
-          <Grid item xs={12} sm={6}>
-            <TextField
-              label="Teléfono"
-              value={user?.telefono || ''}
-              InputProps={{ readOnly: true }}
-              fullWidth
-              variant="filled"
-              size="small"
-            />
-          </Grid>
-          
-          <Grid item xs={12} sm={6}>
-            <TextField
-              label="Referencia"
-              value={user?.ref || ''}
-              InputProps={{ readOnly: true }}
-              fullWidth
-              variant="filled"
-              size="small"
-            />
-          </Grid>
-          
-          {/* Información profesional */}
-          <Grid item xs={12} sx={{ mt: 2 }}>
-            <Typography variant="subtitle1" gutterBottom fontWeight="bold">
-              Información Profesional
-            </Typography>
-            <Divider />
-          </Grid>
-          
-          <Grid item xs={12} sm={6}>
-            <TextField
-              label="Tipo de Usuario"
-              value={user?.tipo_usuario || ''}
-              InputProps={{ readOnly: true }}
-              fullWidth
-              variant="filled"
-              size="small"
-            />
-          </Grid>
-          
-          <Grid item xs={12} sm={6}>
-            <TextField
-              label="Empleo"
-              value={user?.empleo_nombre || 'No asignado'}
-              InputProps={{ readOnly: true }}
-              fullWidth
-              variant="filled"
-              size="small"
-            />
-          </Grid>
-          
-          <Grid item xs={12} sm={6}>
-            <TextField
-              label="Estado"
-              value={user?.estado ? 'Activo' : 'Inactivo'}
-              InputProps={{ readOnly: true }}
-              fullWidth
-              variant="filled"
-              size="small"
-            />
-          </Grid>
-          
-          {/* Unidades */}
-          <Grid item xs={12} sx={{ mt: 2 }}>
-            <Typography variant="subtitle1" gutterBottom fontWeight="bold">
-              Unidades Asignadas
-            </Typography>
-            <Divider />
-          </Grid>
-          
-          {/* Cambio aquí: mostrar solo unidad_destino_nombre en lugar de unidad_nombre */}
-          <Grid item xs={12} sm={6}>
-            <TextField
-              label="Unidad de Destino"
-              value={user?.unidad_destino_nombre || 'No asignada'}
-              InputProps={{ readOnly: true }}
-              fullWidth
-              variant="filled"
-              size="small"
-            />
-          </Grid>
-          
-          <Grid item xs={12} sm={6}>
-            <TextField
-              label="Unidad de Acceso"
-              value={user?.unidad_acceso_nombre || 'No asignada'}
-              InputProps={{ readOnly: true }}
-              fullWidth
-              variant="filled"
-              size="small"
-            />
-          </Grid>
-          
-          {/* Fechas */}
-          <Grid item xs={12} sx={{ mt: 2 }}>
-            <Typography variant="subtitle1" gutterBottom fontWeight="bold">
-              Información del Sistema
-            </Typography>
-            <Divider />
-          </Grid>
-          
-          <Grid item xs={12} sm={6}>
-            <TextField
-              label="Fecha de Alta"
-              value={user?.date_joined ? new Date(user.date_joined).toLocaleString() : ''}
-              InputProps={{ readOnly: true }}
-              fullWidth
-              variant="filled"
-              size="small"
-            />
-          </Grid>
-          
-          <Grid item xs={12} sm={6}>
-            <TextField
-              label="Último Acceso"
-              value={user?.last_login ? new Date(user.last_login).toLocaleString() : 'Nunca'}
-              InputProps={{ readOnly: true }}
-              fullWidth
-              variant="filled"
-              size="small"
-            />
-          </Grid>
-        </Grid>
-      </DialogContent>
-      
-      <DialogActions>
-        <Button onClick={onClose} color="primary">
-          Cerrar
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
-};
-
-export default UserDetail;
+import {  Dialog,  DialogTitle,  DialogContent,  DialogActions,  Button,  Typography,  Grid,  Divider,  Box,  TextField,  IconButton} from '@mui/material';const UserDetail = ({ open, onClose, user }) => {  const [loading, setLoading] = useState(false);  const [userData, setUserData] = useState(null);  const [unidadData, setUnidadData] = useState({});  const [unidadAccesoData, setUnidadAccesoData] = useState(null);  const [unidadDestinoData, setUnidadDestinoData] = useState(null);  useEffect(() => {    const fetchUserDetails = async () => {      if (!user || !open) return;      try {        setLoading(true);        // Obtener datos actualizados del usuario        const response = await api.get(`/users/${user.id}/`);        setUserData(response.data);        // Cargar datos de las unidades si existen        const unidadesPromises = [];        if (response.data.unidad) {          unidadesPromises.push(            api.get(`/unidades/${response.data.unidad}/`)              .then(res => setUnidadData(res.data))              .catch(err => console.error(`Error al cargar unidad ${response.data.unidad}:`, err))          );        }        if (response.data.unidad_destino) {          unidadesPromises.push(            api.get(`/unidades/${response.data.unidad_destino}/`)              .then(res => setUnidadDestinoData(res.data))              .catch(err => console.error(`Error al cargar unidad destino ${response.data.unidad_destino}:`, err))          );        }        if (response.data.unidad_acceso) {          unidadesPromises.push(            api.get(`/unidades/${response.data.unidad_acceso}/`)              .then(res => setUnidadAccesoData(res.data))              .catch(err => console.error(`Error al cargar unidad acceso ${response.data.unidad_acceso}:`, err))          );        }        // Esperar a que se carguen todos los datos        if (unidadesPromises.length > 0) {          await Promise.all(unidadesPromises);        }      } catch (error) {        console.error("Error al cargar detalles de usuario:", error);      } finally {        setLoading(false);      }    };    fetchUserDetails();    return () => {      // Limpiar estados al cerrar      setUnidadData({});      setUnidadAccesoData(null);      setUnidadDestinoData(null);    };  }, [user, open]);  const handleClose = () => {    onClose();    // Pequeña demora para limpiar datos después de que se cierre el diálogo    setTimeout(() => {      setUserData(null);    }, 300);  };  if (!user) return null;  return (    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>      <DialogTitle>        <Box display="flex" alignItems="center" justifyContent="space-between">          <Typography variant="h6">{user?.nombre} {user?.apellido1} {user?.apellido2 || ''}</Typography>          <IconButton onClick={onClose}>            <CloseIcon />          </IconButton>        </Box>      </DialogTitle>      <DialogContent dividers>        <Grid container spacing={2}>          {/* Información personal */}          <Grid item xs={12}>            <Typography variant="subtitle1" gutterBottom fontWeight="bold">              Información Personal            </Typography>            <Divider />          </Grid>          <Grid item xs={12} sm={6}>            <TextField              label="TIP"              value={user?.tip || ''}              InputProps={{ readOnly: true }}              fullWidth              variant="filled"              size="small"            />          </Grid>          <Grid item xs={12} sm={6}>            <TextField              label="Email"              value={user?.email || ''}              InputProps={{ readOnly: true }}              fullWidth              variant="filled"              size="small"            />          </Grid>          <Grid item xs={12} sm={6}>            <TextField              label="Teléfono"              value={user?.telefono || ''}              InputProps={{ readOnly: true }}              fullWidth              variant="filled"              size="small"            />          </Grid>          <Grid item xs={12} sm={6}>            <TextField              label="Referencia"              value={user?.ref || ''}              InputProps={{ readOnly: true }}              fullWidth              variant="filled"              size="small"            />          </Grid>          {/* Información profesional */}          <Grid item xs={12} sx={{ mt: 2 }}>            <Typography variant="subtitle1" gutterBottom fontWeight="bold">              Información Profesional            </Typography>            <Divider />          </Grid>          <Grid item xs={12} sm={6}>            <TextField              label="Tipo de Usuario"              value={user?.tipo_usuario || ''}              InputProps={{ readOnly: true }}              fullWidth              variant="filled"              size="small"            />          </Grid>          <Grid item xs={12} sm={6}>            <TextField              label="Empleo"              value={user?.empleo_nombre || 'No asignado'}              InputProps={{ readOnly: true }}              fullWidth              variant="filled"              size="small"            />          </Grid>          <Grid item xs={12} sm={6}>            <TextField              label="Estado"              value={user?.estado ? 'Activo' : 'Inactivo'}              InputProps={{ readOnly: true }}              fullWidth              variant="filled"              size="small"            />          </Grid>          {/* Unidades */}          <Grid item xs={12} sx={{ mt: 2 }}>            <Typography variant="subtitle1" gutterBottom fontWeight="bold">              Unidades Asignadas            </Typography>            <Divider />          </Grid>          {/* Cambio aquí: mostrar solo unidad_destino_nombre en lugar de unidad_nombre */}          <Grid item xs={12} sm={6}>            <TextField              label="Unidad de Destino"              value={user?.unidad_destino_nombre || 'No asignada'}              InputProps={{ readOnly: true }}              fullWidth              variant="filled"              size="small"            />          </Grid>          <Grid item xs={12} sm={6}>            <TextField              label="Unidad de Acceso"              value={user?.unidad_acceso_nombre || 'No asignada'}              InputProps={{ readOnly: true }}              fullWidth              variant="filled"              size="small"            />          </Grid>          {/* Fechas */}          <Grid item xs={12} sx={{ mt: 2 }}>            <Typography variant="subtitle1" gutterBottom fontWeight="bold">              Información del Sistema            </Typography>            <Divider />          </Grid>          <Grid item xs={12} sm={6}>            <TextField              label="Fecha de Alta"              value={user?.date_joined ? new Date(user.date_joined).toLocaleString() : ''}              InputProps={{ readOnly: true }}              fullWidth              variant="filled"              size="small"            />          </Grid>          <Grid item xs={12} sm={6}>            <TextField              label="Último Acceso"              value={user?.last_login ? new Date(user.last_login).toLocaleString() : 'Nunca'}              InputProps={{ readOnly: true }}              fullWidth              variant="filled"              size="small"            />          </Grid>        </Grid>      </DialogContent>      <DialogActions>        <Button onClick={onClose} color="primary">          Cerrar        </Button>      </DialogActions>    </Dialog>  );};export default UserDetail;

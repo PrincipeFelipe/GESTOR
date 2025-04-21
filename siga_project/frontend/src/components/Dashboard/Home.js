@@ -1,10 +1,8 @@
 import React from 'react';
 import { Box, Typography, Grid, Paper, Card, CardContent, CardHeader, Divider } from '@mui/material';
-import { 
-  PeopleOutline, 
-  Business as BusinessIcon, 
-  Work as WorkIcon 
-} from '@mui/icons-material';
+import PeopleOutline from '@mui/icons-material/PeopleOutline';
+import BusinessIcon from '@mui/icons-material/Business';
+import WorkIcon from '@mui/icons-material/Work';
 
 const Home = () => {
   const stats = [

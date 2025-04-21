@@ -13,14 +13,12 @@ import {
   Tooltip, 
   Divider 
 } from '@mui/material';
-import { 
-  Menu as MenuIcon, 
-  Notifications as NotificationsIcon, 
-  AccountCircle, 
-  Settings as SettingsIcon, 
-  ExitToApp as LogoutIcon,
-  Person as PersonIcon
-} from '@mui/icons-material';
+import MenuIcon from '@mui/icons-material/Menu';
+import NotificationsIcon from '@mui/icons-material/Notifications';
+import AccountCircle from '@mui/icons-material/AccountCircle';
+import SettingsIcon from '@mui/icons-material/Settings';
+import LogoutIcon from '@mui/icons-material/ExitToApp';
+import PersonIcon from '@mui/icons-material/Person';
 import { AuthContext } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 

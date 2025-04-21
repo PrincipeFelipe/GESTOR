@@ -1,185 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import {
-  Box,
-  Paper,
-  Typography,
-  List,
-  ListItemButton,
-  ListItemIcon,
-  ListItemText,
-  Collapse,
-  CircularProgress,
-  Divider
-} from '@mui/material';
-import {
-  ExpandMore as ExpandMoreIcon,
-  ExpandLess as ExpandLessIcon,
-  AccountBalance as AccountBalanceIcon,
-  Business as BusinessIcon
-} from '@mui/icons-material';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
+import BusinessIcon from '@mui/icons-material/Business';
 import unidadesService from '../../assets/services/unidades.service';
 
-const UnidadTree = () => {
-  const [unidades, setUnidades] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [expanded, setExpanded] = useState({});
-
-  useEffect(() => {
-    fetchUnidades();
-  }, []);
-
-  const fetchUnidades = async () => {
-    try {
-      setLoading(true);
-      
-      // Solicitar todas las unidades sin paginación
-      const response = await unidadesService.getAll(1, 1000, true);
-      
-      // Procesar los datos según la estructura de respuesta
-      let unidadesData;
-      
-      if (response && Array.isArray(response)) {
-        unidadesData = response;
-      } else if (response && Array.isArray(response.results)) {
-        unidadesData = response.results;
-      } else {
-        unidadesData = [];
-      }
-      
-      // Establecer los datos de unidades
-      setUnidades(unidadesData);
-      
-      console.log("Unidades cargadas:", unidadesData.length);
-    } catch (error) {
-      console.error("Error al cargar unidades:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleToggle = (unidadId) => {
-    setExpanded(prev => ({
-      ...prev,
-      [unidadId]: !prev[unidadId]
-    }));
-  };
-
-  const getUnidadLevel = (codUnidad) => {
-    if (!codUnidad) return 0;
-    return codUnidad.split('.').length;
-  };
-
-  // Función recursiva para construir el árbol
-  const buildTree = (unidadesArray, parentId = null) => {
-    return unidadesArray
-      .filter(unidad => {
-        // Si parentId es null, mostrar sólo las unidades raíz (sin padre)
-        if (parentId === null) return unidad.id_padre === null;
-        // De lo contrario, mostrar las unidades hijas de este padre
-        return unidad.id_padre === parentId;
-      })
-      .map(unidad => {
-        const hasChildren = unidades.some(u => u.id_padre === unidad.id);
-        const isOpen = expanded[unidad.id] || false;
-        
-        return (
-          <React.Fragment key={unidad.id}>
-            <ListItemButton
-              onClick={() => hasChildren && handleToggle(unidad.id)}
-              sx={{ 
-                pl: getUnidadLevel(unidad.cod_unidad) * 2 + 2,
-                borderLeft: parentId ? '1px dashed rgba(0,0,0,0.1)' : 'none',
-                ml: parentId ? 2 : 0,
-                backgroundColor: getUnidadLevel(unidad.cod_unidad) % 2 === 0 ? 'rgba(0,0,0,0.02)' : 'transparent'
-              }}
-            >
-              <ListItemIcon>
-                {parentId ? <BusinessIcon /> : <AccountBalanceIcon />}
-              </ListItemIcon>
-              <ListItemText 
-                primary={
-                  <Box component="span" sx={{ display: 'flex', alignItems: 'center' }}>
-                    <Typography component="span" sx={{ fontWeight: !parentId ? 600 : 400 }}>
-                      {unidad.nombre}
-                    </Typography>
-                    <Typography 
-                      component="span" 
-                      variant="caption" 
-                      sx={{ 
-                        ml: 1,
-                        backgroundColor: 'rgba(0,0,0,0.05)',
-                        px: 0.8,
-                        py: 0.3,
-                        borderRadius: 1,
-                        color: 'text.secondary'
-                      }}
-                    >
-                      {unidad.cod_unidad}
-                    </Typography>
-                  </Box>
-                }
-                secondary={`ID: ${unidad.id}`}
-              />
-              {hasChildren && (
-                isOpen ? <ExpandLessIcon /> : <ExpandMoreIcon />
-              )}
-            </ListItemButton>
-            {hasChildren && (
-              <Collapse in={isOpen} timeout="auto" unmountOnExit>
-                <List component="div" disablePadding>
-                  {buildTree(unidadesArray, unidad.id)}
-                </List>
-              </Collapse>
-            )}
-            {!parentId && <Divider />}
-          </React.Fragment>
-        );
-      });
-  };
-
-  const renderTree = () => {
-    const rootUnidades = buildTree(unidades);
-    
-    if (rootUnidades.length === 0) {
-      return (
-        <Typography variant="body1" sx={{ textAlign: 'center', mt: 2, color: 'text.secondary' }}>
-          No hay unidades disponibles
-        </Typography>
-      );
-    }
-    
-    return (
-      <List>
-        {rootUnidades}
-      </List>
-    );
-  };
-
-  return (
-    <Paper sx={{ width: '100%', mt: 3, p: 2 }}>
-      <Typography variant="h6" component="h2" gutterBottom>
-        Estructura Jerárquica
-      </Typography>
-
-      <Box sx={{ mb: 2 }}>
-        <Typography variant="subtitle2" color="primary" gutterBottom>
-          Información de Códigos
-        </Typography>
-        <Typography variant="body2">
-          Los códigos jerárquicos representan la estructura organizativa. Por ejemplo, un código "1.3.5" 
-          significa que es la unidad con ID 5, que pertenece a la unidad 3, que a su vez pertenece a la unidad 1.
-        </Typography>
-      </Box>
-      
-      {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
-          <CircularProgress />
-        </Box>
-      ) : (
-        renderTree()
-      )}
-    </Paper>
-  );
-};
-
-export default UnidadTree;
+import {  Box,  Paper,  Typography,  List,  ListItemButton,  ListItemIcon,  ListItemText,  Collapse,  CircularProgress,  Divider} from '@mui/material';const UnidadTree = () => {  const [unidades, setUnidades] = useState([]);  const [loading, setLoading] = useState(true);  const [expanded, setExpanded] = useState({});  useEffect(() => {    fetchUnidades();  }, []);  const fetchUnidades = async () => {    try {      setLoading(true);      // Solicitar todas las unidades sin paginación      const response = await unidadesService.getAll(1, 1000, true);      // Procesar los datos según la estructura de respuesta      let unidadesData;      if (response && Array.isArray(response)) {        unidadesData = response;      } else if (response && Array.isArray(response.results)) {        unidadesData = response.results;      } else {        unidadesData = [];      }      // Establecer los datos de unidades      setUnidades(unidadesData);      console.log("Unidades cargadas:", unidadesData.length);    } catch (error) {      console.error("Error al cargar unidades:", error);    } finally {      setLoading(false);    }  };  const handleToggle = (unidadId) => {    setExpanded(prev => ({      ...prev,      [unidadId]: !prev[unidadId]    }));  };  const getUnidadLevel = (codUnidad) => {    if (!codUnidad) return 0;    return codUnidad.split('.').length;  };  // Función recursiva para construir el árbol  const buildTree = (unidadesArray, parentId = null) => {    return unidadesArray      .filter(unidad => {        // Si parentId es null, mostrar sólo las unidades raíz (sin padre)        if (parentId === null) return unidad.id_padre === null;        // De lo contrario, mostrar las unidades hijas de este padre        return unidad.id_padre === parentId;      })      .map(unidad => {        const hasChildren = unidades.some(u => u.id_padre === unidad.id);        const isOpen = expanded[unidad.id] || false;        return (          <React.Fragment key={unidad.id}>            <ListItemButton              onClick={() => hasChildren && handleToggle(unidad.id)}              sx={{                 pl: getUnidadLevel(unidad.cod_unidad) * 2 + 2,                borderLeft: parentId ? '1px dashed rgba(0,0,0,0.1)' : 'none',                ml: parentId ? 2 : 0,                backgroundColor: getUnidadLevel(unidad.cod_unidad) % 2 === 0 ? 'rgba(0,0,0,0.02)' : 'transparent'              }}            >              <ListItemIcon>                {parentId ? <BusinessIcon /> : <AccountBalanceIcon />}              </ListItemIcon>              <ListItemText                 primary={                  <Box component="span" sx={{ display: 'flex', alignItems: 'center' }}>                    <Typography component="span" sx={{ fontWeight: !parentId ? 600 : 400 }}>                      {unidad.nombre}                    </Typography>                    <Typography                       component="span"                       variant="caption"                       sx={{                         ml: 1,                        backgroundColor: 'rgba(0,0,0,0.05)',                        px: 0.8,                        py: 0.3,                        borderRadius: 1,                        color: 'text.secondary'                      }}                    >                      {unidad.cod_unidad}                    </Typography>                  </Box>                }                secondary={`ID: ${unidad.id}`}              />              {hasChildren && (                isOpen ? <ExpandLessIcon /> : <ExpandMoreIcon />              )}            </ListItemButton>            {hasChildren && (              <Collapse in={isOpen} timeout="auto" unmountOnExit>                <List component="div" disablePadding>                  {buildTree(unidadesArray, unidad.id)}                </List>              </Collapse>            )}            {!parentId && <Divider />}          </React.Fragment>        );      });  };  const renderTree = () => {    const rootUnidades = buildTree(unidades);    if (rootUnidades.length === 0) {      return (        <Typography variant="body1" sx={{ textAlign: 'center', mt: 2, color: 'text.secondary' }}>          No hay unidades disponibles        </Typography>      );    }    return (      <List>        {rootUnidades}      </List>    );  };  return (    <Paper sx={{ width: '100%', mt: 3, p: 2 }}>      <Typography variant="h6" component="h2" gutterBottom>        Estructura Jerárquica      </Typography>      <Box sx={{ mb: 2 }}>        <Typography variant="subtitle2" color="primary" gutterBottom>          Información de Códigos        </Typography>        <Typography variant="body2">          Los códigos jerárquicos representan la estructura organizativa. Por ejemplo, un código "1.3.5"           significa que es la unidad con ID 5, que pertenece a la unidad 3, que a su vez pertenece a la unidad 1.        </Typography>      </Box>      {loading ? (        <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>          <CircularProgress />        </Box>      ) : (        renderTree()      )}    </Paper>  );};export default UnidadTree;

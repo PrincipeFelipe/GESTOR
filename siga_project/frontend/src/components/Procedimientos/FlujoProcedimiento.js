@@ -20,10 +20,8 @@ import {
   TimelineDot, 
   TimelineOppositeContent 
 } from '@mui/lab';
-import { 
-  ArrowForward as ArrowForwardIcon,
-  CallSplit as CallSplitIcon 
-} from '@mui/icons-material';
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import CallSplitIcon from '@mui/icons-material/CallSplit';
 
 const FlujoProcedimiento = ({ pasos }) => {
   const [tabIndex, setTabIndex] = React.useState(0);

@@ -13,23 +13,21 @@ import {
   ListItemText, 
   Box 
 } from '@mui/material';
-import { 
-  Dashboard as DashboardIcon, 
-  People as PeopleIcon,
-  Business as BusinessIcon,
-  Work as WorkIcon,
-  Settings as SettingsIcon,
-  Logout as LogoutIcon,
-  Person as PersonIcon,
-  Description as DescriptionIcon,
-  Assignment as AssignmentIcon,
-  AssignmentTurnedIn as AssignmentTurnedInIcon,
-  Folder as FolderIcon,
-  ListAlt as ListAltIcon,
-  Category as CategoryIcon,
-  FileCopy as FileCopyIcon,
-  FormatListNumbered as FormatListNumberedIcon
-} from '@mui/icons-material';
+import DashboardIcon from '@mui/icons-material/Dashboard';
+import PeopleIcon from '@mui/icons-material/People';
+import BusinessIcon from '@mui/icons-material/Business';
+import WorkIcon from '@mui/icons-material/Work';
+import SettingsIcon from '@mui/icons-material/Settings';
+import LogoutIcon from '@mui/icons-material/Logout';
+import PersonIcon from '@mui/icons-material/Person';
+import DescriptionIcon from '@mui/icons-material/Description';
+import AssignmentIcon from '@mui/icons-material/Assignment';
+import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
+import FolderIcon from '@mui/icons-material/Folder';
+import ListAltIcon from '@mui/icons-material/ListAlt';
+import CategoryIcon from '@mui/icons-material/Category';
+import FileCopyIcon from '@mui/icons-material/FileCopy';
+import FormatListNumberedIcon from '@mui/icons-material/FormatListNumbered';
 import { AuthContext } from '../../contexts/AuthContext';
 
 const Sidebar = ({ drawerWidth, mobileOpen, handleDrawerToggle }) => {

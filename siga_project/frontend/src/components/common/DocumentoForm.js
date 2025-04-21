@@ -15,7 +15,7 @@ import {
   Alert,
   IconButton
 } from '@mui/material';
-import { Close as CloseIcon } from '@mui/icons-material';
+import CloseIcon from '@mui/icons-material/Close';
 
 const DocumentoForm = ({ open, onClose, onSubmit, initialData, procedimientoId }) => {
   const [formData, setFormData] = useState({

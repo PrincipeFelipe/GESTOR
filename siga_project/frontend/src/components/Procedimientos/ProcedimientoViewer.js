@@ -21,28 +21,32 @@ import {
   Alert,
   IconButton,
   Grid,
+  Tabs,
+  Tab
+} from '@mui/material';
+
+// Importar Timeline desde @mui/lab en lugar de @mui/material
+import {
   Timeline,
   TimelineItem,
   TimelineSeparator,
   TimelineConnector,
   TimelineContent,
   TimelineDot,
-  TimelineOppositeContent,
-  Tabs,
-  Tab
-} from '@mui/material';
-import {
-  ArrowBack as ArrowBackIcon,
-  Description as DescriptionIcon,
-  AccountTree as AccountTreeIcon,
-  Assignment as AssignmentIcon,
-  PictureAsPdf as PdfIcon,
-  Image as ImageIcon,
-  InsertDriveFile as FileIcon,
-  CallSplit as CallSplitIcon,
-  ArrowForward as ArrowForwardIcon,
-  Person as PersonIcon
-} from '@mui/icons-material';
+  TimelineOppositeContent
+} from '@mui/lab';
+
+// Importaciones de iconos
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import DescriptionIcon from '@mui/icons-material/Description';
+import AccountTreeIcon from '@mui/icons-material/AccountTree';
+import AssignmentIcon from '@mui/icons-material/Assignment';
+import PdfIcon from '@mui/icons-material/PictureAsPdf';
+import ImageIcon from '@mui/icons-material/Image';
+import FileIcon from '@mui/icons-material/InsertDriveFile';
+import CallSplitIcon from '@mui/icons-material/CallSplit';
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import PersonIcon from '@mui/icons-material/Person';
 import procedimientosService from '../../assets/services/procedimientos.service';
 import DocumentPreview from '../common/DocumentPreview';
 import { format } from 'date-fns';
@@ -54,6 +58,7 @@ const ProcedimientoViewer = () => {
   
   const [procedimiento, setProcedimiento] = useState(null);
   const [pasos, setPasos] = useState([]);
+  const [documentosGenerales, setDocumentosGenerales] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeStep, setActiveStep] = useState(0);
@@ -68,16 +73,51 @@ const ProcedimientoViewer = () => {
         const procResponse = await procedimientosService.getProcedimiento(procedimientoId);
         setProcedimiento(procResponse.data);
         
-        // Obtener pasos del procedimiento
-        const pasosResponse = await procedimientosService.getPasos(procedimientoId);
-        const pasosData = pasosResponse.data.results || pasosResponse.data || [];
+        // Modificar esta llamada para garantizar que se obtengan todos los pasos
+        const pasosResponse = await procedimientosService.getPasos(procedimientoId, { 
+          pagination: false,  // Deshabilitar explícitamente la paginación
+          page_size: 1000     // Establecer un tamaño de página muy grande
+        });
         
-        // Ordenar pasos por número
+        // Verificar la estructura de la respuesta y procesar adecuadamente
+        let pasosData = [];
+        if (Array.isArray(pasosResponse.data)) {
+          pasosData = pasosResponse.data;
+        } else if (pasosResponse.data.results && Array.isArray(pasosResponse.data.results)) {
+          pasosData = pasosResponse.data.results;
+        }
+        
+        // Filtrar y ordenar pasos por número
         const pasosOrdenados = pasosData
           .filter(paso => parseInt(paso.procedimiento) === parseInt(procedimientoId))
           .sort((a, b) => a.numero - b.numero);
         
-        setPasos(pasosOrdenados);
+        console.log('Pasos ordenados:', pasosOrdenados);
+        
+        // Para cada paso, obtener sus documentos específicos
+        const pasosConDocumentos = await Promise.all(
+          pasosOrdenados.map(async (paso) => {
+            try {
+              const docsResponse = await procedimientosService.getDocumentosPorPaso(paso.id);
+              const documentos = docsResponse.data.results || docsResponse.data || [];
+              return { ...paso, documentos };
+            } catch (err) {
+              console.error(`Error al obtener documentos del paso ${paso.id}:`, err);
+              return { ...paso, documentos: [] };
+            }
+          })
+        );
+        
+        setPasos(pasosConDocumentos);
+        
+        // Obtener documentos generales del procedimiento
+        try {
+          const docsGeneralesResponse = await procedimientosService.getDocumentosGenerales(procedimientoId);
+          setDocumentosGenerales(docsGeneralesResponse.data.results || docsGeneralesResponse.data || []);
+        } catch (err) {
+          console.error('Error al obtener documentos generales:', err);
+          setDocumentosGenerales([]);
+        }
       } catch (err) {
         console.error('Error al cargar el procedimiento:', err);
         setError('No se pudo cargar el procedimiento. Por favor, inténtelo de nuevo más tarde.');
@@ -121,6 +161,16 @@ const ProcedimientoViewer = () => {
     if (!pasoActual) return null;
     const siguienteNumero = pasoActual.numero + 1;
     return pasos.find(p => p.numero === siguienteNumero);
+  };
+
+  // Añadir una función para manejar el clic en una bifurcación
+  const handleBifurcacionClick = (pasoDestinoId) => {
+    // Buscar el índice del paso de destino en el array de pasos
+    const pasoIndex = pasos.findIndex(p => p.id === pasoDestinoId);
+    if (pasoIndex !== -1) {
+      setViewMode(0); // Cambiar a vista detallada
+      setActiveStep(pasoIndex); // Establecer el paso activo
+    }
   };
   
   if (loading) {
@@ -217,6 +267,51 @@ const ProcedimientoViewer = () => {
               </Grid>
             </Grid>
             
+            {/* Mostrar documentos generales si existen */}
+            {documentosGenerales && documentosGenerales.length > 0 && (
+              <Box mt={2} mb={4}>
+                <Typography variant="h6" gutterBottom>
+                  Documentos Generales
+                </Typography>
+                <Paper variant="outlined" sx={{ p: 2, bgcolor: 'background.paper' }}>
+                  <List dense>
+                    {documentosGenerales.map((doc) => (
+                      <ListItem key={doc.id} disablePadding sx={{ mb: 1 }}>
+                        <ListItemIcon sx={{ minWidth: '30px' }}>
+                          {getDocumentoIcon(doc.extension)}
+                        </ListItemIcon>
+                        <ListItemText 
+                          primary={doc.nombre} 
+                          secondary={doc.descripcion}
+                        />
+                        {doc.archivo_url && (
+                          <Button 
+                            size="small" 
+                            variant="outlined"
+                            onClick={() => handlePreviewDocument(doc.archivo_url, doc.nombre)}
+                          >
+                            Ver
+                          </Button>
+                        )}
+                        {doc.url && !doc.archivo_url && (
+                          <Button 
+                            size="small" 
+                            variant="outlined"
+                            component="a"
+                            href={doc.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            Enlace
+                          </Button>
+                        )}
+                      </ListItem>
+                    ))}
+                  </List>
+                </Paper>
+              </Box>
+            )}
+            
             <Divider sx={{ my: 3 }} />
             
             {pasos.length > 0 ? (
@@ -293,7 +388,13 @@ const ProcedimientoViewer = () => {
                                           alignItems: 'center',
                                           bgcolor: 'rgba(156, 39, 176, 0.05)',
                                           borderRadius: '8px',
+                                          cursor: pasoDestino ? 'pointer' : 'default',
+                                          '&:hover': pasoDestino ? {
+                                            boxShadow: 2,
+                                            bgcolor: 'rgba(156, 39, 176, 0.1)',
+                                          } : {}
                                         }}
+                                        onClick={() => pasoDestino && handleBifurcacionClick(pasoDestino.id)}
                                       >
                                         <Box sx={{ flex: 1 }}>
                                           <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
@@ -318,65 +419,60 @@ const ProcedimientoViewer = () => {
                                 </Box>
                               </Box>
                             )}
-                            
-                            {/* Mostrar siguiente paso en el flujo normal */}
-                            {!paso.es_final && (
-                              <Box mt={2}>
-                                <Typography variant="subtitle2">
-                                  Siguiente paso:
-                                </Typography>
-                                
-                                {(() => {
-                                  const siguientePaso = getSiguientePaso(paso);
-                                  if (siguientePaso) {
-                                    return (
-                                      <Paper 
-                                        variant="outlined"
-                                        sx={{ 
-                                          p: 1.5, 
-                                          display: 'flex', 
-                                          alignItems: 'center', 
-                                          bgcolor: 'rgba(33, 150, 243, 0.05)',
-                                          borderRadius: '8px',
-                                          mt: 1
-                                        }}
-                                      >
-                                        <Box sx={{ 
-                                          display: 'flex', 
-                                          alignItems: 'center', 
-                                          justifyContent: 'center',
-                                          width: '28px', 
-                                          height: '28px', 
-                                          borderRadius: '50%', 
-                                          bgcolor: 'rgba(33, 150, 243, 0.1)',
-                                          color: 'primary.main',
-                                          fontWeight: 'bold',
-                                          fontSize: '0.9rem',
-                                          mr: 2
-                                        }}>
-                                          {siguientePaso.numero}
-                                        </Box>
-                                        
-                                        <Typography variant="body2">
-                                          {siguientePaso.titulo}
-                                        </Typography>
-                                        
-                                        <Box sx={{ ml: 'auto' }}>
-                                          <ArrowForwardIcon fontSize="small" color="primary" />
-                                        </Box>
-                                      </Paper>
-                                    );
-                                  } else {
-                                    return (
-                                      <Typography variant="body2" color="text.secondary">
-                                        No hay paso siguiente definido.
+
+                            {/* Mostrar siguiente paso SOLO cuando no hay bifurcaciones y no es un paso final */}
+                            {!paso.es_final && (!paso.bifurcaciones || paso.bifurcaciones.length === 0) && (() => {
+                              const siguientePaso = getSiguientePaso(paso);
+                              if (siguientePaso) {
+                                return (
+                                  <Box mt={2}>
+                                    <Typography variant="subtitle2" sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                                      <ArrowForwardIcon fontSize="small" color="primary" sx={{ mr: 0.5 }} />
+                                      Siguiente paso:
+                                    </Typography>
+                                    
+                                    <Paper 
+                                      variant="outlined"
+                                      sx={{ 
+                                        p: 1.5, 
+                                        display: 'flex', 
+                                        alignItems: 'center', 
+                                        bgcolor: 'rgba(33, 150, 243, 0.05)',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        '&:hover': {
+                                          boxShadow: 2,
+                                          bgcolor: 'rgba(33, 150, 243, 0.1)'
+                                        }
+                                      }}
+                                      onClick={() => handleBifurcacionClick(siguientePaso.id)}
+                                    >
+                                      <Box sx={{ 
+                                        display: 'flex', 
+                                        alignItems: 'center', 
+                                        justifyContent: 'center',
+                                        width: '28px', 
+                                        height: '28px', 
+                                        borderRadius: '50%', 
+                                        bgcolor: 'rgba(33, 150, 243, 0.1)',
+                                        color: 'primary.main',
+                                        fontWeight: 'bold',
+                                        fontSize: '0.9rem',
+                                        mr: 2
+                                      }}>
+                                        {siguientePaso.numero}
+                                      </Box>
+                                      
+                                      <Typography variant="body2">
+                                        {siguientePaso.titulo}
                                       </Typography>
-                                    );
-                                  }
-                                })()}
-                              </Box>
-                            )}
-                            
+                                    </Paper>
+                                  </Box>
+                                );
+                              }
+                              return null;
+                            })()}
+
                             {/* Mostrar documentos asociados al paso */}
                             {paso.documentos && paso.documentos.length > 0 && (
                               <Box mt={3}>
@@ -385,48 +481,45 @@ const ProcedimientoViewer = () => {
                                   Documentos asociados:
                                 </Typography>
                                 <List dense>
-                                  {paso.documentos.map((doc) => (
-                                    <ListItem key={doc.id} disablePadding sx={{ mb: 0.5 }}>
-                                      <ListItemIcon sx={{ minWidth: '30px' }}>
-                                        {getDocumentoIcon(doc.extension)}
-                                      </ListItemIcon>
-                                      <ListItemText 
-                                        primary={doc.nombre} 
-                                        secondary={doc.descripcion}
-                                      />
-                                      {doc.archivo_url && (
-                                        <Button 
-                                          size="small" 
-                                          variant="outlined"
-                                          onClick={() => handlePreviewDocument(doc.archivo_url, doc.nombre)}
-                                        >
-                                          Ver
-                                        </Button>
-                                      )}
-                                    </ListItem>
-                                  ))}
+                                  {paso.documentos.map((docPaso) => {
+                                    // Asegurarnos de tener la estructura correcta del documento
+                                    const doc = docPaso.documento_detalle || docPaso;
+                                    return (
+                                      <ListItem key={docPaso.id || doc.id} disablePadding sx={{ mb: 0.5 }}>
+                                        <ListItemIcon sx={{ minWidth: '30px' }}>
+                                          {getDocumentoIcon(doc.extension)}
+                                        </ListItemIcon>
+                                        <ListItemText 
+                                          primary={doc.nombre} 
+                                          secondary={doc.descripcion}
+                                        />
+                                        {doc.archivo_url && (
+                                          <Button 
+                                            size="small" 
+                                            variant="outlined"
+                                            onClick={() => handlePreviewDocument(doc.archivo_url, doc.nombre)}
+                                          >
+                                            Ver
+                                          </Button>
+                                        )}
+                                        {doc.url && !doc.archivo_url && (
+                                          <Button 
+                                            size="small" 
+                                            variant="outlined"
+                                            component="a"
+                                            href={doc.url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                          >
+                                            Enlace
+                                          </Button>
+                                        )}
+                                      </ListItem>
+                                    );
+                                  })}
                                 </List>
                               </Box>
                             )}
-                            
-                            {/* Navegación entre pasos */}
-                            <Box sx={{ mb: 2, mt: 3 }}>
-                              <Button
-                                variant="contained"
-                                onClick={() => setActiveStep((prevActiveStep) => prevActiveStep + 1)}
-                                sx={{ mt: 1, mr: 1 }}
-                                disabled={index === pasos.length - 1}
-                              >
-                                Siguiente
-                              </Button>
-                              <Button
-                                disabled={index === 0}
-                                onClick={() => setActiveStep((prevActiveStep) => prevActiveStep - 1)}
-                                sx={{ mt: 1, mr: 1 }}
-                              >
-                                Anterior
-                              </Button>
-                            </Box>
                           </Box>
                         </StepContent>
                       </Step>
@@ -446,7 +539,18 @@ const ProcedimientoViewer = () => {
                           {index < pasos.length - 1 && <TimelineConnector />}
                         </TimelineSeparator>
                         <TimelineContent>
-                          <Paper elevation={3} sx={{ p: 2, bgcolor: paso.bifurcaciones?.length ? 'rgba(156, 39, 176, 0.05)' : 'white' }}>
+                          <Paper 
+                            elevation={3} 
+                            sx={{ 
+                              p: 2, 
+                              bgcolor: paso.bifurcaciones?.length ? 'rgba(156, 39, 176, 0.05)' : 'white',
+                              cursor: 'pointer'
+                            }}
+                            onClick={() => {
+                              setViewMode(0); // Cambiar a vista detallada
+                              setActiveStep(index); // Activar este paso
+                            }}
+                          >
                             <Typography variant="h6" component="span">
                               {paso.titulo}
                             </Typography>
@@ -473,6 +577,15 @@ const ProcedimientoViewer = () => {
                                 color="info"
                                 sx={{ mt: 1 }} 
                               />
+                            )}
+                            
+                            {paso.documentos && paso.documentos.length > 0 && (
+                              <Box sx={{ mt: 1.5 }}>
+                                <Typography variant="caption" color="text.secondary" display="block">
+                                  <DescriptionIcon fontSize="small" sx={{ verticalAlign: 'middle', mr: 0.5 }} />
+                                  {paso.documentos.length} documento{paso.documentos.length !== 1 ? 's' : ''}
+                                </Typography>
+                              </Box>
                             )}
                           </Paper>
                         </TimelineContent>
