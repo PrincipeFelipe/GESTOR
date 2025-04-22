@@ -74,7 +74,7 @@ class PasoSerializer(serializers.ModelSerializer):
         model = Paso
         fields = ['id', 'procedimiento', 'numero', 'titulo', 'descripcion', 
                  'tiempo_estimado', 'responsable', 'documentos', 'documentos_ids', 
-                 'bifurcaciones', 'es_final']
+                 'bifurcaciones', 'es_final', 'requiere_envio']
     
     def get_documentos(self, obj):
         """

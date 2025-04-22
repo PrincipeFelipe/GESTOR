@@ -49,10 +49,9 @@ class ProcedimientoAdmin(admin.ModelAdmin):
 
 @admin.register(Paso)
 class PasoAdmin(admin.ModelAdmin):
-    list_display = ('procedimiento', 'numero', 'titulo', 'tiempo_estimado', 'responsable')
-    list_filter = ('procedimiento',)
-    search_fields = ('titulo', 'descripcion', 'procedimiento__nombre')
-    ordering = ('procedimiento', 'numero')
+    list_display = ('procedimiento', 'numero', 'titulo', 'responsable', 'tiempo_estimado', 'es_final', 'requiere_envio')
+    list_filter = ('procedimiento', 'es_final', 'requiere_envio')
+    search_fields = ('titulo', 'descripcion', 'responsable')
     inlines = [DocumentoPasoInline]
 
 @admin.register(Documento)

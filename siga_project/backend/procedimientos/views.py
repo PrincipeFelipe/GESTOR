@@ -209,11 +209,9 @@ class ProcedimientoViewSet(viewsets.ModelViewSet):
 class PasoViewSet(viewsets.ModelViewSet):
     queryset = Paso.objects.all()
     serializer_class = PasoSerializer
-    permission_classes = [IsAdminOrSuperAdminOrReadOnly]
-    filter_backends = [filters.SearchFilter, filters.OrderingFilter, DjangoFilterBackend]
-    search_fields = ['titulo', 'descripcion']
-    ordering_fields = ['numero', 'titulo']
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_fields = ['procedimiento']
+    ordering_fields = ['numero']
     
     def perform_create(self, serializer):
         procedimiento_id = self.request.data.get('procedimiento')

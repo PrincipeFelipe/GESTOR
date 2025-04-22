@@ -118,6 +118,11 @@ class Paso(models.Model):
     responsable = models.CharField(max_length=100, blank=True, null=True)
     bifurcaciones = models.JSONField(default=list, blank=True)  
     es_final = models.BooleanField(default=False, help_text="Indica si este paso finaliza el procedimiento")
+    # Nuevo campo para indicar si el paso requiere envío y respuesta
+    requiere_envio = models.BooleanField(
+        default=False, 
+        help_text="Indica si este paso requiere un envío que necesita respuesta para continuar"
+    )
     
     def __str__(self):
         return f"{self.procedimiento.nombre} - Paso {self.numero}: {self.titulo}"
