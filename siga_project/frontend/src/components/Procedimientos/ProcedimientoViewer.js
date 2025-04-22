@@ -193,6 +193,7 @@ const ProcedimientoViewer = () => {
       setActiveStep(pasoIndex); // Establecer el paso activo
     }
   };
+
   
   if (loading) {
     return (
@@ -287,6 +288,8 @@ const ProcedimientoViewer = () => {
                           variant="outlined"
                         />
                       )}
+
+                      
                     </Box>
                     
                     <Typography variant="body2">
@@ -392,6 +395,16 @@ const ProcedimientoViewer = () => {
                                 <PersonIcon fontSize="small" color="action" sx={{ mr: 0.5 }} />
                                 <Typography variant="body2" color="text.secondary">
                                   <strong>Responsable:</strong> {paso.responsable}
+                                </Typography>
+                              </Box>
+                            )}
+
+                            {/* Añadir visualización de tiempo estimado */}
+                            {paso.tiempo_estimado && (
+                              <Box display="flex" alignItems="center" mb={1}>
+                                <AccessTimeIcon fontSize="small" color="action" sx={{ mr: 0.5 }} />
+                                <Typography variant="body2" color="text.secondary">
+                                  <strong>Tiempo estimado:</strong> {paso.tiempo_estimado} {parseFloat(paso.tiempo_estimado) === 1 ? 'día' : 'días'}
                                 </Typography>
                               </Box>
                             )}
@@ -588,6 +601,14 @@ const ProcedimientoViewer = () => {
                             {paso.responsable && (
                               <Typography variant="body2" color="text.secondary">
                                 Responsable: {paso.responsable}
+                              </Typography>
+                            )}
+
+                            {/* Añadir tiempo estimado en la vista timeline */}
+                            {paso.tiempo_estimado && (
+                              <Typography variant="body2" color="text.secondary" sx={{ display: 'flex', alignItems: 'center' }}>
+                                <AccessTimeIcon fontSize="small" sx={{ mr: 0.5 }} />
+                                {paso.tiempo_estimado} {parseFloat(paso.tiempo_estimado) === 1 ? 'día' : 'días'}
                               </Typography>
                             )}
                             

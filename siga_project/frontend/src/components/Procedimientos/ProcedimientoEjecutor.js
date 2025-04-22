@@ -139,6 +139,21 @@ const ProcedimientoEjecutor = () => {
     setRespuestaCondicion(e.target.value);
   };
 
+  const calcularTiempoTotal = (pasos) => {
+    let total = 0;
+    
+    pasos.forEach(paso => {
+      if (paso.tiempo_estimado) {
+        const valor = parseFloat(paso.tiempo_estimado);
+        if (!isNaN(valor)) {
+          total += valor;
+        }
+      }
+    });
+    
+    return total;
+  };
+
   if (loading) {
     return <Box sx={{ p: 3, textAlign: 'center' }}>Cargando procedimiento...</Box>;
   }
@@ -191,6 +206,11 @@ const ProcedimientoEjecutor = () => {
               variant="outlined"
             />
           )}
+          <Chip 
+            icon={<AccessTimeIcon />}
+            label={`Tiempo estimado total: ${calcularTiempoTotal(pasos).toFixed(1)} días`}
+            color={calcularTiempoTotal(pasos) > (procedimiento.tiempo_maximo || Infinity) ? "error" : "success"}
+          />
         </Box>
         
         <Typography variant="body2" color="text.secondary" paragraph>
@@ -206,31 +226,126 @@ const ProcedimientoEjecutor = () => {
         ))}
       </Stepper>
       
-      <Paper elevation={2} sx={{ p: 3, mb: 3 }}>
-        <Typography variant="h5" gutterBottom color="primary">
-          Paso {pasoActual.numero}: {pasoActual.titulo}
-        </Typography>
+      <PasoViewer paso={pasoActual} />
+      
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
+        <Button 
+          onClick={handleAnterior}
+          disabled={indiceHistorial === 0}
+          variant="outlined"
+        >
+          Paso anterior
+        </Button>
         
-        {pasoActual.responsable && (
-          <Typography variant="subtitle2" gutterBottom color="text.secondary">
-            Responsable: {pasoActual.responsable}
-          </Typography>
-        )}
+        <Button 
+          onClick={handleSiguiente}
+          variant="contained"
+          color="primary"
+          disabled={
+            pasoActual.bifurcaciones?.length > 0 && !respuestaCondicion ||
+            pasoActual.numero === pasos.length
+          }
+        >
+          {pasoActual.numero === pasos.length ? 'Finalizar' : 'Siguiente paso'}
+        </Button>
+      </Box>
+    </Box>
+  );
+};
+
+const PasoViewer = ({ paso, ...props }) => {
+  return (
+    <Paper 
+      elevation={2} 
+      sx={{ 
+        mb: 3, 
+        borderRadius: '8px',
+        overflow: 'hidden',
+        border: '1px solid #e0e0e0',
+        transition: 'all 0.3s ease',
+        '&:hover': {
+          boxShadow: '0 4px 8px rgba(0,0,0,0.1)'
+        }
+      }}
+    >
+      <Box sx={{ p: 3 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            width: '36px', 
+            height: '36px', 
+            borderRadius: '50%', 
+            bgcolor: 'rgba(33, 150, 243, 0.1)', 
+            marginRight: '16px',
+            color: 'primary.main',
+            fontWeight: 'bold',
+            fontSize: '1rem'
+          }}>
+            {paso.numero}
+          </Box>
+          <Typography variant="h6">{paso.titulo}</Typography>
+        </Box>
         
-        <Divider sx={{ my: 2 }} />
+        {/* Añadir sección para tiempo estimado y responsable */}
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 2 }}>
+          {/* Tiempo estimado */}
+          {paso.tiempo_estimado && (
+            <Box sx={{ 
+              display: 'flex', 
+              alignItems: 'center',
+              bgcolor: 'rgba(33, 150, 243, 0.08)',
+              borderRadius: '16px',
+              padding: '4px 12px'
+            }}>
+              <AccessTimeIcon fontSize="small" color="primary" sx={{ mr: 0.5 }} />
+              <Typography variant="body2">
+                Tiempo estimado: {paso.tiempo_estimado} {parseFloat(paso.tiempo_estimado) === 1 ? 'día' : 'días'}
+              </Typography>
+            </Box>
+          )}
+          
+          {/* Responsable (si existe) */}
+          {paso.responsable && (
+            <Box sx={{ 
+              display: 'flex', 
+              alignItems: 'center',
+              bgcolor: 'rgba(76, 175, 80, 0.08)',
+              borderRadius: '16px',
+              padding: '4px 12px'
+            }}>
+              <PersonIcon fontSize="small" color="success" sx={{ mr: 0.5 }} />
+              <Typography variant="body2">
+                Responsable: {paso.responsable}
+              </Typography>
+            </Box>
+          )}
+        </Box>
         
-        <Typography variant="body1" paragraph>
-          {pasoActual.descripcion}
+        {/* Descripción del paso */}
+        <Typography 
+          variant="body1" 
+          sx={{ 
+            mb: 2, 
+            whiteSpace: 'pre-line',
+            color: 'text.primary',
+            lineHeight: 1.6,
+            pl: 2,
+            borderLeft: '4px solid rgba(33, 150, 243, 0.2)'
+          }}
+        >
+          {paso.descripcion || 'Sin descripción'}
         </Typography>
         
         {/* Documentos asociados */}
-        {pasoActual.documentos && pasoActual.documentos.length > 0 && (
+        {paso.documentos && paso.documentos.length > 0 && (
           <Box sx={{ mt: 3 }}>
             <Typography variant="subtitle2" gutterBottom>
               Documentos necesarios:
             </Typography>
             <Box component="ul">
-              {pasoActual.documentos.map((docPaso) => (
+              {paso.documentos.map((docPaso) => (
                 <Box component="li" key={docPaso.id} sx={{ mb: 1 }}>
                   <Typography variant="body2">
                     {docPaso.documento_detalle.nombre}
@@ -242,12 +357,12 @@ const ProcedimientoEjecutor = () => {
         )}
         
         {/* Bifurcaciones */}
-        {pasoActual.bifurcaciones && pasoActual.bifurcaciones.length > 0 && (
+        {paso.bifurcaciones && paso.bifurcaciones.length > 0 && (
           <Box sx={{ mt: 3, mb: 2, p: 2, bgcolor: 'background.paper', borderRadius: 1 }}>
             <FormControl component="fieldset" fullWidth>
               <FormLabel component="legend">Seleccione la situación aplicable:</FormLabel>
               <RadioGroup value={respuestaCondicion} onChange={handleRespuestaChange}>
-                {pasoActual.bifurcaciones.map((bifurcacion, index) => (
+                {paso.bifurcaciones.map((bifurcacion, index) => (
                   <FormControlLabel
                     key={index}
                     value={bifurcacion.condicion}
@@ -275,30 +390,8 @@ const ProcedimientoEjecutor = () => {
             </FormControl>
           </Box>
         )}
-      </Paper>
-      
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
-        <Button 
-          onClick={handleAnterior}
-          disabled={indiceHistorial === 0}
-          variant="outlined"
-        >
-          Paso anterior
-        </Button>
-        
-        <Button 
-          onClick={handleSiguiente}
-          variant="contained"
-          color="primary"
-          disabled={
-            pasoActual.bifurcaciones?.length > 0 && !respuestaCondicion ||
-            pasoActual.numero === pasos.length
-          }
-        >
-          {pasoActual.numero === pasos.length ? 'Finalizar' : 'Siguiente paso'}
-        </Button>
       </Box>
-    </Box>
+    </Paper>
   );
 };
 
