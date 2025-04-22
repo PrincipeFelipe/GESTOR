@@ -48,6 +48,7 @@ import CallSplitIcon from '@mui/icons-material/CallSplit';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import PersonIcon from '@mui/icons-material/Person';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import SendIcon from '@mui/icons-material/Send';
 import procedimientosService from '../../assets/services/procedimientos.service';
 import DocumentPreview from '../common/DocumentPreview';
 import { format } from 'date-fns';
@@ -382,6 +383,16 @@ const ProcedimientoViewer = () => {
                                 sx={{ ml: 1 }} 
                               />
                             )}
+                            {/* Añadir indicador de requiere_envio */}
+                            {paso.requiere_envio && (
+                              <Chip 
+                                icon={<SendIcon />}
+                                label="Requiere envío" 
+                                size="small" 
+                                color="secondary" 
+                                sx={{ ml: 1 }} 
+                              />
+                            )}
                           </Box>
                         </StepLabel>
                         <StepContent>
@@ -395,6 +406,16 @@ const ProcedimientoViewer = () => {
                                 <PersonIcon fontSize="small" color="action" sx={{ mr: 0.5 }} />
                                 <Typography variant="body2" color="text.secondary">
                                   <strong>Responsable:</strong> {paso.responsable}
+                                </Typography>
+                              </Box>
+                            )}
+
+                            {/* Añadir visualización de requiere_envio */}
+                            {paso.requiere_envio && (
+                              <Box display="flex" alignItems="center" mb={1}>
+                                <SendIcon fontSize="small" color="secondary" sx={{ mr: 0.5 }} />
+                                <Typography variant="body2" color="text.secondary">
+                                  <strong>Este paso requiere envío y respuesta</strong>
                                 </Typography>
                               </Box>
                             )}

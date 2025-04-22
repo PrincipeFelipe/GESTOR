@@ -15,9 +15,12 @@ import {
   Radio, 
   Divider,
   Alert,
-  Chip
+  Chip,
+  Checkbox
 } from '@mui/material';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import PersonIcon from '@mui/icons-material/Person';
+import SendIcon from '@mui/icons-material/Send';
 import procedimientosService from '../../assets/services/procedimientos.service';
 
 const ProcedimientoEjecutor = () => {
@@ -31,6 +34,7 @@ const ProcedimientoEjecutor = () => {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [finProcedimiento, setFinProcedimiento] = useState(false);
+  const [respuestaRecibida, setRespuestaRecibida] = useState(false);
 
   useEffect(() => {
     const cargarProcedimiento = async () => {
@@ -74,6 +78,10 @@ const ProcedimientoEjecutor = () => {
     
     cargarProcedimiento();
   }, [procedimientoId]);
+
+  useEffect(() => {
+    setRespuestaRecibida(false);
+  }, [pasoActual]);
 
   const handleSiguiente = () => {
     // Si hay bifurcaciones y se seleccionó una condición
@@ -226,7 +234,7 @@ const ProcedimientoEjecutor = () => {
         ))}
       </Stepper>
       
-      <PasoViewer paso={pasoActual} />
+      <PasoViewer paso={pasoActual} respuestaRecibida={respuestaRecibida} setRespuestaRecibida={setRespuestaRecibida} />
       
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
         <Button 
@@ -243,17 +251,18 @@ const ProcedimientoEjecutor = () => {
           color="primary"
           disabled={
             pasoActual.bifurcaciones?.length > 0 && !respuestaCondicion ||
-            pasoActual.numero === pasos.length
+            pasoActual.numero === pasos.length ||
+            (pasoActual.requiere_envio && !respuestaRecibida) // Añadir esta condición
           }
         >
-          {pasoActual.numero === pasos.length ? 'Finalizar' : 'Siguiente paso'}
+          {pasoActual.requiere_envio ? 'Confirmar envío y respuesta' : 'Siguiente paso'}
         </Button>
       </Box>
     </Box>
   );
 };
 
-const PasoViewer = ({ paso, ...props }) => {
+const PasoViewer = ({ paso, respuestaRecibida, setRespuestaRecibida, ...props }) => {
   return (
     <Paper 
       elevation={2} 
@@ -390,6 +399,36 @@ const PasoViewer = ({ paso, ...props }) => {
             </FormControl>
           </Box>
         )}
+
+        {/* Añadir alerta especial para pasos que requieren envío */}
+        {paso.requiere_envio && (
+          <Alert 
+            severity="info" 
+            icon={<SendIcon fontSize="inherit" />}
+            sx={{ mt: 2, mb: 2 }}
+          >
+            <AlertTitle>Este paso requiere envío</AlertTitle>
+            Para continuar con el procedimiento, deberá realizar un envío y esperar la respuesta correspondiente.
+          </Alert>
+        )}
+        
+        {/* Añadir componente para confirmar la respuesta */}
+        {paso.requiere_envio && !respuestaRecibida && (
+          <Box sx={{ mt: 3, p: 2, border: '1px dashed rgba(156, 39, 176, 0.5)', borderRadius: '4px' }}>
+            <Typography variant="subtitle2" gutterBottom>
+              Confirmación de envío
+            </Typography>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  onChange={(e) => setRespuestaRecibida(e.target.checked)}
+                />
+              }
+              label="Confirmo que he realizado el envío y he recibido la respuesta necesaria"
+            />
+          </Box>
+        )}
+        
       </Box>
     </Paper>
   );

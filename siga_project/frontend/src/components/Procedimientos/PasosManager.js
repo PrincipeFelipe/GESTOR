@@ -9,6 +9,7 @@ import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import PersonIcon from '@mui/icons-material/Person';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import SendIcon from '@mui/icons-material/Send';
 import DescriptionIcon from '@mui/icons-material/Description';
 import DownloadIcon from '@mui/icons-material/Download';
 import VisibilityIcon from '@mui/icons-material/Visibility';
@@ -140,6 +141,7 @@ const PasoItem = ({
   const tieneBifurcaciones = paso.bifurcaciones && paso.bifurcaciones.length > 0;
   const tieneDocumentos = paso.documentos && paso.documentos.length > 0;
   const esPasoFinal = paso.es_final;
+  const requiereEnvio = paso.requiere_envio;
   // Función para manejar la previsualización de documentos
   const handlePreviewDocument = (documento) => {
     setPreviewDocument({
@@ -236,6 +238,16 @@ const PasoItem = ({
                   label="Paso final" 
                   size="small" 
                   color="error" 
+                  variant="outlined" 
+                  sx={{ ml: 1, height: 20, fontSize: '0.7rem' }}
+                />
+              )}
+              {requiereEnvio && (
+                <Chip 
+                  icon={<SendIcon style={{ fontSize: '0.7rem' }} />}
+                  label="Requiere envío" 
+                  size="small" 
+                  color="secondary" 
                   variant="outlined" 
                   sx={{ ml: 1, height: 20, fontSize: '0.7rem' }}
                 />
@@ -347,6 +359,14 @@ const PasoItem = ({
           >
             {paso.descripcion || 'Sin descripción'}
           </Typography>
+          {requiereEnvio && (
+            <Box sx={{ mt: 2, p: 2, bgcolor: 'rgba(156, 39, 176, 0.05)', borderRadius: '4px', display: 'flex', alignItems: 'center' }}>
+              <SendIcon color="secondary" sx={{ mr: 1 }} />
+              <Typography variant="body2">
+                <strong>Este paso requiere envío.</strong>
+              </Typography>
+            </Box>
+          )}
           {/* Documentos asociados con estilo mejorado */}
           {tieneDocumentos && (
             <Box sx={{ mt: 3 }}>
@@ -604,7 +624,8 @@ const PasosManager = () => {
     tiempo_estimado: '',
     responsable: '',
     bifurcaciones: [],
-    es_final: false // Inicializar como false para nuevos pasos
+    es_final: false,
+    requiere_envio: false // Añadir el nuevo campo
   });
   const [snackbar, setSnackbar] = useState({
     open: false,
@@ -866,7 +887,8 @@ const handleOpenPasoForm = (paso = null) => {
       tiempo_estimado: paso.tiempo_estimado || '',
       responsable: paso.responsable || '',
       bifurcaciones: paso.bifurcaciones || [],
-      es_final: paso.es_final || false  // Añadir el campo es_final
+      es_final: paso.es_final || false,
+      requiere_envio: paso.requiere_envio || false // Añadir el nuevo campo
     });
   } else {
     setFormData({
@@ -875,7 +897,8 @@ const handleOpenPasoForm = (paso = null) => {
       tiempo_estimado: '',
       responsable: '',
       bifurcaciones: [],
-      es_final: false  // Inicializar como false para nuevos pasos
+      es_final: false,
+      requiere_envio: false // Añadir el nuevo campo con valor inicial false
     });
   }
   setDialogOpen(true);
@@ -1921,6 +1944,23 @@ const handleDeleteGeneralDoc = (doc) => {
                   />
                 }
                 label="Este paso finaliza el procedimiento"
+              />
+            </MuiTooltip>
+            {/* Añadir el nuevo control para requiere_envio */}
+            <MuiTooltip 
+              title="Marque esta casilla si este paso requiere un envío que necesita respuesta para continuar."
+              placement="top"
+            >
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={formData.requiere_envio}
+                    onChange={(e) => setFormData(prev => ({ ...prev, requiere_envio: e.target.checked }))}
+                    name="requiere_envio"
+                    color="secondary"
+                  />
+                }
+                label="Este paso requiere envío y respuesta"
               />
             </MuiTooltip>
             <Divider sx={{ my: 3 }} />
