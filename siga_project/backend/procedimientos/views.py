@@ -186,6 +186,23 @@ class ProcedimientoViewSet(viewsets.ModelViewSet):
                 {"error": f"Error al obtener documentos generales: {str(e)}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+    
+    @action(detail=True, methods=['get'])
+    def debug(self, request, pk=None):
+        """
+        Endpoint de depuración para verificar que todos los campos están presentes
+        """
+        procedimiento = self.get_object()
+        data = {
+            'id': procedimiento.id,
+            'nombre': procedimiento.nombre,
+            'tipo': procedimiento.tipo.id if procedimiento.tipo else None,
+            'nivel': procedimiento.nivel,
+            'estado': procedimiento.estado,
+            'tiempo_maximo': procedimiento.tiempo_maximo,  # Verificar este campo específicamente
+            # Otros campos que quieras verificar
+        }
+        return Response(data)
 
 # Modificar la clase PasoViewSet
 
@@ -291,7 +308,7 @@ class PasoViewSet(viewsets.ModelViewSet):
                     
                     # Crear el documento temporalmente en general
                     documento_serializer = DocumentoSerializer(data=documento_data)
-                    if documento_serializer.is_valid():
+                    if (documento_serializer.is_valid()):
                         documento_temp = documento_serializer.save()
                         
                         # Guardar la ruta del archivo original para eliminarlo después

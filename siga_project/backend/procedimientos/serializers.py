@@ -94,11 +94,35 @@ class HistorialProcedimientoSerializer(serializers.ModelSerializer):
 
 class ProcedimientoListSerializer(serializers.ModelSerializer):
     tipo_nombre = serializers.CharField(source='tipo.nombre', read_only=True)
-    nivel_display = serializers.CharField(source='get_nivel_display', read_only=True)
+    nivel_display = serializers.SerializerMethodField()
     
     class Meta:
         model = Procedimiento
-        fields = ['id', 'nombre', 'descripcion', 'tipo', 'tipo_nombre', 'nivel', 'nivel_display', 'estado', 'version', 'fecha_actualizacion']
+        fields = [
+            'id', 'nombre', 'descripcion', 'tipo', 'nivel', 'estado',
+            'fecha_actualizacion', 'version', 'tipo_nombre', 'nivel_display',
+            'procedimiento_relacionado', 'tiempo_maximo'  # Añadir tiempo_maximo aquí
+        ]
+    
+    def get_nivel_display(self, obj):
+        return dict(Procedimiento.NIVEL_CHOICES).get(obj.nivel, obj.nivel)
+
+class ProcedimientoDetailSerializer(serializers.ModelSerializer):
+    tipo_nombre = serializers.CharField(source='tipo.nombre', read_only=True)
+    nivel_display = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Procedimiento
+        fields = [
+            'id', 'nombre', 'descripcion', 'tipo', 'nivel', 'estado',
+            'fecha_creacion', 'fecha_actualizacion', 'version',
+            'creado_por', 'actualizado_por', 'procedimiento_relacionado',
+            'tipo_nombre', 'nivel_display', 'tiempo_maximo'  # Añadir tiempo_maximo aquí
+        ]
+        read_only_fields = ['fecha_creacion', 'fecha_actualizacion', 'creado_por', 'actualizado_por']
+    
+    def get_nivel_display(self, obj):
+        return dict(Procedimiento.NIVEL_CHOICES).get(obj.nivel, obj.nivel)
 
 class ProcedimientoDetailSerializer(serializers.ModelSerializer):
     tipo_nombre = serializers.CharField(source='tipo.nombre', read_only=True)
@@ -113,10 +137,10 @@ class ProcedimientoDetailSerializer(serializers.ModelSerializer):
                   'estado', 'version', 'fecha_creacion', 'fecha_actualizacion', 
                   'creado_por', 'actualizado_por', 'pasos', 
                   'procedimiento_relacionado', 'procedimiento_relacionado_info',
-                  'procedimientos_derivados']
+                  'procedimientos_derivados', 'tiempo_maximo']
     
     def get_procedimiento_relacionado_info(self, obj):
-        if obj.procedimiento_relacionado:
+        if (obj.procedimiento_relacionado):
             return {
                 'id': obj.procedimiento_relacionado.id,
                 'nombre': obj.procedimiento_relacionado.nombre,
@@ -135,3 +159,21 @@ class ProcedimientoDetailSerializer(serializers.ModelSerializer):
                 'nivel_display': proc.get_nivel_display()
             } for proc in derivados]
         return []
+
+class ProcedimientoSerializer(serializers.ModelSerializer):
+    # Campos existentes
+    tipo_nombre = serializers.CharField(source='tipo.nombre', read_only=True)
+    nivel_display = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Procedimiento
+        fields = [
+            'id', 'nombre', 'descripcion', 'tipo', 'nivel', 'estado',
+            'fecha_creacion', 'fecha_actualizacion', 'version',
+            'creado_por', 'actualizado_por', 'procedimiento_relacionado',
+            'tipo_nombre', 'nivel_display', 'tiempo_maximo'  # Asegurarse de incluir tiempo_maximo
+        ]
+        read_only_fields = ['fecha_creacion', 'fecha_actualizacion', 'creado_por', 'actualizado_por']
+    
+    def get_nivel_display(self, obj):
+        return dict(Procedimiento.NIVEL_CHOICES).get(obj.nivel, obj.nivel)

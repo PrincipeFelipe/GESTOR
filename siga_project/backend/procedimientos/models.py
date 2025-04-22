@@ -50,6 +50,13 @@ class Procedimiento(models.Model):
         help_text="Procedimiento de nivel superior al que se envía este procedimiento"
     )
     
+    # Nuevo campo para tiempo máximo de completado en días
+    tiempo_maximo = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Número de días máximo para completar el procedimiento"
+    )
+    
     def __str__(self):
         return f"{self.nombre} (v{self.version}, {self.get_nivel_display()})"
     
