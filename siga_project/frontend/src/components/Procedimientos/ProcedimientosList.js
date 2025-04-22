@@ -32,6 +32,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import VisibilityIcon from '@mui/icons-material/Visibility';  // Nuevo icono
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import { usePermissions } from '../../hooks/usePermissions';
 import procedimientosService from '../../assets/services/procedimientos.service';
 import api from '../../assets/services/api';
@@ -325,6 +326,7 @@ const ProcedimientosList = () => {
                     <TableCell><strong>Estado</strong></TableCell>
                     <TableCell><strong>Versión</strong></TableCell>
                     <TableCell><strong>Actualización</strong></TableCell>
+                    <TableCell><strong>Tiempo Max.</strong></TableCell>
                     <TableCell align="center"><strong>Acciones</strong></TableCell>
                   </TableRow>
                 </TableHead>
@@ -339,6 +341,14 @@ const ProcedimientosList = () => {
                         <TableCell>{procedimiento.version}</TableCell>
                         <TableCell>
                           {format(new Date(procedimiento.fecha_actualizacion), 'dd/MM/yyyy HH:mm', { locale: es })}
+                        </TableCell>
+                        <TableCell>
+                          {procedimiento.tiempo_maximo 
+                            ? <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                <AccessTimeIcon fontSize="small" sx={{ mr: 0.5 }} color="secondary" />
+                                {procedimiento.tiempo_maximo} días
+                              </Box>
+                            : <Typography variant="caption" color="text.secondary">No definido</Typography>}
                         </TableCell>
                         <TableCell align="center">
                           <Box display="flex" justifyContent="center">

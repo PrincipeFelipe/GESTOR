@@ -14,8 +14,10 @@ import {
   FormControlLabel, 
   Radio, 
   Divider,
-  Alert
+  Alert,
+  Chip
 } from '@mui/material';
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import procedimientosService from '../../assets/services/procedimientos.service';
 
 const ProcedimientoEjecutor = () => {
@@ -163,6 +165,39 @@ const ProcedimientoEjecutor = () => {
         {procedimiento.tipo_nombre} • Versión {procedimiento.version || '1.0'}
       </Typography>
       
+      <Box sx={{ mb: 2 }}>
+        <Typography variant="h6" gutterBottom>
+          {procedimiento.nombre}
+        </Typography>
+        
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
+          <Chip 
+            label={`Tipo: ${procedimiento.tipo_nombre}`} 
+            size="small" 
+            variant="outlined" 
+          />
+          <Chip 
+            label={`Nivel: ${procedimiento.nivel_display || procedimiento.nivel}`} 
+            size="small" 
+            variant="outlined" 
+          />
+          
+          {procedimiento.tiempo_maximo && (
+            <Chip 
+              icon={<AccessTimeIcon />}
+              label={`Tiempo límite: ${procedimiento.tiempo_maximo} días`}
+              size="small"
+              color="secondary"
+              variant="outlined"
+            />
+          )}
+        </Box>
+        
+        <Typography variant="body2" color="text.secondary" paragraph>
+          {procedimiento.descripcion}
+        </Typography>
+      </Box>
+
       <Stepper activeStep={pasoActual.numero - 1} alternativeLabel sx={{ my: 4 }}>
         {pasos.map((paso) => (
           <Step key={paso.id} completed={paso.numero < pasoActual.numero}>

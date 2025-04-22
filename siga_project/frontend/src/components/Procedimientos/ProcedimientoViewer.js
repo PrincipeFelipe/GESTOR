@@ -47,6 +47,7 @@ import FileIcon from '@mui/icons-material/InsertDriveFile';
 import CallSplitIcon from '@mui/icons-material/CallSplit';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import PersonIcon from '@mui/icons-material/Person';
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import procedimientosService from '../../assets/services/procedimientos.service';
 import DocumentPreview from '../common/DocumentPreview';
 import { format } from 'date-fns';
@@ -277,6 +278,15 @@ const ProcedimientoViewer = () => {
                         size="small" 
                         variant="outlined" 
                       />
+                      {procedimiento.tiempo_maximo && (
+                        <Chip 
+                          icon={<AccessTimeIcon />}
+                          label={`${procedimiento.tiempo_maximo} días máx.`}
+                          size="small"
+                          color="secondary"
+                          variant="outlined"
+                        />
+                      )}
                     </Box>
                     
                     <Typography variant="body2">
