@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Procedimiento, TipoProcedimiento, Paso, Documento, DocumentoPaso, HistorialProcedimiento
+from .models import Procedimiento, TipoProcedimiento, Paso, Documento, DocumentoPaso, HistorialProcedimiento, Trabajo, PasoTrabajo, EnvioPaso
 from users.serializers import UserSerializer
 
 class TipoProcedimientoSerializer(serializers.ModelSerializer):
@@ -177,3 +177,130 @@ class ProcedimientoSerializer(serializers.ModelSerializer):
     
     def get_nivel_display(self, obj):
         return dict(Procedimiento.NIVEL_CHOICES).get(obj.nivel, obj.nivel)
+
+class EnvioPasoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EnvioPaso
+        fields = ['id', 'numero_salida', 'fecha_envio', 'documentacion', 'notas_adicionales']
+
+
+class PasoTrabajoListSerializer(serializers.ModelSerializer):
+    paso_numero = serializers.IntegerField(source='paso.numero')
+    paso_titulo = serializers.CharField(source='paso.titulo')
+    
+    class Meta:
+        model = PasoTrabajo
+        fields = ['id', 'paso_numero', 'paso_titulo', 'estado', 'fecha_inicio', 'fecha_fin']
+
+
+class PasoTrabajoDetailSerializer(serializers.ModelSerializer):
+    paso_detalle = PasoSerializer(source='paso', read_only=True)
+    envio = EnvioPasoSerializer(read_only=True)
+    usuario_completado_nombre = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = PasoTrabajo
+        fields = [
+            'id', 'estado', 'fecha_inicio', 'fecha_fin', 
+            'usuario_completado', 'usuario_completado_nombre', 'notas',
+            'bifurcacion_elegida', 'paso_detalle', 'envio'
+        ]
+    
+    def get_usuario_completado_nombre(self, obj):
+        if obj.usuario_completado:
+            return obj.usuario_completado.get_full_name() or obj.usuario_completado.username
+        return None
+
+
+class TrabajoListSerializer(serializers.ModelSerializer):
+    procedimiento_nombre = serializers.CharField(source='procedimiento.nombre')
+    usuario_creador_nombre = serializers.SerializerMethodField()
+    unidad_nombre = serializers.CharField(source='unidad.nombre')
+    tiempo_estimado_total = serializers.SerializerMethodField()
+    progreso = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Trabajo
+        fields = [
+            'id', 'titulo', 'procedimiento', 'procedimiento_nombre', 
+            'usuario_creador', 'usuario_creador_nombre', 'unidad', 'unidad_nombre',
+            'fecha_inicio', 'fecha_fin', 'estado', 'paso_actual',
+            'tiempo_estimado_total', 'progreso'
+        ]
+    
+    def get_usuario_creador_nombre(self, obj):
+        return obj.usuario_creador.get_full_name() or obj.usuario_creador.username
+    
+    def get_tiempo_estimado_total(self, obj):
+        # Suma de todos los tiempos estimados de los pasos asociados al procedimiento
+        tiempo_total = sum(
+            float(paso.tiempo_estimado) if paso.tiempo_estimado else 0 
+            for paso in obj.procedimiento.pasos.all()
+        )
+        return tiempo_total
+    
+    def get_progreso(self, obj):
+        total_pasos = obj.pasos_trabajo.count()
+        if total_pasos == 0:
+            return 0
+        
+        pasos_completados = obj.pasos_trabajo.filter(estado='COMPLETADO').count()
+        return int((pasos_completados / total_pasos) * 100)
+
+
+class TrabajoDetailSerializer(serializers.ModelSerializer):
+    procedimiento_detalle = ProcedimientoSerializer(source='procedimiento', read_only=True)
+    pasos = PasoTrabajoListSerializer(source='pasos_trabajo', many=True, read_only=True)
+    usuario_creador_nombre = serializers.SerializerMethodField()
+    unidad_nombre = serializers.CharField(source='unidad.nombre')
+    tiempo_transcurrido_dias = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Trabajo
+        fields = [
+            'id', 'titulo', 'descripcion', 'procedimiento', 'procedimiento_detalle',
+            'usuario_creador', 'usuario_creador_nombre', 'unidad', 'unidad_nombre',
+            'fecha_inicio', 'fecha_fin', 'estado', 'paso_actual',
+            'tiempo_transcurrido_dias', 'pasos'
+        ]
+    
+    def get_usuario_creador_nombre(self, obj):
+        return obj.usuario_creador.get_full_name() or obj.usuario_creador.username
+    
+    def get_tiempo_transcurrido_dias(self, obj):
+        tiempo = obj.tiempo_transcurrido()
+        return round(tiempo.total_seconds() / (60 * 60 * 24), 1)  # Convertir a días con un decimal
+
+
+class TrabajoCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Trabajo
+        fields = ['procedimiento', 'titulo', 'descripcion']
+    
+    def create(self, validated_data):
+        usuario = self.context['request'].user
+        unidad = usuario.unidad
+        
+        # Crear el trabajo
+        trabajo = Trabajo.objects.create(
+            procedimiento=validated_data['procedimiento'],
+            titulo=validated_data['titulo'],
+            descripcion=validated_data.get('descripcion', ''),
+            usuario_creador=usuario,
+            unidad=unidad,
+            estado='INICIADO'
+        )
+        
+        # Crear instancias de pasos para este trabajo
+        procedimiento = validated_data['procedimiento']
+        pasos = procedimiento.pasos.all().order_by('numero')
+        
+        for paso in pasos:
+            estado_inicial = 'PENDIENTE' if paso.numero == 1 else 'BLOQUEADO'
+            PasoTrabajo.objects.create(
+                trabajo=trabajo,
+                paso=paso,
+                estado=estado_inicial
+            )
+        
+        return trabajo

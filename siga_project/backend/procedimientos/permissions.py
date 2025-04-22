@@ -21,3 +21,27 @@ class IsAdminOrSuperAdminOrReadOnly(permissions.BasePermission):
         
         # Verificar si el usuario es Admin o SuperAdmin para operaciones de escritura
         return request.user and (request.user.tipo_usuario in ['Admin', 'SuperAdmin'])
+
+class IsOwnerOrSameUnit(permissions.BasePermission):
+    """
+    Permite acceso solo si el usuario es el creador del objeto o pertenece a la misma unidad.
+    """
+    
+    def has_object_permission(self, request, view, obj):
+        # Verificar si el usuario es superuser o admin
+        if request.user.is_superuser or request.user.role == 'ADMIN':
+            return True
+            
+        # Verificar si el objeto tiene usuario_creador o trabajo.usuario_creador
+        if hasattr(obj, 'usuario_creador'):
+            if obj.usuario_creador == request.user:
+                return True
+            return obj.unidad == request.user.unidad
+        
+        # Para PasoTrabajo que tiene relación a través de trabajo
+        if hasattr(obj, 'trabajo'):
+            if obj.trabajo.usuario_creador == request.user:
+                return True
+            return obj.trabajo.unidad == request.user.unidad
+        
+        return False

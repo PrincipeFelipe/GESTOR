@@ -1,5 +1,10 @@
 from django.db import models
 from users.models import Usuario
+from django.conf import settings
+from django.utils import timezone
+import os
+from django.core.files.base import ContentFile
+from unidades.models import Unidad
 
 class TipoProcedimiento(models.Model):
     nombre = models.CharField(max_length=100)
@@ -298,3 +303,147 @@ class HistorialProcedimiento(models.Model):
         verbose_name = "Historial de Procedimiento"
         verbose_name_plural = "Historial de Procedimientos"
         ordering = ['-fecha_cambio']
+
+class Trabajo(models.Model):
+    """
+    Representa una instancia de un procedimiento que un usuario está ejecutando.
+    Funciona como un registro de trabajo que contiene todos los pasos a completar.
+    """
+    STATUS_CHOICES = [
+        ('INICIADO', 'Iniciado'),
+        ('EN_PROGRESO', 'En progreso'),
+        ('PAUSADO', 'Pausado'),
+        ('COMPLETADO', 'Completado'),
+        ('CANCELADO', 'Cancelado'),
+    ]
+    
+    procedimiento = models.ForeignKey(Procedimiento, on_delete=models.PROTECT, related_name='trabajos')
+    usuario_creador = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, 
+                                      related_name='trabajos_creados')
+    unidad = models.ForeignKey(Unidad, on_delete=models.PROTECT, related_name='trabajos')
+    titulo = models.CharField(max_length=200)
+    descripcion = models.TextField(blank=True, null=True)
+    fecha_inicio = models.DateTimeField(auto_now_add=True)
+    fecha_fin = models.DateTimeField(blank=True, null=True)
+    estado = models.CharField(max_length=20, choices=STATUS_CHOICES, default='INICIADO')
+    paso_actual = models.PositiveIntegerField(default=1)
+    
+    def __str__(self):
+        return f"{self.titulo} - {self.procedimiento.nombre}"
+    
+    class Meta:
+        verbose_name = "Trabajo"
+        verbose_name_plural = "Trabajos"
+        ordering = ['-fecha_inicio']
+
+    def completar_trabajo(self):
+        """Marca el trabajo como completado y establece la fecha de fin"""
+        self.fecha_fin = timezone.now()
+        self.estado = 'COMPLETADO'
+        self.save()
+
+    def cancelar_trabajo(self):
+        """Marca el trabajo como cancelado"""
+        self.fecha_fin = timezone.now()
+        self.estado = 'CANCELADO'
+        self.save()
+
+    def pausar_trabajo(self):
+        """Marca el trabajo como pausado"""
+        self.estado = 'PAUSADO'
+        self.save()
+
+    def reanudar_trabajo(self):
+        """Reanuda un trabajo pausado"""
+        self.estado = 'EN_PROGRESO'
+        self.save()
+        
+    def tiempo_transcurrido(self):
+        """Calcula el tiempo transcurrido desde el inicio hasta ahora o hasta la finalización"""
+        if self.fecha_fin:
+            return self.fecha_fin - self.fecha_inicio
+        return timezone.now() - self.fecha_inicio
+
+
+class PasoTrabajo(models.Model):
+    """
+    Representa un paso específico dentro de un trabajo.
+    Registra el estado de cada paso y quién lo completó.
+    """
+    STATUS_CHOICES = [
+        ('PENDIENTE', 'Pendiente'),
+        ('EN_PROGRESO', 'En progreso'),
+        ('COMPLETADO', 'Completado'),
+        ('BLOQUEADO', 'Bloqueado'),  # Para pasos que requieren que otros se completen primero
+    ]
+    
+    trabajo = models.ForeignKey(Trabajo, on_delete=models.CASCADE, related_name='pasos_trabajo')
+    paso = models.ForeignKey(Paso, on_delete=models.PROTECT, related_name='instancias_trabajo')
+    estado = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDIENTE')
+    fecha_inicio = models.DateTimeField(blank=True, null=True)
+    fecha_fin = models.DateTimeField(blank=True, null=True)
+    usuario_completado = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+                                         related_name='pasos_completados', blank=True, null=True)
+    notas = models.TextField(blank=True, null=True)
+    bifurcacion_elegida = models.IntegerField(blank=True, null=True) # ID del paso elegido en una bifurcación
+    
+    class Meta:
+        verbose_name = "Paso de Trabajo"
+        verbose_name_plural = "Pasos de Trabajo"
+        ordering = ['paso__numero']
+        
+    def __str__(self):
+        return f"Paso {self.paso.numero}: {self.paso.titulo} - {self.trabajo.titulo}"
+    
+    def iniciar_paso(self, usuario):
+        """Marca el paso como iniciado"""
+        self.estado = 'EN_PROGRESO'
+        self.fecha_inicio = timezone.now()
+        self.save()
+        
+    def completar_paso(self, usuario):
+        """Marca el paso como completado"""
+        self.estado = 'COMPLETADO'
+        self.fecha_fin = timezone.now()
+        self.usuario_completado = usuario
+        self.save()
+        
+        # Verificar si es el último paso o si es un paso marcado como final
+        if self.paso.es_final:
+            self.trabajo.completar_trabajo()
+        else:
+            # Actualizar paso actual del trabajo
+            self.trabajo.paso_actual = self.paso.numero + 1
+            self.trabajo.estado = 'EN_PROGRESO'
+            self.trabajo.save()
+            
+            # Si tiene bifurcaciones, no avanzar automáticamente
+            if self.paso.bifurcaciones and len(self.paso.bifurcaciones) > 0:
+                return
+            
+            # Desbloquear el siguiente paso si existe
+            siguiente_paso = self.trabajo.pasos_trabajo.filter(
+                paso__numero=self.paso.numero + 1
+            ).first()
+            
+            if siguiente_paso:
+                siguiente_paso.estado = 'PENDIENTE'
+                siguiente_paso.save()
+
+
+class EnvioPaso(models.Model):
+    """
+    Registra información sobre envíos realizados en pasos que lo requieren.
+    """
+    paso_trabajo = models.OneToOneField(PasoTrabajo, on_delete=models.CASCADE, related_name='envio')
+    numero_salida = models.CharField(max_length=100)
+    fecha_envio = models.DateTimeField(auto_now_add=True)
+    documentacion = models.FileField(upload_to='procedimientos/envios/%Y/%m/')
+    notas_adicionales = models.TextField(blank=True, null=True)
+    
+    def __str__(self):
+        return f"Envío para {self.paso_trabajo}"
+        
+    class Meta:
+        verbose_name = "Envío de Paso"
+        verbose_name_plural = "Envíos de Pasos"

@@ -8,9 +8,11 @@ router.register(r'procedimientos', views.ProcedimientoViewSet)
 router.register(r'pasos', views.PasoViewSet)
 router.register(r'documentos', views.DocumentoViewSet)
 router.register(r'historial', views.HistorialProcedimientoViewSet, basename='historial')
+router.register(r'trabajos', views.TrabajoViewSet)
+router.register(r'pasos-trabajo', views.PasoTrabajoViewSet)
 
 urlpatterns = [
     path('', include(router.urls)),
-    # Añadir ruta para descarga de documentos
     path('media/documentos/<path:path>', views.download_document, name='document-download'),
+    path('api/procedimientos/', include(router.urls)),
 ]

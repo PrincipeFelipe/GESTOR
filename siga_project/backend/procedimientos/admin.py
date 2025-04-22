@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import TipoProcedimiento, Procedimiento, Paso, Documento, DocumentoPaso, HistorialProcedimiento
+from .models import TipoProcedimiento, Procedimiento, Paso, Documento, DocumentoPaso, HistorialProcedimiento, Trabajo, PasoTrabajo, EnvioPaso
 
 class PasoInline(admin.TabularInline):
     model = Paso
@@ -18,6 +18,16 @@ class HistorialInline(admin.TabularInline):
     ordering = ('-fecha_cambio',)
     can_delete = False
     max_num = 0
+
+class PasoTrabajoInline(admin.TabularInline):
+    model = PasoTrabajo
+    extra = 0
+    readonly_fields = ['paso', 'estado', 'fecha_inicio', 'fecha_fin', 'usuario_completado']
+    
+class EnvioPasoInline(admin.TabularInline):
+    model = EnvioPaso
+    extra = 0
+    readonly_fields = ['fecha_envio']
 
 @admin.register(TipoProcedimiento)
 class TipoProcedimientoAdmin(admin.ModelAdmin):
@@ -66,3 +76,22 @@ class HistorialProcedimientoAdmin(admin.ModelAdmin):
     list_filter = ('procedimiento', 'usuario')
     search_fields = ('procedimiento__nombre', 'descripcion_cambio')
     readonly_fields = ('fecha_cambio',)
+
+@admin.register(Trabajo)
+class TrabajoAdmin(admin.ModelAdmin):
+    list_display = ['titulo', 'procedimiento', 'usuario_creador', 'unidad', 'fecha_inicio', 'estado']
+    list_filter = ['estado', 'unidad', 'procedimiento']
+    search_fields = ['titulo', 'descripcion', 'usuario_creador__username']
+    inlines = [PasoTrabajoInline]
+
+@admin.register(PasoTrabajo)
+class PasoTrabajoAdmin(admin.ModelAdmin):
+    list_display = ['trabajo', 'paso', 'estado', 'fecha_inicio', 'fecha_fin', 'usuario_completado']
+    list_filter = ['estado', 'trabajo__procedimiento']
+    search_fields = ['trabajo__titulo', 'paso__titulo']
+    inlines = [EnvioPasoInline]
+
+@admin.register(EnvioPaso)
+class EnvioPasoAdmin(admin.ModelAdmin):
+    list_display = ['paso_trabajo', 'numero_salida', 'fecha_envio']
+    search_fields = ['numero_salida', 'paso_trabajo__trabajo__titulo']

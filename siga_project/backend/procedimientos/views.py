@@ -473,3 +473,158 @@ def download_document(request, path):
         return response
     else:
         return HttpResponse(status=404)
+
+from rest_framework import viewsets, mixins, status
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from django.db.models import Q
+from django.utils import timezone
+from .models import Trabajo, PasoTrabajo, EnvioPaso
+from .serializers import (
+    TrabajoListSerializer, TrabajoDetailSerializer, TrabajoCreateSerializer,
+    PasoTrabajoListSerializer, PasoTrabajoDetailSerializer, EnvioPasoSerializer
+)
+from .permissions import IsOwnerOrSameUnit
+
+# Vistas existentes...
+
+class TrabajoViewSet(viewsets.ModelViewSet):
+    queryset = Trabajo.objects.all()
+    permission_classes = [IsOwnerOrSameUnit]
+    
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return TrabajoCreateSerializer
+        if self.action == 'list':
+            return TrabajoListSerializer
+        return TrabajoDetailSerializer
+    
+    def get_queryset(self):
+        user = self.request.user
+        # Los usuarios solo pueden ver sus trabajos y los de su unidad
+        return Trabajo.objects.filter(
+            Q(usuario_creador=user) | Q(unidad=user.unidad)
+        )
+    
+    def perform_create(self, serializer):
+        serializer.save(
+            usuario_creador=self.request.user,
+            unidad=self.request.user.unidad
+        )
+    
+    @action(detail=True, methods=['post'])
+    def cancelar(self, request, pk=None):
+        trabajo = self.get_object()
+        trabajo.cancelar_trabajo()
+        return Response({"message": "Trabajo cancelado correctamente"})
+    
+    @action(detail=True, methods=['post'])
+    def pausar(self, request, pk=None):
+        trabajo = self.get_object()
+        trabajo.pausar_trabajo()
+        return Response({"message": "Trabajo pausado correctamente"})
+    
+    @action(detail=True, methods=['post'])
+    def reanudar(self, request, pk=None):
+        trabajo = self.get_object()
+        trabajo.reanudar_trabajo()
+        return Response({"message": "Trabajo reanudado correctamente"})
+
+
+class PasoTrabajoViewSet(viewsets.GenericViewSet, 
+                       mixins.RetrieveModelMixin, 
+                       mixins.UpdateModelMixin):
+    queryset = PasoTrabajo.objects.all()
+    serializer_class = PasoTrabajoDetailSerializer
+    permission_classes = [IsOwnerOrSameUnit]
+    
+    def get_queryset(self):
+        user = self.request.user
+        # Los usuarios solo pueden ver pasos de trabajos suyos o de su unidad
+        return PasoTrabajo.objects.filter(
+            Q(trabajo__usuario_creador=user) | Q(trabajo__unidad=user.unidad)
+        )
+    
+    @action(detail=True, methods=['post'])
+    def iniciar(self, request, pk=None):
+        paso_trabajo = self.get_object()
+        
+        # Verificar que el paso se puede iniciar
+        if paso_trabajo.estado != 'PENDIENTE':
+            return Response(
+                {"error": "Solo se pueden iniciar pasos pendientes"}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        paso_trabajo.iniciar_paso(request.user)
+        serializer = self.get_serializer(paso_trabajo)
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['post'])
+    def completar(self, request, pk=None):
+        paso_trabajo = self.get_object()
+        
+        # Verificar que el paso se puede completar
+        if paso_trabajo.estado != 'EN_PROGRESO':
+            return Response(
+                {"error": "Solo se pueden completar pasos en progreso"}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Verificar si el paso requiere envío y si se proporcionó
+        if paso_trabajo.paso.requiere_envio:
+            if 'envio' not in request.data:
+                return Response(
+                    {"error": "Este paso requiere información de envío"}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            envio_data = request.data['envio']
+            if not envio_data.get('numero_salida') or 'documentacion' not in request.FILES:
+                return Response(
+                    {"error": "Se requiere número de salida y documentación"}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Crear el registro de envío
+            EnvioPaso.objects.create(
+                paso_trabajo=paso_trabajo,
+                numero_salida=envio_data['numero_salida'],
+                documentacion=request.FILES['documentacion'],
+                notas_adicionales=envio_data.get('notas_adicionales', '')
+            )
+        
+        # Si hay bifurcaciones, verificar que se eligió una
+        if paso_trabajo.paso.bifurcaciones and len(paso_trabajo.paso.bifurcaciones) > 0:
+            if 'bifurcacion_elegida' not in request.data:
+                return Response(
+                    {"error": "Debe elegir una bifurcación para continuar"}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            bifurcacion_id = request.data['bifurcacion_elegida']
+            paso_trabajo.bifurcacion_elegida = bifurcacion_id
+        
+        # Guardar notas si se proporcionaron
+        if 'notas' in request.data:
+            paso_trabajo.notas = request.data['notas']
+            
+        paso_trabajo.completar_paso(request.user)
+        
+        # Si se eligió una bifurcación, actualizar el siguiente paso
+        if paso_trabajo.bifurcacion_elegida:
+            trabajo = paso_trabajo.trabajo
+            trabajo.paso_actual = paso_trabajo.bifurcacion_elegida
+            trabajo.save()
+            
+            # Desbloquear el paso de la bifurcación
+            siguiente_paso = trabajo.pasos_trabajo.filter(
+                paso__id=paso_trabajo.bifurcacion_elegida
+            ).first()
+            
+            if siguiente_paso:
+                siguiente_paso.estado = 'PENDIENTE'
+                siguiente_paso.save()
+        
+        serializer = self.get_serializer(paso_trabajo)
+        return Response(serializer.data)
