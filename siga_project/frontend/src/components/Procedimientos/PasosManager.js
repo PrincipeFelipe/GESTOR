@@ -246,7 +246,7 @@ const PasoItem = ({
                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
                   <AccessTimeIcon fontSize="small" color="action" sx={{ mr: 0.5 }} />
                   <Typography variant="body2" color="text.secondary">
-                    {paso.tiempo_estimado}
+                    {paso.tiempo_estimado} {parseFloat(paso.tiempo_estimado) === 1 ? 'día' : 'días'}
                   </Typography>
                 </Box>
               )}
@@ -678,6 +678,47 @@ const PasosManager = () => {
       setLoadingDocumentos(false);
     }
   };
+  // Añadir esta función para calcular el tiempo total estimado de los pasos
+const calcularTiempoTotalEstimado = (pasos, pasoExcluido = null) => {
+  // Filtrar el paso excluido si se proporciona (útil al editar)
+  const pasosAContar = pasoExcluido 
+    ? pasos.filter(p => p.id !== pasoExcluido.id)
+    : pasos;
+  
+  let tiempoTotal = 0;
+  
+  // Sumar los tiempos estimados de todos los pasos
+  for (const paso of pasosAContar) {
+    if (paso.tiempo_estimado) {
+      // Ya no necesitamos extraer el valor de un texto, simplemente convertimos a número
+      const valor = parseFloat(paso.tiempo_estimado);
+      if (!isNaN(valor)) {
+        tiempoTotal += valor;
+      }
+    }
+  }
+  
+  return tiempoTotal;
+};
+
+// Añadir función para validar si el tiempo estimado es válido
+const validarTiempoEstimado = (nuevoTiempo) => {
+  if (!nuevoTiempo) return { valido: true, tiempo: 0 };
+  
+  // Convertir a número y validar
+  const valor = parseFloat(nuevoTiempo);
+  
+  if (isNaN(valor) || valor <= 0) {
+    return { 
+      valido: false, 
+      mensaje: "El tiempo debe ser un número positivo", 
+      tiempo: 0 
+    };
+  }
+  
+  return { valido: true, tiempo: valor };
+};
+
   // Añadir esta función para gestionar documentos generales
   const handleManageGeneralDocs = () => {
     setShowDocumentacion(true);
@@ -871,8 +912,10 @@ const handleSubmitPaso = async () => {
     titulo: !formData.titulo.trim(),
     descripcion: !formData.descripcion.trim()
   };
+  
   // Actualizar estado de errores
   setFormErrors(errors);
+  
   // Si hay errores, detener el envío del formulario
   if (Object.values(errors).some(error => error)) {
     setSnackbar({
@@ -882,20 +925,45 @@ const handleSubmitPaso = async () => {
     });
     return;
   }
-  // Validar bifurcaciones - asegurarse que los pasos destino existan
-  if (formData.bifurcaciones && formData.bifurcaciones.length > 0) {
-    const bifurcacionesInvalidas = formData.bifurcaciones.filter(
-      b => !pasos.some(p => p.id === parseInt(b.paso_destino))
-    );
-    if (bifurcacionesInvalidas.length > 0) {
+  
+  // Validar tiempo estimado
+  const validacionTiempo = validarTiempoEstimado(formData.tiempo_estimado);
+  if (!validacionTiempo.valido) {
+    setFormErrors(prev => ({
+      ...prev,
+      tiempo_estimado: true
+    }));
+    setSnackbar({
+      open: true,
+      message: validacionTiempo.mensaje,
+      severity: 'warning'
+    });
+    return;
+  }
+  
+  // Validar suma total de tiempos cuando el procedimiento tiene tiempo_maximo definido
+  if (procedimiento?.tiempo_maximo && formData.tiempo_estimado) {
+    // Calcular el tiempo total estimado excluyendo el paso actual (si estamos editando)
+    const tiempoActual = parseFloat(formData.tiempo_estimado) || 0;
+    const tiempoTotalOtrosPasos = calcularTiempoTotalEstimado(pasos, pasoActual);
+    const tiempoTotalEstimado = tiempoTotalOtrosPasos + tiempoActual;
+    
+    // Comparar directamente en días (sin convertir a minutos)
+    if (tiempoTotalEstimado > procedimiento.tiempo_maximo) {
+      setFormErrors(prev => ({
+        ...prev,
+        tiempo_estimado: true
+      }));
       setSnackbar({
         open: true,
-        message: 'Algunas bifurcaciones tienen pasos destino inválidos',
+        message: `La suma de los tiempos estimados (${tiempoTotalEstimado.toFixed(1)} días) supera el tiempo máximo del procedimiento (${procedimiento.tiempo_maximo} días)`,
         severity: 'warning'
       });
       return;
     }
   }
+  
+  // Resto de la función handleSubmitPaso existente...
   try {
     if (pasoActual) {
       // Actualizar paso existente
@@ -1658,16 +1726,28 @@ const handleDeleteGeneralDoc = (doc) => {
             </Typography>
             <Typography variant="body2" color="textSecondary" sx={{ ml: 1 }}>bifurcaciones</Typography>
           </Box>
-          {/* Añadir información de tiempo máximo */}
+          {/* Añadir información de tiempo máximo con comparación */}
           {procedimiento?.tiempo_maximo && (
             <>
               <Divider orientation="vertical" flexItem sx={{ mx: 2 }} />
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <AccessTimeIcon sx={{ color: 'error.main', mr: 1 }} />
-                <Typography variant="h5" color="error.main">
-                  {procedimiento.tiempo_maximo}
-                </Typography>
-                <Typography variant="body2" color="textSecondary" sx={{ ml: 1 }}>días máx.</Typography>
+                <MuiTooltip title={`Tiempo máximo permitido: ${procedimiento.tiempo_maximo} días`}>
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <AccessTimeIcon sx={{ 
+                      color: calcularTiempoTotalEstimado(pasos) > procedimiento.tiempo_maximo 
+                        ? 'error.main' 
+                        : 'success.main', 
+                      mr: 1 
+                    }} />
+                    <Typography variant="h5" 
+                      color={calcularTiempoTotalEstimado(pasos) > procedimiento.tiempo_maximo 
+                        ? 'error.main' 
+                        : 'success.main'}>
+                      {procedimiento.tiempo_maximo}
+                    </Typography>
+                    <Typography variant="body2" color="textSecondary" sx={{ ml: 1 }}>días máx.</Typography>
+                  </Box>
+                </MuiTooltip>
               </Box>
             </>
           )}
@@ -1797,14 +1877,20 @@ const handleDeleteGeneralDoc = (doc) => {
             <Grid container spacing={2}>
               <Grid item xs={12} sm={6}>
                 <TextField
-                  label="Tiempo estimado"
+                  label="Tiempo estimado (días)"
                   name="tiempo_estimado"
                   value={formData.tiempo_estimado}
                   onChange={handleChange}
+                  type="number" // Cambiar a tipo number para aceptar solo números
+                  inputProps={{ step: "0.1", min: "0.1" }} // Permitir decimales con incrementos de 0.1
                   fullWidth
                   margin="normal"
                   variant="outlined"
-                  placeholder="Ej: 15 minutos"
+                  placeholder="Ej: 2.5"
+                  error={formErrors.tiempo_estimado}
+                  helperText={formErrors.tiempo_estimado ? 
+                    "El valor debe ser un número positivo y no puede exceder el tiempo máximo del procedimiento" : 
+                    "Introduzca el número de días estimados para completar este paso"}
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
