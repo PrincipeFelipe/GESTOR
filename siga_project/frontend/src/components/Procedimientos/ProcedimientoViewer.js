@@ -73,10 +73,10 @@ const ProcedimientoViewer = () => {
         const procResponse = await procedimientosService.getProcedimiento(procedimientoId);
         setProcedimiento(procResponse.data);
         
-        // Modificar esta llamada para garantizar que se obtengan todos los pasos
+        // Obtener pasos del procedimiento - desactivar paginación explícitamente
         const pasosResponse = await procedimientosService.getPasos(procedimientoId, { 
-          pagination: false,  // Deshabilitar explícitamente la paginación
-          page_size: 1000     // Establecer un tamaño de página muy grande
+          pagination: false,  
+          page_size: 1000     
         });
         
         // Verificar la estructura de la respuesta y procesar adecuadamente
@@ -92,7 +92,7 @@ const ProcedimientoViewer = () => {
           .filter(paso => parseInt(paso.procedimiento) === parseInt(procedimientoId))
           .sort((a, b) => a.numero - b.numero);
         
-        console.log('Pasos ordenados:', pasosOrdenados);
+        console.log('Pasos ordenados:', pasosOrdenados.length, pasosOrdenados);
         
         // Para cada paso, obtener sus documentos específicos
         const pasosConDocumentos = await Promise.all(
@@ -110,14 +110,34 @@ const ProcedimientoViewer = () => {
         
         setPasos(pasosConDocumentos);
         
-        // Obtener documentos generales del procedimiento
+        // Obtener documentos generales del procedimiento - Solicitar explícitamente solo documentos generales
         try {
+          // Si puedes modificar la API, usa el enfoque 1
           const docsGeneralesResponse = await procedimientosService.getDocumentosGenerales(procedimientoId);
-          setDocumentosGenerales(docsGeneralesResponse.data.results || docsGeneralesResponse.data || []);
+          
+          // Filtrar solo los documentos en la carpeta general
+          const documentosGeneralesFiltrados = (docsGeneralesResponse.data.results || docsGeneralesResponse.data || [])
+            .filter(doc => {
+              // Verificar que el documento no tenga paso asociado
+              const noPaso = !doc.paso;
+              
+              // Verificar que esté en la carpeta general mediante la URL
+              const esCarpetaGeneral = doc.archivo_url && 
+                                      doc.archivo_url.includes(`/media/procedimientos/${procedimientoId}/general/`);
+              
+              // También considera los documentos marcados explícitamente como generales
+              const marcadoGeneral = doc.es_general === true;
+              
+              return noPaso && (esCarpetaGeneral || marcadoGeneral);
+            });
+          
+          console.log("Documentos generales filtrados:", documentosGeneralesFiltrados.length);
+          setDocumentosGenerales(documentosGeneralesFiltrados);
         } catch (err) {
           console.error('Error al obtener documentos generales:', err);
           setDocumentosGenerales([]);
         }
+        
       } catch (err) {
         console.error('Error al cargar el procedimiento:', err);
         setError('No se pudo cargar el procedimiento. Por favor, inténtelo de nuevo más tarde.');

@@ -54,15 +54,72 @@ const deleteTipoProcedimiento = (id) => {
 };
 
 // Pasos
-const getPasos = (procedimientoId, extraParams = {}) => {
-  const params = { 
-    procedimiento: procedimientoId,
-    page_size: 1000, // Asegurar que se carguen todos los pasos
-    pagination: false, // Añadir esta línea para deshabilitar la paginación
-    ...extraParams
-  };
-  
-  return api.get(`${BASE_URL}/pasos/`, { params });
+const getPasos = async (procedimientoId, extraParams = {}) => {
+  if (extraParams.pagination === false) {
+    // Si se solicita obtener todos los registros sin paginación
+    let todosLosPasos = [];
+    let pagina = 1;
+    let hayMasPaginas = true;
+    
+    // Hacer peticiones iterativas hasta obtener todos los pasos
+    while (hayMasPaginas) {
+      const params = {
+        procedimiento: procedimientoId,
+        page: pagina,
+        page_size: 50,
+        ...extraParams
+      };
+      
+      delete params.pagination; // Eliminar parámetro personalizado que no entiende la API
+      
+      try {
+        const response = await api.get(`${BASE_URL}/pasos/`, { params });
+        
+        let pasosObtenidos = [];
+        if (Array.isArray(response.data)) {
+          pasosObtenidos = response.data;
+          hayMasPaginas = false; // Si la API devuelve un array directamente, no hay paginación
+        } else if (response.data.results && Array.isArray(response.data.results)) {
+          pasosObtenidos = response.data.results;
+          hayMasPaginas = !!response.data.next; // Hay más páginas si existe "next"
+        } else {
+          hayMasPaginas = false;
+        }
+        
+        todosLosPasos = [...todosLosPasos, ...pasosObtenidos];
+        pagina++;
+        
+        // Salida de seguridad si algo sale mal
+        if (pagina > 10) break;
+      } catch (error) {
+        console.error("Error obteniendo pasos:", error);
+        hayMasPaginas = false;
+      }
+    }
+    
+    // Crear una estructura similar a la respuesta paginada pero con todos los pasos
+    return {
+      data: {
+        results: todosLosPasos,
+        count: todosLosPasos.length
+      }
+    };
+  } else {
+    // Comportamiento original con paginación
+    const params = {
+      procedimiento: procedimientoId,
+      page: extraParams.page || 1,
+      page_size: extraParams.page_size || 10,
+      ...extraParams
+    };
+    
+    // Si pagination está definido pero no es false, eliminarlo
+    if ('pagination' in params) {
+      delete params.pagination;
+    }
+    
+    return api.get(`${BASE_URL}/pasos/`, { params });
+  }
 };
 
 const getPaso = (id) => {
