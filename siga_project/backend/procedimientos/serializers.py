@@ -208,7 +208,7 @@ class PasoTrabajoDetailSerializer(serializers.ModelSerializer):
     
     def get_usuario_completado_nombre(self, obj):
         if obj.usuario_completado:
-            return obj.usuario_completado.get_full_name() or obj.usuario_completado.username
+            return obj.usuario_completado.tip  # Cambiado para mostrar TIP
         return None
 
 
@@ -229,7 +229,7 @@ class TrabajoListSerializer(serializers.ModelSerializer):
         ]
     
     def get_usuario_creador_nombre(self, obj):
-        return obj.usuario_creador.get_full_name() or obj.usuario_creador.username
+        return obj.usuario_creador.tip  # Cambiado para mostrar TIP
     
     def get_tiempo_estimado_total(self, obj):
         # Suma de todos los tiempos estimados de los pasos asociados al procedimiento
@@ -249,11 +249,12 @@ class TrabajoListSerializer(serializers.ModelSerializer):
 
 
 class TrabajoDetailSerializer(serializers.ModelSerializer):
-    procedimiento_detalle = ProcedimientoSerializer(source='procedimiento', read_only=True)
+    procedimiento_detalle = ProcedimientoDetailSerializer(source='procedimiento', read_only=True)
     pasos = PasoTrabajoListSerializer(source='pasos_trabajo', many=True, read_only=True)
     usuario_creador_nombre = serializers.SerializerMethodField()
     unidad_nombre = serializers.CharField(source='unidad.nombre')
     tiempo_transcurrido_dias = serializers.SerializerMethodField()
+    documentos = serializers.SerializerMethodField()
     
     class Meta:
         model = Trabajo
@@ -261,15 +262,26 @@ class TrabajoDetailSerializer(serializers.ModelSerializer):
             'id', 'titulo', 'descripcion', 'procedimiento', 'procedimiento_detalle',
             'usuario_creador', 'usuario_creador_nombre', 'unidad', 'unidad_nombre',
             'fecha_inicio', 'fecha_fin', 'estado', 'paso_actual',
-            'tiempo_transcurrido_dias', 'pasos'
+            'tiempo_transcurrido_dias', 'pasos', 'documentos'
         ]
     
     def get_usuario_creador_nombre(self, obj):
-        return obj.usuario_creador.get_full_name() or obj.usuario_creador.username
+        return obj.usuario_creador.tip  # Cambiado para mostrar TIP
     
     def get_tiempo_transcurrido_dias(self, obj):
         tiempo = obj.tiempo_transcurrido()
         return round(tiempo.total_seconds() / (60 * 60 * 24), 1)  # Convertir a días con un decimal
+    
+    def get_documentos(self, obj):
+        """Obtener documentos específicos del trabajo y genéricos del procedimiento"""
+        from procedimientos.serializers import DocumentoSerializer
+        
+        # El modelo Documento no tiene un campo 'trabajo', solo 'procedimiento'
+        # Obtener documentos del procedimiento asociado al trabajo
+        docs = Documento.objects.filter(procedimiento=obj.procedimiento)
+        serializer = DocumentoSerializer(docs, many=True)
+        
+        return serializer.data
 
 
 class TrabajoCreateSerializer(serializers.ModelSerializer):
@@ -279,15 +291,20 @@ class TrabajoCreateSerializer(serializers.ModelSerializer):
     
     def create(self, validated_data):
         usuario = self.context['request'].user
-        unidad = usuario.unidad
         
-        # Crear el trabajo
+        # Verificar si el usuario tiene unidad_destino
+        if not hasattr(usuario, 'unidad_destino') or usuario.unidad_destino is None:
+            raise serializers.ValidationError("El usuario no tiene una unidad asignada")
+        
+        unidad = usuario.unidad_destino
+        
+        # El resto del código de creación...
         trabajo = Trabajo.objects.create(
             procedimiento=validated_data['procedimiento'],
             titulo=validated_data['titulo'],
             descripcion=validated_data.get('descripcion', ''),
             usuario_creador=usuario,
-            unidad=unidad,
+            unidad=unidad,  # Aquí se asigna la unidad_destino del usuario
             estado='INICIADO'
         )
         
@@ -304,3 +321,24 @@ class TrabajoCreateSerializer(serializers.ModelSerializer):
             )
         
         return trabajo
+
+class TrabajoSerializer(serializers.ModelSerializer):
+    usuario_creador_tip = serializers.SerializerMethodField()
+    usuario_iniciado_tip = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Trabajo
+        fields = [
+            'usuario_creador', 'usuario_creador_tip',
+            'usuario_iniciado', 'usuario_iniciado_tip',
+        ]
+    
+    def get_usuario_creador_tip(self, obj):
+        if obj.usuario_creador:
+            return obj.usuario_creador.tip
+        return None
+    
+    def get_usuario_iniciado_tip(self, obj):
+        if obj.usuario_iniciado:
+            return obj.usuario_iniciado.tip
+        return None

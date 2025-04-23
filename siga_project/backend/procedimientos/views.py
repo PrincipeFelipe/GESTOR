@@ -501,15 +501,24 @@ class TrabajoViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         user = self.request.user
-        # Los usuarios solo pueden ver sus trabajos y los de su unidad
-        return Trabajo.objects.filter(
-            Q(usuario_creador=user) | Q(unidad=user.unidad)
-        )
+        queryset = Trabajo.objects.all()
+        
+        # Si el usuario es superadmin o admin, mostrar todos los trabajos
+        if user.is_superuser or user.tipo_usuario == 'ADMIN':  # Usar tipo_usuario en vez de role
+            return queryset
+        
+        # Para usuarios normales, filtrar por usuario_creador y unidad_destino
+        filters = Q(usuario_creador=user)
+        
+        if hasattr(user, 'unidad_destino') and user.unidad_destino is not None:
+            filters |= Q(unidad=user.unidad_destino)
+        
+        return queryset.filter(filters)
     
     def perform_create(self, serializer):
         serializer.save(
             usuario_creador=self.request.user,
-            unidad=self.request.user.unidad
+            unidad=self.request.user.unidad_destino  # Cambiar a unidad_destino
         )
     
     @action(detail=True, methods=['post'])
@@ -540,10 +549,20 @@ class PasoTrabajoViewSet(viewsets.GenericViewSet,
     
     def get_queryset(self):
         user = self.request.user
-        # Los usuarios solo pueden ver pasos de trabajos suyos o de su unidad
-        return PasoTrabajo.objects.filter(
-            Q(trabajo__usuario_creador=user) | Q(trabajo__unidad=user.unidad)
-        )
+        queryset = PasoTrabajo.objects.all()
+        
+        # Si el usuario es superadmin o admin, mostrar todos los pasos
+        if user.is_superuser or user.tipo_usuario in ['SuperAdmin', 'Admin']:
+            return queryset
+        
+        # Para usuarios normales, filtrar por usuario_creador del trabajo
+        filters = Q(trabajo__usuario_creador=user)
+        
+        # Usar unidad_destino en lugar de unidad
+        if hasattr(user, 'unidad_destino') and user.unidad_destino is not None:
+            filters |= Q(trabajo__unidad=user.unidad_destino)
+        
+        return queryset.filter(filters)
     
     @action(detail=True, methods=['post'])
     def iniciar(self, request, pk=None):

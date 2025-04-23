@@ -97,11 +97,11 @@ class Procedimiento(models.Model):
         teniendo en cuenta los casos especiales de unidades híbridas.
         """
         # Si el procedimiento es para ZONA
-        if self.nivel == 'ZONA':
+        if (self.nivel == 'ZONA'):
             return unidad.tipo_unidad in ['ZONA', 'ZONA_COMANDANCIA']
             
         # Si el procedimiento es para COMANDANCIA
-        if self.nivel == 'COMANDANCIA':
+        if (self.nivel == 'COMANDANCIA'):
             return unidad.tipo_unidad in ['COMANDANCIA', 'ZONA_COMANDANCIA']
             
         # Para otros niveles, comparación directa
@@ -318,8 +318,10 @@ class Trabajo(models.Model):
     ]
     
     procedimiento = models.ForeignKey(Procedimiento, on_delete=models.PROTECT, related_name='trabajos')
-    usuario_creador = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, 
-                                      related_name='trabajos_creados')
+    usuario_creador = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, 
+                                       related_name='trabajos_creados', null=True)
+    usuario_iniciado = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+                                        related_name='trabajos_iniciados', null=True, blank=True)
     unidad = models.ForeignKey(Unidad, on_delete=models.PROTECT, related_name='trabajos')
     titulo = models.CharField(max_length=200)
     descripcion = models.TextField(blank=True, null=True)

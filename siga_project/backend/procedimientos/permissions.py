@@ -24,24 +24,40 @@ class IsAdminOrSuperAdminOrReadOnly(permissions.BasePermission):
 
 class IsOwnerOrSameUnit(permissions.BasePermission):
     """
-    Permite acceso solo si el usuario es el creador del objeto o pertenece a la misma unidad.
+    Permiso personalizado para permitir:
+    1. Acceso a superadmin y admin
+    2. A un usuario ver/editar sus propios trabajos
+    3. A un usuario ver/editar trabajos de su unidad
     """
     
+    def has_permission(self, request, view):
+        # Todos los usuarios autenticados pueden listar y crear
+        return request.user and request.user.is_authenticated
+    
     def has_object_permission(self, request, view, obj):
-        # Verificar si el usuario es superuser o admin
-        if request.user.is_superuser or request.user.role == 'ADMIN':
+        # Verificar si el usuario es superadmin o admin
+        # Cambiar request.user.role por request.user.tipo_usuario
+        if request.user.is_superuser or request.user.tipo_usuario == 'ADMIN':
             return True
-            
-        # Verificar si el objeto tiene usuario_creador o trabajo.usuario_creador
+        
+        # Verificar si el objeto tiene usuario_creador
         if hasattr(obj, 'usuario_creador'):
+            # Permitir al creador del trabajo
             if obj.usuario_creador == request.user:
                 return True
-            return obj.unidad == request.user.unidad
+            
+            # Permitir a usuarios de la misma unidad
+            if hasattr(request.user, 'unidad_destino') and request.user.unidad_destino:
+                return obj.unidad == request.user.unidad_destino
         
-        # Para PasoTrabajo que tiene relación a través de trabajo
+        # Para PasoTrabajo, verificar por trabajo
         if hasattr(obj, 'trabajo'):
+            # Permitir al creador del trabajo
             if obj.trabajo.usuario_creador == request.user:
                 return True
-            return obj.trabajo.unidad == request.user.unidad
+            
+            # Permitir a usuarios de la misma unidad
+            if hasattr(request.user, 'unidad_destino') and request.user.unidad_destino:
+                return obj.trabajo.unidad == request.user.unidad_destino
         
         return False

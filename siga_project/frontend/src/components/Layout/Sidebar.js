@@ -36,6 +36,8 @@ import LogoutIcon from '@mui/icons-material/Logout';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import MenuIcon from '@mui/icons-material/Menu';
+import WorkIcon from '@mui/icons-material/Work';
+import AddIcon from '@mui/icons-material/Add';
 
 // Importar el logo
 import logo from '../../assets/images/logo.png';
@@ -72,7 +74,8 @@ const Sidebar = ({ drawerWidth = 260, mobileOpen, handleDrawerToggle, isCollapse
     procedimientos: true,
     unidades: false,
     empleos: false,
-    usuarios: false
+    usuarios: false,
+    trabajos: false  // Añadir trabajos al estado inicial
   });
 
   // Función para manejar la apertura/cierre de menús colapsables
@@ -289,6 +292,31 @@ const Sidebar = ({ drawerWidth = 260, mobileOpen, handleDrawerToggle, isCollapse
                   </ListItem>
                 </>
               )}
+            </List>
+          </Collapse>
+
+          {/* Trabajos */}
+          <ListItemButton onClick={() => handleMenuToggle('trabajos')}>
+            <ListItemIcon>
+              <WorkIcon />
+            </ListItemIcon>
+            {!isCollapsed && <ListItemText primary="Trabajos" />}
+            {!isCollapsed && (openMenus.trabajos ? <ExpandLess /> : <ExpandMore />)}
+          </ListItemButton>
+          <Collapse in={openMenus.trabajos && !isCollapsed} timeout="auto" unmountOnExit>
+            <List component="div" disablePadding>
+              <ListItem component={StyledNavLink} to="/dashboard/trabajos" sx={{ pl: 4 }} end>
+                <ListItemIcon>
+                  <ListAltIcon fontSize="small" />
+                </ListItemIcon>
+                {!isCollapsed && <ListItemText primary="Mis Trabajos" />}
+              </ListItem>
+              <ListItem component={StyledNavLink} to="/dashboard/trabajos/crear" sx={{ pl: 4 }}>
+                <ListItemIcon>
+                  <AddIcon fontSize="small" />
+                </ListItemIcon>
+                {!isCollapsed && <ListItemText primary="Nuevo Trabajo" />}
+              </ListItem>
             </List>
           </Collapse>
           

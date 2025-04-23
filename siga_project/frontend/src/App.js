@@ -38,6 +38,12 @@ import UnidadTree from './components/Unidades/UnidadTree';
 // Empleos (importar el componente cuando esté disponible)
 // import EmpleosList from './components/Empleos/EmpleosList';
 
+// Trabajos
+import TrabajosList from './components/Trabajos/TrabajosList';
+import TrabajoDetail from './components/Trabajos/TrabajoDetail';
+import TrabajoEjecutor from './components/Trabajos/TrabajoEjecutor';
+import TrabajoCreate from './components/Trabajos/TrabajoCreate';
+
 // Modo de desarrollo para hacer pruebas sin autenticación
 const DEV_MODE = false; // Cambiar a false en producción
 
@@ -176,6 +182,14 @@ const App = () => {
                 <Route path=":procedimientoId/pasos" element={<PasosManager />} />
                 <Route path=":procedimientoId/pasos/:pasoId/documentos" element={<PasoDocumentosManager />} />
                 <Route path=":procedimientoId/cadena" element={<ProcedimientoCadena />} />
+              </Route>
+              
+              {/* Rutas de Trabajos */}
+              <Route path="trabajos">
+                <Route index element={<TrabajosList />} />
+                <Route path="crear" element={<TrabajoCreate />} />
+                <Route path=":id" element={<TrabajoDetail />} />
+                <Route path=":id/ejecutar" element={<TrabajoEjecutor />} />
               </Route>
               
               {/* Rutas de Perfil */}
