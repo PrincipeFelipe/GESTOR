@@ -281,6 +281,32 @@ useEffect(() => {
   }
 }, [respuestaCondicion, pasoActual]);
 
+// 2. Agrega este useEffect después del useEffect para reiniciar respuestaCondicion (~línea 235)
+useEffect(() => {
+  // Si el paso actual tiene solo una bifurcación, seleccionarla automáticamente
+  if (
+    pasoActual?.estado === 'EN_PROGRESO' &&
+    pasoActual?.paso_detalle?.bifurcaciones &&
+    Array.isArray(pasoActual.paso_detalle.bifurcaciones) &&
+    pasoActual.paso_detalle.bifurcaciones.length === 1
+  ) {
+    const bifurcacion = pasoActual.paso_detalle.bifurcaciones[0];
+    let valueToUse;
+    
+    // Usar la misma lógica que en la renderización para determinar el valor
+    if (bifurcacion.paso_destino_id !== undefined && bifurcacion.paso_destino_id !== null) {
+      valueToUse = String(bifurcacion.paso_destino_id);
+    } else if (bifurcacion.paso_destino !== undefined && bifurcacion.paso_destino !== null) {
+      valueToUse = String(bifurcacion.paso_destino);
+    } else {
+      valueToUse = `fallback-0`;
+    }
+    
+    console.log("Seleccionando automáticamente la única bifurcación disponible:", valueToUse);
+    setRespuestaCondicion(valueToUse);
+  }
+}, [pasoActual]);
+
   const handleBack = () => {
     navigate(`/dashboard/trabajos/${id}`);
   };
@@ -371,11 +397,11 @@ const handlePasoCompletado = async () => {
   console.log("Tiene bifurcaciones:", pasoActual.paso_detalle?.bifurcaciones?.length > 0);
   console.log("Respuesta bifurcación seleccionada:", respuestaCondicion);
   
-  // Verificar que si hay bifurcaciones, se ha seleccionado una
+  // Verificar que si hay bifurcaciones, se ha seleccionado una (excepto para bifurcación única)
   if (
     pasoActual.paso_detalle?.bifurcaciones && 
     Array.isArray(pasoActual.paso_detalle.bifurcaciones) &&
-    pasoActual.paso_detalle.bifurcaciones.length > 0 && 
+    pasoActual.paso_detalle.bifurcaciones.length > 1 && // Solo verificar para múltiples opciones
     !respuestaCondicion
   ) {
     alert('Debe seleccionar un camino para continuar');
@@ -556,11 +582,29 @@ const handlePasoCompletado = async () => {
     }
   };
 
-  const calcularProgreso = () => {
-    if (!pasos || pasos.length === 0) return 0;
-    const completados = pasos.filter(p => p.estado === 'COMPLETADO').length;
-    return Math.round((completados / pasos.length) * 100);
-  };
+// Modifica la función calcularProgreso para que sea más precisa
+const calcularProgreso = () => {
+  if (!pasos || pasos.length === 0) return 0;
+  const completados = pasos.filter(p => p.estado === 'COMPLETADO').length;
+  return Math.round((completados / pasos.length) * 100);
+};
+
+// Función para obtener el número del paso actual (no su ID)
+const obtenerNumeroPasoActual = () => {
+  if (!pasoActual || !pasos.length) return 1;
+  
+  // Si hay un paso en progreso, ese es el actual
+  const enProgreso = pasos.find(p => p.estado === 'EN_PROGRESO');
+  if (enProgreso) return enProgreso.paso_numero;
+  
+  // Si no hay ninguno en progreso, buscar el primer pendiente
+  const primerPendiente = pasos.find(p => p.estado === 'PENDIENTE');
+  if (primerPendiente) return primerPendiente.paso_numero;
+  
+  // Si todos están completados, mostrar el último número
+  const ultimoPaso = [...pasos].sort((a, b) => b.paso_numero - a.paso_numero)[0];
+  return ultimoPaso ? ultimoPaso.paso_numero : 1;
+};
 
   if (loading) {
     return (
@@ -653,7 +697,7 @@ const handlePasoCompletado = async () => {
         
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
           <Typography variant="body2" sx={{ mr: 2 }}>
-            Progreso: {progreso}%
+            Progreso: {progreso}% (Paso {obtenerNumeroPasoActual()} de {pasos.length})
           </Typography>
           <Box sx={{ width: 200 }}>
             <LinearProgress variant="determinate" value={progreso} />
@@ -872,7 +916,8 @@ const handlePasoCompletado = async () => {
                         {paso.estado === 'EN_PROGRESO' && 
                          paso.paso_detalle?.bifurcaciones && 
                          Array.isArray(paso.paso_detalle.bifurcaciones) && 
-                         paso.paso_detalle.bifurcaciones.length > 0 && (
+                         // Solo mostrar si hay más de una bifurcación
+                         paso.paso_detalle.bifurcaciones.length > 1 && (
                           <Box sx={{ mt: 3 }}>
                             <FormControl component="fieldset" required>
                               <FormLabel component="legend">Seleccione el siguiente paso:</FormLabel>
@@ -919,6 +964,21 @@ const handlePasoCompletado = async () => {
                                 })}
                               </RadioGroup>
                             </FormControl>
+                          </Box>
+                        )}
+
+                        {/* Agregar mensaje informativo para bifurcación única */}
+                        {paso.estado === 'EN_PROGRESO' && 
+                         paso.paso_detalle?.bifurcaciones && 
+                         Array.isArray(paso.paso_detalle.bifurcaciones) && 
+                         paso.paso_detalle.bifurcaciones.length === 1 && (
+                          <Box sx={{ mt: 3 }}>
+                            <Alert severity="info" icon={<SendIcon />}>
+                              <AlertTitle>Paso con ruta predefinida</AlertTitle>
+                              Este paso tiene una única ruta posible: 
+                              <strong>{paso.paso_detalle.bifurcaciones[0].descripcion || 
+                                `Ir al paso ${paso.paso_detalle.bifurcaciones[0].paso_destino_numero || '?'}`}</strong>
+                            </Alert>
                           </Box>
                         )}
                         
@@ -1113,7 +1173,7 @@ const handlePasoCompletado = async () => {
                 </ListItemIcon>
                 <ListItemText 
                   primary="Paso actual" 
-                  secondary={`${trabajo.paso_actual} de ${pasos.length}`} 
+                  secondary={`${obtenerNumeroPasoActual()} de ${pasos.length}`} 
                 />
               </ListItem>
             </List>
