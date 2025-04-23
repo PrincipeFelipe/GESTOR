@@ -98,32 +98,44 @@ const TrabajoEjecutor = () => {
         console.log("Datos completos del trabajo:", response.data);
         
         // IMPORTANTE: Primero filtramos los documentos generales que ya vienen en la respuesta
-        // No es necesario hacer una petición adicional, ya vienen en response.data.documentos
-        if (response.data && response.data.documentos && response.data.documentos.length > 0) {
+        if (response.data && response.data.documentos && Array.isArray(response.data.documentos)) {
           // Filtrar solo los documentos generales
-          const documentosGeneralesFiltrados = response.data.documentos.filter(doc => {
-            // Verificar si es documento general (carpeta general o sin paso asociado)
-            const esCarpetaGeneral = doc.archivo_url && 
-                                   (doc.archivo_url.includes('/general/') || 
-                                    !doc.archivo_url.includes('/pasos/'));
-            
-            return esCarpetaGeneral;
-          });
+          const documentosGeneralesFiltrados = response.data.documentos
+            .filter(doc => {
+              if (!doc) return false;
+              
+              // Verificar si es documento general (carpeta general o sin paso asociado)
+              const esCarpetaGeneral = doc.archivo_url && 
+                                     (doc.archivo_url.includes('/general/') || 
+                                      !doc.archivo_url.includes('/pasos/'));
+              
+              return esCarpetaGeneral;
+            });
           
           console.log("Documentos generales filtrados:", documentosGeneralesFiltrados.length, documentosGeneralesFiltrados);
           
-          // Actualizar el objeto trabajo con los documentos generales filtrados
-          const trabajo_con_docs = {
+          // Asegúrate de que procedimiento_detalle existe antes de intentar modificarlo
+          if (response.data.procedimiento_detalle) {
+            const trabajo_con_docs = {
+              ...response.data,
+              procedimiento_detalle: {
+                ...response.data.procedimiento_detalle,
+                documentos: documentosGeneralesFiltrados || []
+              }
+            };
+            setTrabajo(trabajo_con_docs);
+          } else {
+            setTrabajo(response.data);
+          }
+        } else {
+          // Si no hay documentos en la respuesta, asignamos el trabajo tal cual
+          setTrabajo({
             ...response.data,
             procedimiento_detalle: {
               ...response.data.procedimiento_detalle,
-              documentos: documentosGeneralesFiltrados
+              documentos: []
             }
-          };
-          setTrabajo(trabajo_con_docs);
-        } else {
-          // Si no hay documentos en la respuesta, asignamos el trabajo tal cual
-          setTrabajo(response.data);
+          });
         }
         
         // Resto del código para procesar pasos...
@@ -142,24 +154,15 @@ const TrabajoEjecutor = () => {
               );
               
               if (pasoProcedimiento) {
-                // Buscar documentos relacionados con este paso en los datos recibidos
-                let documentos = [];
-                
-                // Opción 1: Verificar si hay documentos en la estructura documentos_pasos
-                if (response.data.documentos_pasos) {
-                  const docsDelPaso = response.data.documentos_pasos.filter(doc => 
-                    doc.paso_id === paso.id || doc.paso_numero === paso.paso_numero
-                  );
-                  if (docsDelPaso.length > 0) {
-                    documentos = docsDelPaso;
-                    console.log(`Encontrados ${documentos.length} documentos para el paso ${paso.paso_numero}`);
-                  }
-                }
-                
-                // Opción 2: Si no hay documentos específicos, usar los del procedimiento
-                if (documentos.length === 0 && pasoProcedimiento.documentos) {
-                  documentos = pasoProcedimiento.documentos;
-                  console.log(`Usando ${documentos.length} documentos del procedimiento para el paso ${paso.paso_numero}`);
+                // Asegurarnos de que las bifurcaciones son seguras de procesar
+                let bifurcaciones = [];
+                if (pasoProcedimiento.bifurcaciones && Array.isArray(pasoProcedimiento.bifurcaciones)) {
+                  bifurcaciones = pasoProcedimiento.bifurcaciones.map(bif => ({
+                    ...bif,
+                    // Asegurar que paso_destino_id siempre es un valor válido
+                    paso_destino_id: bif.paso_destino_id || null,
+                    paso_destino_numero: bif.paso_destino_numero || '?'
+                  }));
                 }
                 
                 return {
@@ -171,8 +174,8 @@ const TrabajoEjecutor = () => {
                     tiempo_estimado: paso.paso_detalle?.tiempo_estimado || pasoProcedimiento.tiempo_estimado,
                     responsable: paso.paso_detalle?.responsable || pasoProcedimiento.responsable,
                     requiere_envio: paso.paso_detalle?.requiere_envio || pasoProcedimiento.requiere_envio,
-                    bifurcaciones: paso.paso_detalle?.bifurcaciones || pasoProcedimiento.bifurcaciones,
-                    documentos: documentos,
+                    bifurcaciones: paso.paso_detalle?.bifurcaciones || bifurcaciones,
+                    documentos: paso.paso_detalle?.documentos || pasoProcedimiento.documentos || [],
                     es_final: paso.paso_detalle?.es_final || pasoProcedimiento.es_final
                   }
                 };
@@ -252,6 +255,31 @@ const TrabajoEjecutor = () => {
     
     // La dependencia pasoActual.id en lugar de pasoActual completo ayuda a evitar bucles
   }, [pasoActual?.id, trabajo?.id]);
+
+  useEffect(() => {
+    // Resetear la respuesta de bifurcación al cambiar de paso
+    setRespuestaCondicion('');
+  }, [activeStep, pasoActual?.id]);
+
+  // Añade un useEffect para depurar cuando cambia respuestaCondicion
+useEffect(() => {
+  if (respuestaCondicion) {
+    console.log("respuestaCondicion actualizada:", respuestaCondicion);
+    console.log("Tipo:", typeof respuestaCondicion);
+    
+    // Intentar convertir a número para verificar
+    const numerico = parseInt(respuestaCondicion, 10);
+    console.log("Valor convertido a número:", numerico, "es NaN:", isNaN(numerico));
+    
+    // Mostrar información de la bifurcación seleccionada
+    if (pasoActual?.paso_detalle?.bifurcaciones) {
+      const bifurcacionSeleccionada = pasoActual.paso_detalle.bifurcaciones.find(b => 
+        String(b.paso_destino_id) === respuestaCondicion
+      );
+      console.log("Bifurcación seleccionada:", bifurcacionSeleccionada);
+    }
+  }
+}, [respuestaCondicion, pasoActual]);
 
   const handleBack = () => {
     navigate(`/dashboard/trabajos/${id}`);
@@ -335,48 +363,137 @@ const TrabajoEjecutor = () => {
     }
   };
 
-  const handlePasoCompletado = async () => {
-    if (!pasoActual || pasoActual.estado !== 'EN_PROGRESO') return;
-    if (
-      pasoActual.paso_detalle && 
-      pasoActual.paso_detalle.bifurcaciones?.length > 0 && 
-      !respuestaCondicion
-    ) {
-      alert('Debe seleccionar un camino para continuar');
-      return;
-    }
-    if (pasoActual.paso_detalle && pasoActual.paso_detalle.requiere_envio && !validarEnvio()) {
-      return;
+  // Modifica la función handlePasoCompletado
+const handlePasoCompletado = async () => {
+  if (!pasoActual || pasoActual.estado !== 'EN_PROGRESO') return;
+  
+  console.log("Intentando completar paso:", pasoActual.id);
+  console.log("Tiene bifurcaciones:", pasoActual.paso_detalle?.bifurcaciones?.length > 0);
+  console.log("Respuesta bifurcación seleccionada:", respuestaCondicion);
+  
+  // Verificar que si hay bifurcaciones, se ha seleccionado una
+  if (
+    pasoActual.paso_detalle?.bifurcaciones && 
+    Array.isArray(pasoActual.paso_detalle.bifurcaciones) &&
+    pasoActual.paso_detalle.bifurcaciones.length > 0 && 
+    !respuestaCondicion
+  ) {
+    alert('Debe seleccionar un camino para continuar');
+    return;
+  }
+  
+  if (pasoActual.paso_detalle && pasoActual.paso_detalle.requiere_envio && !validarEnvio()) {
+    return;
+  }
+  
+  setSubmitting(true);
+  try {
+    // Formamos la estructura base de los datos a enviar
+    const requestData = {
+      notas: notasCompletado || ''
+    };
+    
+    // Añadimos la información de bifurcación si corresponde
+    if (pasoActual.paso_detalle?.bifurcaciones && 
+        Array.isArray(pasoActual.paso_detalle.bifurcaciones) &&
+        pasoActual.paso_detalle.bifurcaciones.length > 0 && 
+        respuestaCondicion) {
+      
+      console.log("Valor original de la bifurcación elegida:", respuestaCondicion);
+      
+      // Verificar si se trata de un valor de fallback
+      if (respuestaCondicion.startsWith('fallback-')) {
+        // Obtener el índice del valor de fallback
+        const index = parseInt(respuestaCondicion.replace('fallback-', ''), 10);
+        
+        // Buscar la bifurcación correspondiente
+        const bifurcacion = pasoActual.paso_detalle.bifurcaciones[index];
+        
+        if (bifurcacion) {
+          console.log("Usando bifurcación de fallback:", bifurcacion);
+          
+          if (bifurcacion.paso_destino) {
+            // IMPORTANTE: Usar paso_destino como bifurcacion_elegida
+            const pasoDestinoNumero = parseInt(bifurcacion.paso_destino, 10);
+            if (!isNaN(pasoDestinoNumero)) {
+              console.log("Usando paso_destino como bifurcacion_elegida:", pasoDestinoNumero);
+              requestData.bifurcacion_elegida = pasoDestinoNumero;
+            }
+          } else if (bifurcacion.paso_destino_numero && bifurcacion.paso_destino_numero !== '?') {
+            // Intentar usar paso_destino_numero si tiene un valor numérico
+            const pasoDestinoNumero = parseInt(bifurcacion.paso_destino_numero, 10);
+            if (!isNaN(pasoDestinoNumero)) {
+              console.log("Usando paso_destino_numero como bifurcacion_elegida:", pasoDestinoNumero);
+              requestData.bifurcacion_elegida = pasoDestinoNumero;
+            }
+          }
+          
+          // Si no se pudo obtener un valor numérico para bifurcacion_elegida
+          if (!requestData.bifurcacion_elegida) {
+            console.warn("No se encontró un valor numérico válido para bifurcacion_elegida");
+            throw new Error("No se pudo determinar el valor de bifurcación");
+          }
+        }
+      } else {
+        // Intentar convertir a número entero
+        const bifurcacionId = parseInt(respuestaCondicion, 10);
+        
+        // Si es un número válido, usarlo como bifurcacion_elegida
+        if (!isNaN(bifurcacionId)) {
+          console.log("Enviando bifurcación elegida (como número):", bifurcacionId);
+          requestData.bifurcacion_elegida = bifurcacionId;
+        } else {
+          // Si no es un número, pero tampoco es un fallback, mostrar una advertencia
+          console.warn("Valor de bifurcación no es un número válido ni un fallback:", respuestaCondicion);
+          throw new Error("El ID de bifurcación no es válido");
+        }
+      }
+      
+      // Verificación final para asegurarnos de que tenemos un valor numérico
+      if (requestData.bifurcacion_elegida === undefined || 
+          requestData.bifurcacion_elegida === null || 
+          isNaN(requestData.bifurcacion_elegida)) {
+        console.error("No se pudo determinar un valor válido para bifurcacion_elegida");
+        throw new Error("No se pudo determinar un valor válido para la bifurcación");
+      }
     }
     
-    setSubmitting(true);
-    try {
+    // Preparar los datos a enviar según si hay archivos o no
+    let dataToSend;
+    
+    if (pasoActual.paso_detalle && pasoActual.paso_detalle.requiere_envio) {
       const formData = new FormData();
-      const requestData = {
-        notas: notasCompletado
-      };
-      if (pasoActual.paso_detalle && pasoActual.paso_detalle.bifurcaciones?.length > 0 && respuestaCondicion) {
-        requestData.bifurcacion_elegida = respuestaCondicion;
-      }
-      if (pasoActual.paso_detalle && pasoActual.paso_detalle.requiere_envio) {
-        const envioInfo = {
-          numero_salida: envioData.numero_salida,
-          notas_adicionales: envioData.notas_adicionales
-        };
-        requestData.envio = envioInfo;
+      
+      if (envioFile) {
         formData.append('documentacion', envioFile);
       }
-      formData.append('data', JSON.stringify(requestData));
       
-      await trabajosService.completarPasoTrabajo(pasoActual.id, formData);
-      window.location.reload();
-    } catch (err) {
-      console.error('Error al completar paso:', err);
-      alert('Ocurrió un error al completar el paso. Inténtalo de nuevo.');
-    } finally {
-      setSubmitting(false);
+      const envioInfo = {
+        numero_salida: envioData.numero_salida,
+        notas_adicionales: envioData.notas_adicionales || ''
+      };
+      requestData.envio = envioInfo;
+      
+      // Añadimos el JSON al FormData
+      formData.append('data', JSON.stringify(requestData));
+      dataToSend = formData;
+    } else {
+      // Para casos sin archivos, enviamos directamente el JSON
+      dataToSend = requestData;
     }
-  };
+    
+    console.log("Datos a enviar:", dataToSend);
+    
+    const result = await trabajosService.completarPasoTrabajo(pasoActual.id, dataToSend);
+    console.log("Paso completado con éxito:", result);
+    window.location.reload();
+  } catch (err) {
+    console.error('Error al completar paso:', err);
+    alert('Ocurrió un error al completar el paso. Inténtalo de nuevo.');
+  } finally {
+    setSubmitting(false);
+  }
+};
 
   // Mejorar la función getDocumentoIcon
   const getDocumentoIcon = (doc) => {
@@ -754,23 +871,52 @@ const TrabajoEjecutor = () => {
                         {/* Opciones para bifurcaciones */}
                         {paso.estado === 'EN_PROGRESO' && 
                          paso.paso_detalle?.bifurcaciones && 
+                         Array.isArray(paso.paso_detalle.bifurcaciones) && 
                          paso.paso_detalle.bifurcaciones.length > 0 && (
                           <Box sx={{ mt: 3 }}>
                             <FormControl component="fieldset" required>
                               <FormLabel component="legend">Seleccione el siguiente paso:</FormLabel>
                               <RadioGroup 
                                 name="bifurcacion" 
-                                value={respuestaCondicion} 
-                                onChange={(e) => setRespuestaCondicion(e.target.value)}
+                                value={respuestaCondicion}
+                                onChange={(e) => {
+                                  const selectedValue = e.target.value;
+                                  console.log("Bifurcación seleccionada (original):", selectedValue);
+                                  setRespuestaCondicion(selectedValue);
+                                }}
                               >
-                                {paso.paso_detalle.bifurcaciones.map(bifurcacion => (
-                                  <FormControlLabel 
-                                    key={bifurcacion.paso_destino_id} 
-                                    value={bifurcacion.paso_destino_id.toString()} 
-                                    control={<Radio color="primary" />} 
-                                    label={bifurcacion.descripcion || `Ir al paso ${bifurcacion.paso_destino_numero}`}
-                                  />
-                                ))}
+                                {paso.paso_detalle.bifurcaciones.map((bifurcacion, index) => {
+                                  // Verificar la estructura de los datos
+                                  console.log(`Bifurcación ${index}:`, bifurcacion);
+                                  
+                                  // IMPORTANTE: Usar paso_destino cuando paso_destino_id es nulo
+                                  let valueToUse;
+                                  
+                                  if (bifurcacion.paso_destino_id !== undefined && bifurcacion.paso_destino_id !== null) {
+                                    // Si hay un ID válido, usarlo
+                                    valueToUse = String(bifurcacion.paso_destino_id);
+                                  } else if (bifurcacion.paso_destino !== undefined && bifurcacion.paso_destino !== null) {
+                                    // Usar paso_destino si está disponible
+                                    valueToUse = String(bifurcacion.paso_destino);
+                                  } else {
+                                    // Si no hay ID ni paso_destino, usar un fallback
+                                    console.warn(`Bifurcación ${index} no tiene IDs válidos:`, bifurcacion);
+                                    valueToUse = `fallback-${index}`;
+                                  }
+                                  
+                                  return (
+                                    <FormControlLabel 
+                                      key={`bifurc-${index}`} 
+                                      value={valueToUse}
+                                      control={<Radio color="primary" />} 
+                                      label={
+                                        <Typography variant="body2">
+                                          {bifurcacion.descripcion || `Ir al paso ${bifurcacion.paso_destino_numero || '?'}`}
+                                        </Typography>
+                                      }
+                                    />
+                                  );
+                                })}
                               </RadioGroup>
                             </FormControl>
                           </Box>
@@ -948,7 +1094,7 @@ const TrabajoEjecutor = () => {
                   <ListItemText 
                     primary="Última actualización" 
                     secondary={format(new Date(trabajo.fecha_actualizacion), 'dd/MM/yyyy', { locale: es })} 
-                  />
+                />
                 </ListItem>
               )}
               
@@ -1165,5 +1311,7 @@ const TrabajoEjecutor = () => {
     </Box>
   );
 };
+
+
 
 export default TrabajoEjecutor;
