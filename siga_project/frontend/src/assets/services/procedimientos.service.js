@@ -160,8 +160,19 @@ const deletePaso = (id) => {
 };
 
 // Documentos
-const getDocumentos = (params) => {
-  return api.get(`${BASE_URL}/documentos/`, { params });
+const getDocumentos = async (procedimientoId) => {
+  if (!procedimientoId) {
+    throw new Error('ID de procedimiento no proporcionado');
+  }
+  
+  try {
+    // Elimina el '/api' adicional aquí
+    const response = await api.get(`${BASE_URL}/documentos/?procedimiento=${procedimientoId}`);
+    return response;
+  } catch (error) {
+    console.error('Error al obtener documentos del procedimiento:', error);
+    throw error;
+  }
 };
 
 const getDocumento = (id) => {
@@ -217,9 +228,19 @@ const getDocumentosPorPaso = (pasoId) => {
   return api.get(`${BASE_URL}/pasos/${pasoId}/documentos/`);
 };
 
-// Añadir función para obtener documentos generales de un procedimiento
-const getDocumentosGenerales = (procedimientoId) => {
-  return api.get(`${BASE_URL}/procedimientos/${procedimientoId}/documentos-generales/`);
+// Corrige esta función para evitar la duplicación de '/api/'
+const getDocumentosGenerales = async (procedimientoId) => {
+  if (!procedimientoId) {
+    throw new Error('ID de procedimiento no proporcionado');
+  }
+  
+  try {
+    const response = await api.get(`${BASE_URL}/procedimientos/${procedimientoId}/documentos-generales/`);
+    return response;
+  } catch (error) {
+    console.error(`Error al obtener documentos generales del procedimiento ${procedimientoId}:`, error);
+    throw error;
+  }
 };
 
 // Historial

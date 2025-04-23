@@ -59,6 +59,7 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 import trabajosService from '../../assets/services/trabajos.service';
+import procedimientosService from '../../assets/services/procedimientos.service';
 import { AuthContext } from '../../contexts/AuthContext';
 import DocumentPreview from '../common/DocumentPreview';
 
@@ -92,19 +93,48 @@ const TrabajoEjecutor = () => {
     const fetchTrabajo = async () => {
       try {
         setLoading(true);
+        // Obtener detalles del trabajo
         const response = await trabajosService.getTrabajoById(id);
-        console.log("Datos completos del trabajo:", response.data); // Depuración
-        setTrabajo(response.data);
+        console.log("Datos completos del trabajo:", response.data);
         
-        // Ordenar pasos
+        // IMPORTANTE: Primero filtramos los documentos generales que ya vienen en la respuesta
+        // No es necesario hacer una petición adicional, ya vienen en response.data.documentos
+        if (response.data && response.data.documentos && response.data.documentos.length > 0) {
+          // Filtrar solo los documentos generales
+          const documentosGeneralesFiltrados = response.data.documentos.filter(doc => {
+            // Verificar si es documento general (carpeta general o sin paso asociado)
+            const esCarpetaGeneral = doc.archivo_url && 
+                                   (doc.archivo_url.includes('/general/') || 
+                                    !doc.archivo_url.includes('/pasos/'));
+            
+            return esCarpetaGeneral;
+          });
+          
+          console.log("Documentos generales filtrados:", documentosGeneralesFiltrados.length, documentosGeneralesFiltrados);
+          
+          // Actualizar el objeto trabajo con los documentos generales filtrados
+          const trabajo_con_docs = {
+            ...response.data,
+            procedimiento_detalle: {
+              ...response.data.procedimiento_detalle,
+              documentos: documentosGeneralesFiltrados
+            }
+          };
+          setTrabajo(trabajo_con_docs);
+        } else {
+          // Si no hay documentos en la respuesta, asignamos el trabajo tal cual
+          setTrabajo(response.data);
+        }
+        
+        // Resto del código para procesar pasos...
         if (response.data.pasos) {
           const sortedPasos = [...response.data.pasos].sort((a, b) => {
             return a.paso_numero - b.paso_numero;
           });
           
-          // Enriquecer los pasos con la información del procedimiento si es necesario
+          // Tu código existente para enriquecer los pasos...
           const pasosEnriquecidos = sortedPasos.map(paso => {
-            // Si el paso no tiene información detallada o documentos, buscarla en el procedimiento
+            // El código existente...
             if (!paso.paso_detalle || !paso.paso_detalle.documentos) {
               // Buscar el paso correspondiente en el procedimiento
               const pasoProcedimiento = response.data.procedimiento_detalle?.pasos?.find(
@@ -864,99 +894,7 @@ const TrabajoEjecutor = () => {
 
             <Divider sx={{ mt: 4, mb: 3 }} />
 
-            <Box sx={{ mt: 4 }}>
-              <Paper sx={{ p: 3 }}>
-                <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                  <DescriptionIcon sx={{ mr: 1, color: 'primary.main' }} />
-                  Documentación General del Procedimiento
-                </Typography>
 
-                {/* Solo mostrar documentos generales del procedimiento */}
-                {trabajo.procedimiento_detalle?.documentos && trabajo.procedimiento_detalle.documentos.length > 0 ? (
-                  <Box>
-                    <List disablePadding>
-                      {trabajo.procedimiento_detalle.documentos.map((doc, index) => (
-                        <React.Fragment key={doc.id}>
-                          {index > 0 && <Divider />}
-                          <ListItem
-                            sx={{
-                              py: 1.5,
-                              bgcolor: 'background.paper',
-                              borderRadius: 1,
-                              mb: 0.5,
-                              border: '1px solid #eee',
-                              '&:hover': { bgcolor: 'rgba(0, 0, 0, 0.02)' }
-                            }}
-                          >
-                            <ListItemIcon>
-                              {getDocumentoIcon(doc)}
-                            </ListItemIcon>
-                            <ListItemText
-                              primary={
-                                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                                    {doc.nombre || "Documento sin nombre"}
-                                  </Typography>
-                                  {doc.extension && (
-                                    <Chip 
-                                      label={doc.extension.toUpperCase()} 
-                                      size="small" 
-                                      variant="outlined"
-                                      sx={{ ml: 1, height: 20, fontSize: '0.7rem' }}
-                                    />
-                                  )}
-                                </Box>
-                              }
-                              secondary={doc.descripcion || ''}
-                            />
-                            <Box>
-                              {doc.archivo_url && (
-                                <>
-                                  <Tooltip title="Visualizar">
-                                    <IconButton 
-                                      size="small"
-                                      onClick={() => handlePreviewDocument(doc.archivo_url, doc.nombre || 'Documento')}
-                                      sx={{ mr: 0.5 }}
-                                    >
-                                      <VisibilityIcon fontSize="small" />
-                                    </IconButton>
-                                  </Tooltip>
-                                  <Tooltip title="Descargar">
-                                    <IconButton
-                                      size="small"
-                                      onClick={(e) => handleDirectDownload(e, doc.archivo_url)}
-                                      sx={{ mr: 0.5 }}
-                                    >
-                                      <DownloadIcon fontSize="small" />
-                                    </IconButton>
-                                  </Tooltip>
-                                </>
-                              )}
-                              {doc.url && (
-                                <Tooltip title="Abrir enlace externo">
-                                  <IconButton
-                                    size="small"
-                                    onClick={() => window.open(doc.url, '_blank')}
-                                  >
-                                    <LaunchIcon fontSize="small" />
-                                  </IconButton>
-                                </Tooltip>
-                              )}
-                            </Box>
-                          </ListItem>
-                        </React.Fragment>
-                      ))}
-                    </List>
-                  </Box>
-                ) : (
-                  <Typography variant="body2" color="text.secondary" align="center">
-                    No hay documentos generales asociados a este trabajo.
-                  </Typography>
-                )}
-                
-                {/* Eliminamos por completo la sección de "Documentos por Paso" */}
-              </Paper>
-            </Box>
           </Paper>
         </Grid>
         
@@ -1048,7 +986,69 @@ const TrabajoEjecutor = () => {
           <Paper sx={{ p: 3, mt: 3 }}>
             <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center' }}>
               <DescriptionIcon sx={{ mr: 1 }} />
-              Documentación del trabajo
+              Documentos por paso
+            </Typography>
+            
+            {pasos.some(paso => paso.paso_detalle?.documentos?.length > 0) ? (
+              <List dense disablePadding>
+                {pasos.filter(paso => paso.paso_detalle?.documentos?.length > 0).map(paso => (
+                  <React.Fragment key={paso.id}>
+                    <Typography variant="subtitle2" sx={{ mt: 1, mb: 0.5, fontWeight: 'bold', display: 'flex', alignItems: 'center' }}>
+                      <FolderIcon fontSize="small" sx={{ mr: 0.5, color: paso.estado === 'COMPLETADO' ? 'success.main' : 'primary.main' }} />
+                      Paso {paso.paso_numero}: {paso.paso_detalle?.titulo || ''}
+                    </Typography>
+                    
+                    <Box sx={{ ml: 2 }}>
+                      {paso.paso_detalle?.documentos?.map(doc => (
+                        <ListItem 
+                          key={doc.id} 
+                          sx={{ 
+                            bgcolor: 'background.paper',
+                            borderRadius: 1,
+                            mb: 0.5,
+                            border: '1px solid #eee',
+                            py: 0.5,
+                            px: 1,
+                            '&:hover': { bgcolor: 'rgba(0, 0, 0, 0.02)' }
+                          }}
+                          dense
+                        >
+                          <ListItemIcon sx={{ minWidth: '30px' }}>
+                            {getDocumentoIcon(doc.documento_detalle || doc)}
+                          </ListItemIcon>
+                          <ListItemText 
+                            primary={
+                              <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                {doc.documento_detalle?.nombre || doc.nombre || "Documento sin nombre"}
+                              </Typography>
+                            }
+                          />
+                          <IconButton 
+                            size="small"
+                            onClick={() => handlePreviewDocument(
+                              doc.documento_detalle?.archivo_url || doc.archivo_url, 
+                              doc.documento_detalle?.nombre || doc.nombre || 'Documento'
+                            )}
+                          >
+                            <VisibilityIcon fontSize="small" />
+                          </IconButton>
+                        </ListItem>
+                      ))}
+                    </Box>
+                  </React.Fragment>
+                ))}
+              </List>
+            ) : (
+              <Typography variant="body2" color="text.secondary">
+                No hay documentos asociados a los pasos del trabajo.
+              </Typography>
+            )}
+          </Paper>
+
+          <Paper sx={{ p: 3, mt: 3 }}>
+            <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+              <DescriptionIcon sx={{ mr: 1, color: 'primary.main' }} />
+              Documentación General del Procedimiento
             </Typography>
             
             {trabajo.procedimiento_detalle?.documentos && trabajo.procedimiento_detalle.documentos.length > 0 ? (
@@ -1061,12 +1061,13 @@ const TrabajoEjecutor = () => {
                       borderRadius: 1,
                       mb: 0.5,
                       border: '1px solid #eee',
-                      '&:hover': {
-                        bgcolor: 'rgba(0, 0, 0, 0.02)'
-                      }
+                      py: 1,
+                      px: 1.5,
+                      '&:hover': { bgcolor: 'rgba(0, 0, 0, 0.02)' }
                     }}
+                    dense
                   >
-                    <ListItemIcon>
+                    <ListItemIcon sx={{ minWidth: '30px' }}>
                       {getDocumentoIcon(doc)}
                     </ListItemIcon>
                     <ListItemText 
@@ -1085,15 +1086,20 @@ const TrabajoEjecutor = () => {
                           )}
                         </Box>
                       }
-                      secondary={doc.descripcion || ''}
+                      secondary={doc.descripcion && (
+                        <Typography variant="caption" color="text.secondary">
+                          {doc.descripcion}
+                        </Typography>
+                      )}
                     />
-                    <Box>
+                    <Box sx={{ display: 'flex' }}>
                       {doc.archivo_url && (
                         <>
                           <Tooltip title="Visualizar">
-                            <IconButton 
+                            <IconButton
                               size="small"
                               onClick={() => handlePreviewDocument(doc.archivo_url, doc.nombre || 'Documento')}
+                              sx={{ mr: 0.5 }}
                             >
                               <VisibilityIcon fontSize="small" />
                             </IconButton>
@@ -1102,6 +1108,7 @@ const TrabajoEjecutor = () => {
                             <IconButton
                               size="small"
                               onClick={(e) => handleDirectDownload(e, doc.archivo_url)}
+                              sx={{ mr: 0.5 }}
                             >
                               <DownloadIcon fontSize="small" />
                             </IconButton>
@@ -1123,8 +1130,8 @@ const TrabajoEjecutor = () => {
                 ))}
               </List>
             ) : (
-              <Typography variant="body2" color="text.secondary">
-                No hay documentos generales asociados a este trabajo.
+              <Typography variant="body2" color="text.secondary" align="center">
+                No hay documentos generales asociados a este procedimiento.
               </Typography>
             )}
           </Paper>
