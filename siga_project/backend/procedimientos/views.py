@@ -590,16 +590,10 @@ class PasoTrabajoViewSet(viewsets.GenericViewSet,
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Verificar si el paso requiere envío y si se proporcionó
+        # Verificar si el paso requiere envío
         if paso_trabajo.paso.requiere_envio:
-            if 'envio' not in request.data:
-                return Response(
-                    {"error": "Este paso requiere información de envío"}, 
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            
-            envio_data = request.data['envio']
-            if not envio_data.get('numero_salida') or 'documentacion' not in request.FILES:
+            # Aquí el backend espera numero_salida como campo directo, no dentro de un JSON 
+            if not request.data.get('numero_salida') or 'documentacion' not in request.FILES:
                 return Response(
                     {"error": "Se requiere número de salida y documentación"}, 
                     status=status.HTTP_400_BAD_REQUEST
@@ -608,9 +602,9 @@ class PasoTrabajoViewSet(viewsets.GenericViewSet,
             # Crear el registro de envío
             EnvioPaso.objects.create(
                 paso_trabajo=paso_trabajo,
-                numero_salida=envio_data['numero_salida'],
+                numero_salida=request.data.get('numero_salida'),
                 documentacion=request.FILES['documentacion'],
-                notas_adicionales=envio_data.get('notas_adicionales', '')
+                notas_adicionales=request.data.get('notas_adicionales', '')
             )
         
         # Si hay bifurcaciones, verificar que se eligió una

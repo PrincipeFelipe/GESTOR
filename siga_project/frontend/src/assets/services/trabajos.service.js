@@ -84,32 +84,42 @@ const iniciarPasoTrabajo = async (id) => {
   }
 };
 
-// Mejora la función completarPasoTrabajo para manejar mejor los diferentes formatos de datos
+// Mejorar la función completarPasoTrabajo para manejar correctamente FormData
 const completarPasoTrabajo = async (pasoId, data) => {
   try {
     let config = {};
     
-    // Determinar si estamos usando FormData o un objeto JSON
+    // Configurar headers según el tipo de datos a enviar
     if (data instanceof FormData) {
       config = {
         headers: {
           'Content-Type': 'multipart/form-data'
         }
       };
+      
+      // Log para depuración
+      console.log("Enviando FormData para paso", pasoId);
+      
+      // Inspeccionar el FormData
+      for (let pair of data.entries()) {
+        console.log(pair[0], pair[1] instanceof File ? `[Archivo: ${pair[1].name}]` : pair[1]);
+      }
     } else {
-      // Si es un objeto JSON normal, puede que necesitemos explícitamente especificar el tipo de contenido
       config = {
         headers: {
           'Content-Type': 'application/json'
         }
       };
+      console.log("Enviando JSON para paso", pasoId, data);
     }
     
     const response = await api.post(`${BASE_URL}/pasos-trabajo/${pasoId}/completar/`, data, config);
     return response.data;
   } catch (error) {
-    console.error("Error al completar el paso:", error.response?.data || error);
-    throw new Error("Error al completar el paso");
+    // Mejorar el manejo de errores para dar más información
+    console.error("Error al completar el paso:", error);
+    console.error("Detalles del error:", error.response?.data || error.message);
+    throw error.response?.data || new Error("Error al completar el paso");
   }
 };
 

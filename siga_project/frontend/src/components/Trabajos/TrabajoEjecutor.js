@@ -486,22 +486,35 @@ const handlePasoCompletado = async () => {
     
     // Preparar los datos a enviar según si hay archivos o no
     let dataToSend;
-    
+
     if (pasoActual.paso_detalle && pasoActual.paso_detalle.requiere_envio) {
       const formData = new FormData();
       
+      // IMPORTANTE: No enviar los datos como un único JSON, sino separados
+      // Añadir campos básicos del paso
+      formData.append('notas', notasCompletado || '');
+      
+      if (requestData.bifurcacion_elegida) {
+        formData.append('bifurcacion_elegida', requestData.bifurcacion_elegida);
+      }
+      
+      // Añadir los campos del envío por separado, no como un objeto JSON anidado
+      formData.append('numero_salida', envioData.numero_salida);
+      if (envioData.notas_adicionales) {
+        formData.append('notas_adicionales', envioData.notas_adicionales);
+      }
+      
+      // Añadir el archivo - mantener el nombre 'documentacion'
       if (envioFile) {
         formData.append('documentacion', envioFile);
       }
       
-      const envioInfo = {
-        numero_salida: envioData.numero_salida,
-        notas_adicionales: envioData.notas_adicionales || ''
-      };
-      requestData.envio = envioInfo;
+      // Verificar contenido del FormData para depuración
+      console.log("FormData creado con estructura plana:");
+      for (let pair of formData.entries()) {
+        console.log(pair[0], pair[1] instanceof File ? `[Archivo: ${pair[1].name}]` : pair[1]);
+      }
       
-      // Añadimos el JSON al FormData
-      formData.append('data', JSON.stringify(requestData));
       dataToSend = formData;
     } else {
       // Para casos sin archivos, enviamos directamente el JSON

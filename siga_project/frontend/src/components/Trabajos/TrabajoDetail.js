@@ -204,6 +204,27 @@ const TrabajoDetail = () => {
     const completados = pasos.filter(p => p.estado === 'COMPLETADO').length;
     return Math.round((completados / pasos.length) * 100);
   };
+
+  // Añade esta función para obtener el número del paso actual
+  const obtenerNumeroPasoActual = () => {
+    if (!pasos || pasos.length === 0) return 1;
+    
+    // Si hay un paso en progreso, ese es el actual
+    const enProgreso = pasos.find(p => p.estado === 'EN_PROGRESO');
+    if (enProgreso) return enProgreso.paso_numero;
+    
+    // Si no hay ninguno en progreso, buscar el primer pendiente
+    const primerPendiente = pasos.find(p => p.estado === 'PENDIENTE');
+    if (primerPendiente) return primerPendiente.paso_numero;
+    
+    // Si todos están completados, mostrar el último número
+    if (pasos.every(p => p.estado === 'COMPLETADO')) {
+      return pasos.length;
+    }
+    
+    // Fallback al paso 1
+    return 1;
+  };
   
   if (loading) {
     return (
@@ -571,7 +592,7 @@ const TrabajoDetail = () => {
                 </ListItemIcon>
                 <ListItemText 
                   primary="Paso actual" 
-                  secondary={`${trabajo.paso_actual} de ${pasos.length}`} 
+                  secondary={`${obtenerNumeroPasoActual()} de ${pasos.length}`} 
                 />
               </ListItem>
             </List>

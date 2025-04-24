@@ -433,14 +433,17 @@ class PasoTrabajo(models.Model):
                 siguiente_paso.save()
 
 
+def envio_upload_path(instance, filename):
+    # Obtener el ID del trabajo a través de la relación paso_trabajo
+    trabajo_id = instance.paso_trabajo.trabajo.id
+    # Crear una estructura de carpetas: procedimientos/envios/trabajo_ID/archivo.ext
+    return f'procedimientos/envios/trabajo_{trabajo_id}/{filename}'
+
 class EnvioPaso(models.Model):
-    """
-    Registra información sobre envíos realizados en pasos que lo requieren.
-    """
     paso_trabajo = models.OneToOneField(PasoTrabajo, on_delete=models.CASCADE, related_name='envio')
     numero_salida = models.CharField(max_length=100)
     fecha_envio = models.DateTimeField(auto_now_add=True)
-    documentacion = models.FileField(upload_to='procedimientos/envios/%Y/%m/')
+    documentacion = models.FileField(upload_to=envio_upload_path)  # Usar la función personalizada
     notas_adicionales = models.TextField(blank=True, null=True)
     
     def __str__(self):
