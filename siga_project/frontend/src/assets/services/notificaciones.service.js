@@ -1,6 +1,7 @@
 import api from './api';
 
-const BASE_URL = '/api/procedimientos'; // Ajusta según tu API
+// Corregir BASE_URL para evitar duplicar '/api/'
+const BASE_URL = '/procedimientos';  // Quitar '/api' duplicado
 
 const getNotificaciones = async () => {
   try {

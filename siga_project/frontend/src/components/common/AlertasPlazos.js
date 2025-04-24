@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Badge, IconButton, Menu, MenuItem, Typography, Box,
+  Badge, IconButton, Menu, Typography, Box,
   List, ListItem, ListItemText, Divider, Paper, Button,
   Tooltip, CircularProgress
 } from '@mui/material';
@@ -9,8 +9,7 @@ import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import WarningIcon from '@mui/icons-material/Warning';
 import { useNavigate } from 'react-router-dom';
 import trabajosService from '../../assets/services/trabajos.service';
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
+
 
 const AlertasPlazos = () => {
   const [alertas, setAlertas] = useState([]);

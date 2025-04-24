@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect} from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -17,7 +17,6 @@ import {
   RadioGroup,
   FormControlLabel,
   Radio,
-  Checkbox,
   Alert,
   AlertTitle,
   LinearProgress,
@@ -31,10 +30,6 @@ import {
   IconButton,
   Tooltip,
   Chip,
-  Link,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SendIcon from '@mui/icons-material/Send';
@@ -54,13 +49,10 @@ import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import LaunchIcon from '@mui/icons-material/Launch';
 import FolderZipIcon from '@mui/icons-material/FolderZip';
 import VideocamIcon from '@mui/icons-material/Videocam';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 import trabajosService from '../../assets/services/trabajos.service';
-import procedimientosService from '../../assets/services/procedimientos.service';
-import { AuthContext } from '../../contexts/AuthContext';
 import DocumentPreview from '../common/DocumentPreview';
 
 import FolderIcon from '@mui/icons-material/Folder';
@@ -68,7 +60,6 @@ import FolderIcon from '@mui/icons-material/Folder';
 const TrabajoEjecutor = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user } = useContext(AuthContext);
   
   const [trabajo, setTrabajo] = useState(null);
   const [pasos, setPasos] = useState([]);
@@ -78,7 +69,6 @@ const TrabajoEjecutor = () => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [respuestaCondicion, setRespuestaCondicion] = useState('');
-  const [respuestaRecibida, setRespuestaRecibida] = useState(false);
   const [notasCompletado, setNotasCompletado] = useState('');
   const [envioData, setEnvioData] = useState({
     numero_salida: '',
@@ -567,18 +557,6 @@ const handlePasoCompletado = async () => {
     return hayDocumentosEnPasos || hayDocumentosGenerales;
   };
 
-  // Función para contar total de documentos
-  const contarTotalDocumentos = () => {
-    // Contar documentos generales
-    const docGenerales = trabajo?.procedimiento_detalle?.documentos?.length || 0;
-    
-    // Contar documentos de pasos
-    const docPasos = pasos.reduce((total, paso) => {
-      return total + (paso.paso_detalle?.documentos?.length || 0);
-    }, 0);
-    
-    return docGenerales + docPasos;
-  };
 
   const getStepIcon = (paso) => {
     switch (paso.estado) {

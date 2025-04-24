@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Badge, IconButton, Menu, MenuItem, Typography, Box,
+  Badge, IconButton, Menu, Typography, Box,
   List, ListItem, ListItemText, Divider, Paper, Button,
-  Tooltip, CircularProgress, Tabs, Tab
+  Tooltip, CircularProgress, Tabs, Tab, Chip
 } from '@mui/material';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
-import WarningIcon from '@mui/icons-material/Warning';
 import InfoIcon from '@mui/icons-material/Info';
+import PersonIcon from '@mui/icons-material/Person';
 import { useNavigate } from 'react-router-dom';
 import trabajosService from '../../assets/services/trabajos.service';
+import notificacionesService from '../../assets/services/notificaciones.service';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -45,33 +46,13 @@ const NotificacionesMenu = () => {
   const obtenerDatos = async () => {
     setLoading(true);
     try {
-      // Obtener alertas de plazos
+      // Obtener alertas de plazos (incluye las de otros miembros de la unidad)
       const plazoData = await trabajosService.getAlertasPlazos();
       setAlertasPlazos(plazoData);
       
-      // En una implementación real, aquí obtendrías también las notificaciones generales
-      // const notificacionesData = await notificacionesService.getNotificaciones();
-      // setNotificaciones(notificacionesData);
-      
-      // Para el ejemplo, usaremos notificaciones simuladas
-      setNotificaciones([
-        {
-          id: 1,
-          titulo: 'Nueva solicitud recibida',
-          mensaje: 'Ha recibido una nueva solicitud de procedimiento',
-          fecha: new Date(),
-          leida: false,
-          tipo: 'info'
-        },
-        {
-          id: 2,
-          titulo: 'Procedimiento actualizado',
-          mensaje: 'El procedimiento "Solicitud de material" ha sido actualizado',
-          fecha: new Date(Date.now() - 86400000), // Ayer
-          leida: true,
-          tipo: 'update'
-        }
-      ]);
+      // Obtener notificaciones generales
+      const notificacionesData = await notificacionesService.getNotificaciones();
+      setNotificaciones(notificacionesData);
     } catch (error) {
       console.error("Error al obtener datos:", error);
     } finally {
@@ -82,7 +63,7 @@ const NotificacionesMenu = () => {
   useEffect(() => {
     obtenerDatos();
     
-    // Actualizar cada 30 minutos
+    // Programar actualización cada 30 minutos
     const intervalId = setInterval(obtenerDatos, 30 * 60 * 1000);
     
     return () => clearInterval(intervalId);
@@ -103,6 +84,32 @@ const NotificacionesMenu = () => {
   const handleNavigateToTrabajo = (trabajoId) => {
     navigate(`/dashboard/trabajos/${trabajoId}/ejecutar`);
     handleClose();
+  };
+
+  const handleMarcarNotificacionLeida = async (id) => {
+    try {
+      await notificacionesService.marcarComoLeida(id);
+      // Actualizar el estado de la notificación localmente
+      setNotificaciones(prevNotificaciones =>
+        prevNotificaciones.map(n => 
+          n.id === id ? { ...n, leida: true } : n
+        )
+      );
+    } catch (error) {
+      console.error("Error al marcar notificación como leída:", error);
+    }
+  };
+
+  const handleMarcarTodasLeidas = async () => {
+    try {
+      await notificacionesService.marcarTodasComoLeidas();
+      // Actualizar estado local
+      setNotificaciones(prevNotificaciones =>
+        prevNotificaciones.map(n => ({ ...n, leida: true }))
+      );
+    } catch (error) {
+      console.error("Error al marcar todas como leídas:", error);
+    }
   };
 
   const getBadgeColor = (diasRestantes) => {
@@ -143,7 +150,7 @@ const NotificacionesMenu = () => {
         transformOrigin={{ horizontal: 'right', vertical: 'top' }}
         anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
       >
-        <Paper sx={{ width: 350, maxHeight: 450 }}>
+        <Paper sx={{ width: 380, maxHeight: 500 }}>
           <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
             <Tabs 
               value={tabValue} 
@@ -198,48 +205,53 @@ const NotificacionesMenu = () => {
                 </Typography>
               </Box>
             ) : (
-              <List dense disablePadding sx={{ maxHeight: 320, overflow: 'auto' }}>
-                {notificaciones.map((notificacion) => (
-                  <React.Fragment key={notificacion.id}>
-                    <ListItem
-                      button
-                      sx={{
-                        py: 1.5,
-                        borderLeft: '4px solid',
-                        borderLeftColor: notificacion.leida ? 'transparent' : 'primary.main',
-                        backgroundColor: notificacion.leida ? 'transparent' : 'rgba(25, 118, 210, 0.08)',
-                        '&:hover': { bgcolor: 'rgba(0, 0, 0, 0.04)' },
-                      }}
-                    >
-                      <ListItemText
-                        primary={
-                          <Typography variant="body2" fontWeight={notificacion.leida ? 'normal' : 'bold'}>
-                            {notificacion.titulo}
-                          </Typography>
-                        }
-                        secondary={
-                          <>
-                            <Typography variant="caption" display="block" color="text.secondary">
-                              {notificacion.mensaje}
+              <>
+                <List dense disablePadding sx={{ maxHeight: 370, overflow: 'auto' }}>
+                  {notificaciones.map((notificacion) => (
+                    <React.Fragment key={notificacion.id}>
+                      <ListItem
+                        onClick={() => handleMarcarNotificacionLeida(notificacion.id)}
+                        sx={{
+                          py: 1.5,
+                          borderLeft: '4px solid',
+                          borderLeftColor: notificacion.leida ? 'transparent' : 'primary.main',
+                          backgroundColor: notificacion.leida ? 'transparent' : 'rgba(25, 118, 210, 0.08)',
+                          '&:hover': { bgcolor: 'rgba(0, 0, 0, 0.04)', cursor: 'pointer' },
+                        }}
+                      >
+                        <ListItemText
+                          primary={
+                            <Typography variant="body2" fontWeight={notificacion.leida ? 'normal' : 'bold'}>
+                              {notificacion.titulo}
                             </Typography>
-                            <Typography variant="caption" color="text.secondary">
-                              {format(new Date(notificacion.fecha), 'dd/MM/yyyy HH:mm', { locale: es })}
-                            </Typography>
-                          </>
-                        }
-                      />
-                    </ListItem>
-                    <Divider />
-                  </React.Fragment>
-                ))}
-              </List>
+                          }
+                          secondary={
+                            <>
+                              <Typography variant="caption" component="span" display="block" color="text.secondary">
+                                {notificacion.mensaje}
+                              </Typography>
+                              <Typography variant="caption" component="span" color="text.secondary">
+                                {format(new Date(notificacion.fecha), 'dd/MM/yyyy HH:mm', { locale: es })}
+                              </Typography>
+                            </>
+                          }
+                        />
+                      </ListItem>
+                      <Divider />
+                    </React.Fragment>
+                  ))}
+                </List>
+                
+                <Box sx={{ p: 1.5, display: 'flex', justifyContent: 'space-between' }}>
+                  <Button size="small" onClick={handleMarcarTodasLeidas} disabled={!notificaciones.some(n => !n.leida)}>
+                    Marcar todas como leídas
+                  </Button>
+                  <Button size="small" color="primary">
+                    Ver todas
+                  </Button>
+                </Box>
+              </>
             )}
-            
-            <Box sx={{ p: 1.5, textAlign: 'center' }}>
-              <Button size="small" variant="text" onClick={() => { /* navegar a todas las notificaciones */ }}>
-                Ver todas
-              </Button>
-            </Box>
           </TabPanel>
           
           <TabPanel value={tabValue} index={1}>
@@ -254,73 +266,85 @@ const NotificacionesMenu = () => {
                 </Typography>
               </Box>
             ) : (
-              <List dense disablePadding sx={{ maxHeight: 320, overflow: 'auto' }}>
-                {alertasPlazos.map((alerta) => (
-                  <React.Fragment key={`${alerta.trabajo_id}-${alerta.paso_id}`}>
-                    <ListItem
-                      button
-                      onClick={() => handleNavigateToTrabajo(alerta.trabajo_id)}
-                      sx={{
-                        borderLeft: '4px solid',
-                        borderLeftColor: getBadgeColor(alerta.dias_restantes),
-                        '&:hover': { bgcolor: 'rgba(0, 0, 0, 0.04)' },
-                        py: 1.5
-                      }}
-                    >
-                      <ListItemText
-                        primary={
-                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                            <Typography variant="body2" noWrap sx={{ fontWeight: 'bold', maxWidth: '70%' }}>
-                              {alerta.trabajo_titulo}
-                            </Typography>
-                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                              <AccessTimeIcon 
-                                fontSize="small" 
-                                color={getBadgeColor(alerta.dias_restantes)} 
-                                sx={{ mr: 0.5 }} 
-                              />
-                              <Typography 
-                                variant="caption" 
-                                fontWeight="bold"
-                                color={getBadgeColor(alerta.dias_restantes)}
-                              >
-                                {alerta.dias_restantes === 0 ? 'Vence hoy' : 
-                                 alerta.dias_restantes === 1 ? 'Vence mañana' :
-                                 `${alerta.dias_restantes} días`}
-                              </Typography>
+              <>
+                <List dense disablePadding sx={{ maxHeight: 370, overflow: 'auto' }}>
+                  {alertasPlazos.map((alerta) => (
+                    <React.Fragment key={`${alerta.trabajo_id}-${alerta.paso_id}`}>
+                      <ListItem
+                        onClick={() => handleNavigateToTrabajo(alerta.trabajo_id)}
+                        sx={{
+                          borderLeft: '4px solid',
+                          borderLeftColor: getBadgeColor(alerta.dias_restantes),
+                          '&:hover': { bgcolor: 'rgba(0, 0, 0, 0.04)', cursor: 'pointer' },
+                          py: 1.5
+                        }}
+                      >
+                        <ListItemText
+                          primary={
+                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                              <Box sx={{ display: 'flex', alignItems: 'center', maxWidth: '70%' }}>
+                                <Typography variant="body2" noWrap sx={{ fontWeight: 'bold' }}>
+                                  {alerta.trabajo_titulo}
+                                </Typography>
+                                {!alerta.es_propio && (
+                                  <Chip 
+                                    size="small" 
+                                    icon={<PersonIcon fontSize="small" />} 
+                                    label={alerta.usuario_asignado}
+                                    variant="outlined"
+                                    sx={{ ml: 0.5, height: 20, fontSize: '0.7rem' }}
+                                  />
+                                )}
+                              </Box>
+                              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                <AccessTimeIcon 
+                                  fontSize="small" 
+                                  color={getBadgeColor(alerta.dias_restantes)} 
+                                  sx={{ mr: 0.5 }} 
+                                />
+                                <Typography 
+                                  variant="caption" 
+                                  fontWeight="bold"
+                                  color={getBadgeColor(alerta.dias_restantes)}
+                                >
+                                  {alerta.dias_restantes === 0 ? 'Vence hoy' : 
+                                   alerta.dias_restantes === 1 ? 'Vence mañana' :
+                                   `${alerta.dias_restantes} días`}
+                                </Typography>
+                              </Box>
                             </Box>
-                          </Box>
-                        }
-                        secondary={
-                          <>
-                            <Typography variant="caption" color="text.secondary" noWrap>
-                              Paso {alerta.paso_numero}: {alerta.paso_titulo}
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary" display="block">
-                              {alerta.tiempo_estimado} {parseFloat(alerta.tiempo_estimado) === 1 ? 'día' : 'días'}
-                            </Typography>
-                          </>
-                        }
-                      />
-                    </ListItem>
-                    <Divider />
-                  </React.Fragment>
-                ))}
-              </List>
+                          }
+                          secondary={
+                            <>
+                              <Typography variant="caption" component="span" color="text.secondary" display="block">
+                                Paso {alerta.paso_numero}: {alerta.paso_titulo}
+                              </Typography>
+                              <Typography variant="caption" component="span" color="text.secondary" display="block">
+                                {alerta.tiempo_estimado} {parseFloat(alerta.tiempo_estimado) === 1 ? 'día' : 'días'}
+                              </Typography>
+                            </>
+                          }
+                        />
+                      </ListItem>
+                      <Divider />
+                    </React.Fragment>
+                  ))}
+                </List>
+                
+                <Box sx={{ p: 1.5, display: 'flex', justifyContent: 'space-between' }}>
+                  <Button size="small" onClick={obtenerDatos} disabled={loading}>
+                    Actualizar
+                  </Button>
+                  <Button 
+                    size="small" 
+                    color="primary" 
+                    onClick={() => { navigate('/dashboard/trabajos'); handleClose(); }}
+                  >
+                    Ver todos los trabajos
+                  </Button>
+                </Box>
+              </>
             )}
-            
-            <Box sx={{ p: 1.5, display: 'flex', justifyContent: 'space-between' }}>
-              <Button size="small" onClick={obtenerDatos} disabled={loading}>
-                Actualizar
-              </Button>
-              <Button 
-                size="small" 
-                color="primary" 
-                onClick={() => { navigate('/dashboard/trabajos'); handleClose(); }}
-              >
-                Ver trabajos
-              </Button>
-            </Box>
           </TabPanel>
         </Paper>
       </Menu>

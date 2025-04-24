@@ -652,12 +652,20 @@ from rest_framework.decorators import api_view, permission_classes
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def alertas_plazos(request):
-    """Obtener alertas de pasos próximos a vencer para el usuario"""
-    # Obtener trabajos asignados al usuario
+    """Obtener alertas de pasos próximos a vencer para el usuario y su unidad"""
+    # Obtener la unidad del usuario actual - CORREGIR AQUÍ
+    unidad_usuario = request.user.unidad_destino  # Cambiar unidad por unidad_destino
+    
+    if not unidad_usuario:
+        return Response([])  # Si el usuario no tiene unidad asignada, retornar lista vacía
+    
+    # Obtener trabajos de toda la unidad (no solo los asignados al usuario)
     trabajos = Trabajo.objects.filter(
-        Q(usuario_creador=request.user) | 
-        Q(usuario_iniciado=request.user)
-    ).exclude(estado__in=['COMPLETADO', 'CANCELADO'])
+        # Trabajos de la misma unidad
+        Q(unidad=unidad_usuario) &  
+        # Excluir trabajos ya finalizados o cancelados
+        ~Q(estado__in=['COMPLETADO', 'CANCELADO'])
+    )
     
     # Lista para almacenar las alertas
     alertas = []
@@ -686,11 +694,15 @@ def alertas_plazos(request):
                     'fecha_limite': paso.fecha_limite,
                     'dias_restantes': paso.dias_restantes,
                     'estado': paso.estado,
-                    'tiempo_estimado': paso.paso.tiempo_estimado
+                    'tiempo_estimado': paso.paso.tiempo_estimado,
+                    # Añadir información del usuario asignado para mostrar de quién es el trabajo
+                    'usuario_asignado': trabajo.usuario_iniciado.username if trabajo.usuario_iniciado else trabajo.usuario_creador.username,
+                    # Indicar si el trabajo pertenece al usuario actual o a otro miembro de la unidad
+                    'es_propio': trabajo.usuario_iniciado == request.user or trabajo.usuario_creador == request.user
                 })
     
-    # Ordenar por días restantes (ascendente)
-    alertas = sorted(alertas, key=lambda x: x['dias_restantes'])
+    # Ordenar: primero los propios, luego por días restantes (ascendente)
+    alertas = sorted(alertas, key=lambda x: (not x['es_propio'], x['dias_restantes']))
     
     return Response(alertas)
 

@@ -69,7 +69,7 @@ const Header = ({ drawerWidth, handleDrawerToggle, headerHeight = '72px' }) => {
             </IconButton>
           </Tooltip>
           
-          {/* Reemplazamos los dos componentes anteriores por uno solo */}
+          {/* Usar el componente unificado de notificaciones */}
           <NotificacionesMenu />
           
           <Tooltip title="Mi Perfil">

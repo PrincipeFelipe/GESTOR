@@ -3,6 +3,7 @@ import { Box, Typography, Grid, Paper, Card, CardContent, CardHeader, Divider } 
 import PeopleOutline from '@mui/icons-material/PeopleOutline';
 import BusinessIcon from '@mui/icons-material/Business';
 import WorkIcon from '@mui/icons-material/Work';
+import AlertasWidget from './AlertasWidget';
 
 const Home = () => {
   const stats = [
@@ -97,6 +98,9 @@ const Home = () => {
             </CardContent>
           </Card>
         </Grid>
+        <Grid item xs={12} md={6}>
+              <AlertasWidget />
+            </Grid>
       </Grid>
     </Box>
   );
