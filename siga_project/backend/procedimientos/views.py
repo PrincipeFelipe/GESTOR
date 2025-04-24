@@ -568,16 +568,21 @@ class PasoTrabajoViewSet(viewsets.GenericViewSet,
     def iniciar(self, request, pk=None):
         paso_trabajo = self.get_object()
         
-        # Verificar que el paso se puede iniciar
+        # Verificar si el paso ya ha sido iniciado
         if paso_trabajo.estado != 'PENDIENTE':
             return Response(
-                {"error": "Solo se pueden iniciar pasos pendientes"}, 
+                {"error": "Este paso no está en estado PENDIENTE"}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        paso_trabajo.iniciar_paso(request.user)
-        serializer = self.get_serializer(paso_trabajo)
-        return Response(serializer.data)
+        # Iniciar el paso
+        paso_trabajo.estado = 'EN_PROGRESO'
+        paso_trabajo.fecha_inicio = timezone.now()
+        paso_trabajo.save()
+        
+        # La fecha límite se calculará automáticamente a través del property
+        
+        return Response({"mensaje": "Paso iniciado correctamente"})
     
     @action(detail=True, methods=['post'])
     def completar(self, request, pk=None):
@@ -641,3 +646,101 @@ class PasoTrabajoViewSet(viewsets.GenericViewSet,
         
         serializer = self.get_serializer(paso_trabajo)
         return Response(serializer.data)
+
+from rest_framework.decorators import api_view, permission_classes
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def alertas_plazos(request):
+    """Obtener alertas de pasos próximos a vencer para el usuario"""
+    # Obtener trabajos asignados al usuario
+    trabajos = Trabajo.objects.filter(
+        Q(usuario_creador=request.user) | 
+        Q(usuario_iniciado=request.user)
+    ).exclude(estado__in=['COMPLETADO', 'CANCELADO'])
+    
+    # Lista para almacenar las alertas
+    alertas = []
+    
+    for trabajo in trabajos:
+        # Obtener pasos en progreso o pendientes que tengan fecha de inicio
+        pasos = PasoTrabajo.objects.filter(
+            trabajo=trabajo,
+            estado__in=['PENDIENTE', 'EN_PROGRESO'],
+            fecha_inicio__isnull=False
+        )
+        
+        for paso in pasos:
+            # Solo incluir pasos con tiempo_estimado definido
+            if not paso.paso.tiempo_estimado:
+                continue
+                
+            # Verificar si está próximo a vencer
+            if paso.proximo_a_vencer:
+                alertas.append({
+                    'trabajo_id': trabajo.id,
+                    'trabajo_titulo': trabajo.titulo,
+                    'paso_id': paso.id,
+                    'paso_numero': paso.paso_numero,
+                    'paso_titulo': paso.paso.titulo or f"Paso {paso.paso_numero}",
+                    'fecha_limite': paso.fecha_limite,
+                    'dias_restantes': paso.dias_restantes,
+                    'estado': paso.estado,
+                    'tiempo_estimado': paso.paso.tiempo_estimado
+                })
+    
+    # Ordenar por días restantes (ascendente)
+    alertas = sorted(alertas, key=lambda x: x['dias_restantes'])
+    
+    return Response(alertas)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def crear_trabajo(request):
+    # Obtener datos de la solicitud
+    titulo = request.data.get('titulo')
+    descripcion = request.data.get('descripcion', '')
+    procedimiento_id = request.data.get('procedimiento')
+    
+    if not titulo or not procedimiento_id:
+        return Response({"error": "Faltan campos requeridos"}, status=400)
+    
+    try:
+        # Obtener el procedimiento
+        procedimiento = Procedimiento.objects.get(id=procedimiento_id)
+        
+        # Crear el trabajo
+        trabajo = Trabajo.objects.create(
+            titulo=titulo,
+            descripcion=descripcion,
+            procedimiento=procedimiento,
+            usuario_creador=request.user,
+            unidad=request.user.unidad,
+            estado='INICIADO'
+        )
+        
+        # Obtener los pasos del procedimiento y crear los pasos del trabajo
+        pasos_procedimiento = Paso.objects.filter(
+            procedimiento=procedimiento
+        ).order_by('numero')
+        
+        for paso_procedimiento in pasos_procedimiento:
+            # IMPORTANTE: Asignar explícitamente el número del paso
+            PasoTrabajo.objects.create(
+                trabajo=trabajo,
+                paso=paso_procedimiento,
+                paso_numero=paso_procedimiento.numero,  # Asegurar que este campo no sea nulo
+                estado='PENDIENTE'
+            )
+        
+        serializer = TrabajoSerializer(trabajo)
+        return Response(serializer.data, status=201)
+        
+    except Procedimiento.DoesNotExist:
+        return Response({"error": "El procedimiento no existe"}, status=404)
+    except Exception as e:
+        # Agregar un log detallado para facilitar la depuración
+        import traceback
+        print(f"Error al crear trabajo: {str(e)}")
+        print(traceback.format_exc())
+        return Response({"error": "Error al crear el trabajo"}, status=500)

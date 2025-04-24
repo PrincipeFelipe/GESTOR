@@ -123,6 +123,17 @@ const completarPasoTrabajo = async (pasoId, data) => {
   }
 };
 
+// Añadir este método al servicio existente
+const getAlertasPlazos = async () => {
+  try {
+    const response = await api.get(`${BASE_URL}/alertas-plazos/`);
+    return response.data;
+  } catch (error) {
+    console.error('Error al obtener alertas de plazos:', error);
+    return [];
+  }
+};
+
 const trabajosService = {
   getTrabajos,
   getTrabajoById,
@@ -132,7 +143,8 @@ const trabajosService = {
   cancelarTrabajo,
   getPasoTrabajo,
   iniciarPasoTrabajo,
-  completarPasoTrabajo
+  completarPasoTrabajo,
+  getAlertasPlazos
 };
 
 export default trabajosService;

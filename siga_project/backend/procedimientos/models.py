@@ -116,10 +116,11 @@ class Procedimiento(models.Model):
 
 class Paso(models.Model):
     procedimiento = models.ForeignKey(Procedimiento, on_delete=models.CASCADE, related_name='pasos')
-    numero = models.IntegerField()
+    # Cambiar la definición del campo numero para que no permita nulos y tenga un valor por defecto
+    numero = models.IntegerField(null=False, default=1)  # Asegurar que nunca sea nulo
     titulo = models.CharField(max_length=200)
-    descripcion = models.TextField()
-    tiempo_estimado = models.CharField(max_length=100, blank=True, null=True)
+    descripcion = models.TextField(blank=True, null=True)
+    tiempo_estimado = models.CharField(max_length=10, blank=True, null=True)
     responsable = models.CharField(max_length=100, blank=True, null=True)
     bifurcaciones = models.JSONField(default=list, blank=True)  
     es_final = models.BooleanField(default=False, help_text="Indica si este paso finaliza el procedimiento")
@@ -431,6 +432,45 @@ class PasoTrabajo(models.Model):
             if siguiente_paso:
                 siguiente_paso.estado = 'PENDIENTE'
                 siguiente_paso.save()
+
+    @property
+    def paso_numero(self):
+        return self.paso.numero
+
+    @property
+    def fecha_limite(self):
+        """Calcula la fecha límite basada en fecha_inicio y tiempo_estimado del paso"""
+        if not self.fecha_inicio or not self.paso.tiempo_estimado:
+            return None
+            
+        # Convertir tiempo_estimado a float y calcular días
+        try:
+            tiempo_estimado_dias = float(self.paso.tiempo_estimado)
+            return self.fecha_inicio + timezone.timedelta(days=tiempo_estimado_dias)
+        except (ValueError, TypeError):
+            return None
+    
+    @property
+    def proximo_a_vencer(self):
+        """Determina si un paso está próximo a vencer (2 días o menos)"""
+        if self.estado not in ['PENDIENTE', 'EN_PROGRESO'] or not self.fecha_inicio:
+            return False
+            
+        fecha_limite = self.fecha_limite
+        if not fecha_limite:
+            return False
+            
+        dias_restantes = (fecha_limite - timezone.now()).days
+        return 0 <= dias_restantes <= 2
+        
+    @property
+    def dias_restantes(self):
+        """Calcula los días restantes hasta la fecha límite"""
+        if not self.fecha_limite:
+            return None
+            
+        delta = self.fecha_limite - timezone.now()
+        return max(0, delta.days)
 
 
 def envio_upload_path(instance, filename):

@@ -619,6 +619,54 @@ const obtenerNumeroPasoActual = () => {
   return ultimoPaso ? ultimoPaso.paso_numero : 1;
 };
 
+// Añadir esta función para mostrar indicador de plazo
+const renderPlazoPaso = (paso) => {
+  // Solo mostrar para pasos en progreso o pendientes con fecha_inicio
+  if (paso.estado !== 'EN_PROGRESO' && paso.estado !== 'PENDIENTE' || !paso.fecha_inicio) {
+    return null;
+  }
+  
+  // Verificar si tiene tiempo_estimado definido
+  if (!paso.paso_detalle?.tiempo_estimado) {
+    return null;
+  }
+  
+  // Calcular fecha límite y días restantes
+  const fechaInicio = new Date(paso.fecha_inicio);
+  const tiempoEstimado = parseFloat(paso.paso_detalle.tiempo_estimado);
+  const fechaLimite = new Date(fechaInicio);
+  fechaLimite.setDate(fechaLimite.getDate() + tiempoEstimado);
+  
+  const hoy = new Date();
+  const diasRestantes = Math.ceil((fechaLimite - hoy) / (1000 * 60 * 60 * 24));
+  
+  // Determinar color según días restantes
+  let color = 'success';
+  let mensaje = `${diasRestantes} días restantes`;
+  
+  if (diasRestantes <= 0) {
+    color = 'error';
+    mensaje = 'Plazo vencido';
+  } else if (diasRestantes <= 1) {
+    color = 'error';
+    mensaje = diasRestantes === 1 ? 'Vence mañana' : 'Vence hoy';
+  } else if (diasRestantes <= 2) {
+    color = 'warning';
+    mensaje = `${diasRestantes} días restantes`;
+  }
+  
+  return (
+    <Chip
+      size="small"
+      icon={<AccessTimeIcon />}
+      label={mensaje}
+      color={color}
+      variant="outlined"
+      sx={{ ml: 1 }}
+    />
+  );
+};
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
@@ -767,6 +815,8 @@ const obtenerNumeroPasoActual = () => {
                             paso.paso_detalle.titulo : 
                             `Paso ${paso.paso_numero}`}
                         </Typography>
+                        
+                        {renderPlazoPaso(paso)}
                         
                         {paso.paso_detalle && paso.paso_detalle.requiere_envio && (
                           <Chip 

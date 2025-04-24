@@ -211,6 +211,26 @@ class PasoTrabajoDetailSerializer(serializers.ModelSerializer):
             return obj.usuario_completado.tip  # Cambiado para mostrar TIP
         return None
 
+class PasoTrabajoSerializer(serializers.ModelSerializer):
+    # Campos existentes...
+    paso_detalle = PasoSerializer(source='paso', read_only=True)
+    usuario_completado_nombre = serializers.CharField(source='usuario_completado.username', read_only=True)
+    
+    # Añadir campos calculados
+    fecha_limite = serializers.SerializerMethodField()
+    proximo_a_vencer = serializers.BooleanField(read_only=True)
+    dias_restantes = serializers.IntegerField(read_only=True)
+    
+    class Meta:
+        model = PasoTrabajo
+        fields = ['id', 'paso', 'paso_numero', 'estado', 'fecha_inicio', 'fecha_fin', 
+                 'usuario_completado', 'usuario_completado_nombre', 'notas',
+                 'paso_detalle', 'trabajo', 'envio', 'fecha_limite',
+                 'proximo_a_vencer', 'dias_restantes']
+    
+    def get_fecha_limite(self, obj):
+        fecha_limite = obj.fecha_limite
+        return fecha_limite if fecha_limite else None
 
 class TrabajoListSerializer(serializers.ModelSerializer):
     procedimiento_nombre = serializers.CharField(source='procedimiento.nombre')

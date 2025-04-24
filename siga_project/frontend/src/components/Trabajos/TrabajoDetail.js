@@ -199,14 +199,26 @@ const TrabajoDetail = () => {
     }
   };
   
+  // Modifica la función calcularProgreso para mostrar 100% en trabajos finalizados
   const calcularProgreso = () => {
+    // Si el trabajo está completado, mostrar 100% de progreso
+    if (trabajo.estado === 'COMPLETADO') {
+      return 100;
+    }
+    
+    // Para otros estados, calcular basado en pasos completados
     if (!pasos || pasos.length === 0) return 0;
     const completados = pasos.filter(p => p.estado === 'COMPLETADO').length;
     return Math.round((completados / pasos.length) * 100);
   };
 
-  // Añade esta función para obtener el número del paso actual
+  // Modifica la función obtenerNumeroPasoActual para manejar trabajos finalizados
   const obtenerNumeroPasoActual = () => {
+    // Si el trabajo está completado, mostrar el número total de pasos
+    if (trabajo.estado === 'COMPLETADO') {
+      return pasos.length;
+    }
+    
     if (!pasos || pasos.length === 0) return 1;
     
     // Si hay un paso en progreso, ese es el actual
@@ -217,7 +229,7 @@ const TrabajoDetail = () => {
     const primerPendiente = pasos.find(p => p.estado === 'PENDIENTE');
     if (primerPendiente) return primerPendiente.paso_numero;
     
-    // Si todos están completados, mostrar el último número
+    // Si todos están completados pero el trabajo no está marcado como completado
     if (pasos.every(p => p.estado === 'COMPLETADO')) {
       return pasos.length;
     }

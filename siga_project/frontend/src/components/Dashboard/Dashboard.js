@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Box, Toolbar, CssBaseline } from '@mui/material';
+import { Box, Toolbar, CssBaseline, Typography, Grid } from '@mui/material';
 import { Outlet } from 'react-router-dom';
 import Header from './Header';
 import Sidebar from './Sidebar';
+import AlertasWidget from './AlertasWidget';
 
 const Dashboard = () => {
   const drawerWidth = 260;
@@ -32,6 +33,16 @@ const Dashboard = () => {
       >
         <Toolbar /> {/* Espacio para compensar la altura del header */}
         <Outlet /> {/* Aquí se renderizarán las rutas anidadas */}
+        <Box sx={{ p: 3 }}>
+          <Typography variant="h4" gutterBottom>Dashboard</Typography>
+          
+          <Grid container spacing={3}>
+            {/* Añadir widget de alertas en una posición destacada */}
+            <Grid item xs={12} md={6}>
+              <AlertasWidget />
+            </Grid>
+          </Grid>
+        </Box>
       </Box>
     </Box>
   );

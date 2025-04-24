@@ -15,4 +15,5 @@ urlpatterns = [
     path('', include(router.urls)),
     path('media/documentos/<path:path>', views.download_document, name='document-download'),
     path('api/procedimientos/', include(router.urls)),
+    path('alertas-plazos/', views.alertas_plazos, name='alertas-plazos'),
 ]
