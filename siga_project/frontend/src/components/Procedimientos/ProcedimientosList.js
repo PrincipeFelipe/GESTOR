@@ -4,38 +4,25 @@ import {
   Box,
   Typography,
   Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TablePagination,
   Button,
-  IconButton,
   Chip,
-  CircularProgress,
+  IconButton,
   Tooltip,
-  TextField,
-  InputAdornment,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Grid,
+  LinearProgress,
+  Card,
+  CardContent,
   Snackbar,
   Alert
 } from '@mui/material';
+import { DataGrid, GridToolbar } from '@mui/x-data-grid';
 import AddIcon from '@mui/icons-material/Add';
-import SearchIcon from '@mui/icons-material/Search';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AssignmentIcon from '@mui/icons-material/Assignment';
-import VisibilityIcon from '@mui/icons-material/Visibility';  // Nuevo icono
+import VisibilityIcon from '@mui/icons-material/Visibility';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import { usePermissions } from '../../hooks/usePermissions';
 import procedimientosService from '../../assets/services/procedimientos.service';
-import api from '../../assets/services/api';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -44,56 +31,27 @@ const ProcedimientosList = () => {
   const { isAdmin, user } = usePermissions();
   
   const [procedimientos, setProcedimientos] = useState([]);
-  const [tipos, setTipos] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
   const [totalCount, setTotalCount] = useState(0);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filtroTipo, setFiltroTipo] = useState('');
-  const [filtroEstado, setFiltroEstado] = useState('');
-  const [filtroNivel, setFiltroNivel] = useState('');
   const [openSnackbar, setOpenSnackbar] = useState(false);
   const [alertMessage, setAlertMessage] = useState('');
   const [alertSeverity, setAlertSeverity] = useState('success');
-  const [unidadActual, setUnidadActual] = useState(null); // Estado para la unidad actual
-  
-  useEffect(() => {
-    const fetchTipos = async () => {
-      try {
-        const response = await procedimientosService.getTiposProcedimiento();
-        setTipos(response.data.results || response.data);
-      } catch (error) {
-        console.error('Error al cargar tipos de procedimiento:', error);
-        // No mostrar alerta para usuarios normales, solo log en consola
-        // Si es admin, mostrar la alerta
-        if (isAdmin) {
-          showAlert('Error al cargar tipos de procedimiento', 'error');
-        }
-        // Establecer tipos como array vacío para que la aplicación siga funcionando
-        setTipos([]);
-      }
-    };
-    
-    fetchTipos();
-  }, [isAdmin]);
+  const [unidadActual, setUnidadActual] = useState(null);
+  const [paginationModel, setPaginationModel] = useState({
+    page: 0,
+    pageSize: 10
+  });
   
   useEffect(() => {
     const fetchProcedimientos = async () => {
       setLoading(true);
       try {
         const params = {
-          page: page + 1,
-          page_size: rowsPerPage,
-          search: searchTerm,
-          tipo: filtroTipo,
-          estado: filtroEstado,
-          nivel: filtroNivel
+          page: paginationModel.page + 1, // Convertir de índice 0 a índice 1 para la API
+          page_size: paginationModel.pageSize
         };
         
-        console.log('Parámetros de búsqueda:', params);
         const response = await procedimientosService.getProcedimientos(params);
-        console.log('Respuesta completa de la API:', response);
         
         let procedimientosData = [];
         let totalItems = 0;
@@ -105,16 +63,16 @@ const ProcedimientosList = () => {
           } else if (response.data.results && Array.isArray(response.data.results)) {
             procedimientosData = response.data.results;
             totalItems = response.data.count || procedimientosData.length;
-          } else if (response.data.procedimientos) {
-            const procResponse = await api.get(response.data.procedimientos);
-            console.log('Segunda llamada a procedimientos:', procResponse);
-            procedimientosData = procResponse.data.results || procResponse.data || [];
-            totalItems = procResponse.data.count || procedimientosData.length;
           }
         }
         
-        console.log('Procedimientos procesados:', procedimientosData);
-        setProcedimientos(procedimientosData);
+        // Formatear fechas para visualización
+        const procedimientosFormateados = procedimientosData.map(proc => ({
+          ...proc,
+          fecha_actualizacion_formateada: format(new Date(proc.fecha_actualizacion), 'dd/MM/yyyy HH:mm', { locale: es })
+        }));
+        
+        setProcedimientos(procedimientosFormateados);
         setTotalCount(totalItems);
       } catch (error) {
         console.error('Error al cargar procedimientos:', error.response || error);
@@ -125,7 +83,7 @@ const ProcedimientosList = () => {
     };
     
     fetchProcedimientos();
-  }, [page, rowsPerPage, searchTerm, filtroTipo, filtroEstado, filtroNivel]);
+  }, [paginationModel.page, paginationModel.pageSize]);
   
   useEffect(() => {
     if (user && user.unidad_destino) {
@@ -136,15 +94,6 @@ const ProcedimientosList = () => {
       });
     }
   }, [user]);
-  
-  const handleChangePage = (event, newPage) => {
-    setPage(newPage);
-  };
-  
-  const handleChangeRowsPerPage = (event) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
-  };
   
   const handleEditProcedimiento = (id) => {
     navigate(`/dashboard/procedimientos/${id}/editar`);
@@ -177,16 +126,12 @@ const ProcedimientosList = () => {
     setOpenSnackbar(false);
   };
   
-  const getEstadoChip = (estado) => {
+  const getEstadoColor = (estado) => {
     switch (estado) {
-      case 'BORRADOR':
-        return <Chip label="Borrador" color="warning" size="small" />;
-      case 'VIGENTE':
-        return <Chip label="Vigente" color="success" size="small" />;
-      case 'OBSOLETO':
-        return <Chip label="Obsoleto" color="error" size="small" />;
-      default:
-        return <Chip label={estado} size="small" />;
+      case 'BORRADOR': return 'warning';
+      case 'VIGENTE': return 'success';
+      case 'OBSOLETO': return 'error';
+      default: return 'default';
     }
   };
 
@@ -214,6 +159,206 @@ const ProcedimientosList = () => {
   const handleViewProcedimiento = (id) => {
     navigate(`/dashboard/procedimientos/${id}/ver`);
   };
+  
+  // Función para renderizar la columna de estado con chip
+  const renderEstado = (params) => (
+    <Chip 
+      label={params.value}
+      color={getEstadoColor(params.value)}
+      size="small"
+      sx={{ fontWeight: 'medium', minWidth: '90px' }}
+    />
+  );
+  
+  // Función para renderizar la columna de tiempo máximo
+  const renderTiempoMaximo = (params) => {
+    const tiempoMaximo = params.value;
+    return tiempoMaximo ? (
+      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+        <AccessTimeIcon fontSize="small" sx={{ mr: 0.5 }} color="secondary" />
+        {tiempoMaximo} días
+      </Box>
+    ) : (
+      <Typography variant="caption" color="text.secondary">No definido</Typography>
+    );
+  };
+  
+  // Función para renderizar la columna de acciones
+  const renderAcciones = (params) => {
+    const procedimiento = params.row;
+    
+    // Función auxiliar para detener la propagación del evento
+    const handleActionClick = (event, action) => {
+      event.stopPropagation();
+      action();
+    };
+    
+    return (
+      <Box display="flex" justifyContent="center">
+        {/* Botón para ver procedimiento - visible para TODOS los usuarios */}
+        <Tooltip title="Ver procedimiento">
+          <IconButton
+            color="info"
+            size="small"
+            onClick={(event) => handleActionClick(event, () => handleViewProcedimiento(procedimiento.id))}
+          >
+            <VisibilityIcon />
+          </IconButton>
+        </Tooltip>
+        
+        {/* Botones de administración - solo para admins */}
+        {isAdmin && (
+          <>
+            <Tooltip title="Gestionar pasos">
+              <IconButton
+                color="secondary"
+                size="small"
+                onClick={(event) => handleActionClick(event, () => handleManagePasos(procedimiento.id))}
+              >
+                <AssignmentIcon />
+              </IconButton>
+            </Tooltip>
+            
+            <Tooltip title="Editar procedimiento">
+              <IconButton
+                color="primary"
+                size="small"
+                onClick={(event) => handleActionClick(event, () => handleEditProcedimiento(procedimiento.id))}
+              >
+                <EditIcon />
+              </IconButton>
+            </Tooltip>
+            
+            <Tooltip title="Eliminar procedimiento">
+              <IconButton
+                color="error"
+                size="small"
+                onClick={(event) => handleActionClick(event, () => handleDeleteProcedimiento(procedimiento.id))}
+              >
+                <DeleteIcon />
+              </IconButton>
+            </Tooltip>
+          </>
+        )}
+      </Box>
+    );
+  };
+  
+  // Definición de columnas para DataGrid
+  const columns = [
+    { 
+      field: 'nombre', 
+      headerName: 'Nombre', 
+      flex: 2,
+      minWidth: 200,
+      renderCell: (params) => (
+        <Typography sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>
+          {params.value}
+        </Typography>
+      )
+    },
+    { 
+      field: 'tipo_nombre', 
+      headerName: 'Tipo', 
+      flex: 1,
+      minWidth: 150 
+    },
+    { 
+      field: 'nivel_display', 
+      headerName: 'Nivel', 
+      flex: 1,
+      minWidth: 120 
+    },
+    { 
+      field: 'estado', 
+      headerName: 'Estado', 
+      width: 130,
+      renderCell: renderEstado
+    },
+    { 
+      field: 'version', 
+      headerName: 'Versión', 
+      width: 120 
+    },
+    { 
+      field: 'fecha_actualizacion_formateada', 
+      headerName: 'Actualización', 
+      width: 180 
+    },
+    { 
+      field: 'tiempo_maximo', 
+      headerName: 'Tiempo Max.', 
+      width: 150,
+      renderCell: renderTiempoMaximo
+    },
+    { 
+      field: 'acciones', 
+      headerName: 'Acciones', 
+      width: 200, 
+      sortable: false, 
+      filterable: false,
+      renderCell: renderAcciones
+    }
+  ];
+  
+  // Definir textos en español para el DataGrid
+  const localeText = {
+    // Columnas
+    columnMenuLabel: 'Menú',
+    columnMenuShowColumns: 'Mostrar columnas',
+    columnMenuManageColumns: 'Gestionar columnas',
+    columnMenuFilter: 'Filtro',
+    columnMenuHideColumn: 'Ocultar columna',
+    columnMenuUnsort: 'Quitar orden',
+    columnMenuSortAsc: 'Ordenar ascendente',
+    columnMenuSortDesc: 'Ordenar descendente',
+    
+    // Filtros
+    filterOperatorContains: 'contiene',
+    filterOperatorEquals: 'es igual a',
+    filterOperatorStartsWith: 'comienza con',
+    filterOperatorEndsWith: 'termina con',
+    filterOperatorIsEmpty: 'está vacío',
+    filterOperatorIsNotEmpty: 'no está vacío',
+    filterOperatorIsAnyOf: 'es cualquiera de',
+    
+    // Paginación
+    footerRowSelected: count => count !== 1
+      ? `${count.toLocaleString()} filas seleccionadas`
+      : `${count.toLocaleString()} fila seleccionada`,
+    footerTotalRows: 'Filas totales:',
+    footerTotalVisibleRows: (visibleCount, totalCount) =>
+      `${visibleCount.toLocaleString()} de ${totalCount.toLocaleString()}`,
+    MuiTablePagination: {
+      labelRowsPerPage: 'Filas por página:',
+      labelDisplayedRows: ({ from, to, count }) =>
+        `${from}-${to} de ${count !== -1 ? count : `más de ${to}`}`
+    },
+    
+    // Toolbar
+    toolbarFilters: 'Filtros',
+    toolbarFiltersTooltipShow: 'Mostrar filtros',
+    toolbarFiltersTooltipHide: 'Ocultar filtros',
+    toolbarColumns: 'Columnas',
+    toolbarColumnsLabel: 'Seleccionar columnas',
+    toolbarDensity: 'Densidad',
+    toolbarDensityLabel: 'Densidad',
+    toolbarDensityCompact: 'Compacta',
+    toolbarDensityStandard: 'Estándar',
+    toolbarDensityComfortable: 'Confortable',
+    toolbarExport: 'Exportar',
+    toolbarExportLabel: 'Exportar',
+    toolbarExportCSV: 'Descargar como CSV',
+    toolbarExportPrint: 'Imprimir',
+    
+    // Búsqueda
+    toolbarQuickFilterPlaceholder: 'Buscar...',
+    toolbarQuickFilterLabel: 'Buscar',
+    
+    // Otros
+    noRowsLabel: 'No hay datos',
+    noResultsOverlayLabel: 'No se encontraron resultados',
+  };
 
   return (
     <Box>
@@ -235,192 +380,94 @@ const ProcedimientosList = () => {
           )}
         </Box>
         
-        <Grid container spacing={2} mb={3}>
-          <Grid item xs={12} md={4}>
-            <TextField
-              fullWidth
-              label="Buscar procedimientos"
-              variant="outlined"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
+        {/* DataGrid con herramientas de filtrado incorporadas */}
+        <Card sx={{ 
+          width: '100%', 
+          boxShadow: 1, 
+          borderRadius: 1,
+        }}>
+          <CardContent sx={{ 
+            p: 0, 
+            '&:last-child': { pb: 0 },
+          }}>
+            <DataGrid
+              rows={procedimientosAplicables}
+              columns={columns}
+              rowCount={totalCount}
+              loading={loading}
+              pageSizeOptions={[5, 10, 25, 50]}
+              paginationModel={paginationModel}
+              paginationMode="server"
+              onPaginationModelChange={setPaginationModel}
+              onRowClick={(params) => handleViewProcedimiento(params.id)}
+              localeText={localeText}
+              autoHeight
+              sx={{
+                '& .MuiDataGrid-columnHeader': {
+                  backgroundColor: 'primary.light',
+                  color: 'primary.contrastText',
+                  fontWeight: 'bold',
+                  display: 'flex',
+                  alignItems: 'center' // Alineación vertical para encabezados
+                },
+                '& .MuiDataGrid-cell': {
+                  display: 'flex',
+                  alignItems: 'center', // Alineación vertical para todas las celdas
+                  padding: '8px 16px', // Padding consistente
+                  whiteSpace: 'normal', // Permitir saltos de línea
+                  wordWrap: 'break-word' // Asegurar que el texto se rompe correctamente
+                },
+                '& .MuiDataGrid-cell:focus-within': {
+                  outline: 'none'
+                },
+                '& .MuiDataGrid-row': {
+                  minHeight: '48px', // Establecer una altura mínima para las filas
+                  cursor: 'pointer',
+                  '&:hover': {
+                    backgroundColor: 'rgba(25, 118, 210, 0.08)',
+                  },
+                },
+                border: 'none',
+                overflow: 'hidden',
+                '& .MuiDataGrid-main': {
+                  overflow: 'hidden'
+                },
+                // Asegurar que todos los contenedores Box dentro de las celdas también estén centrados verticalmente
+                '& .MuiBox-root': {
+                  display: 'flex',
+                  alignItems: 'center'
+                },
+                // Asegurar que los Typography dentro de las celdas estén bien alineados
+                '& .MuiTypography-root': {
+                  width: '100%'
+                }
               }}
+              slots={{
+                toolbar: GridToolbar,
+                loadingOverlay: LinearProgress,
+              }}
+              slotProps={{
+                toolbar: {
+                  showQuickFilter: true,
+                  quickFilterProps: { debounceMs: 300 },
+                }
+              }}
+              initialState={{
+                filter: {
+                  filterModel: {
+                    items: [],
+                  },
+                },
+                pagination: {
+                  paginationModel: { pageSize: 10 } // Configurar tamaño de página por defecto
+                }
+              }}
+              disableColumnFilter={false}
+              disableColumnSelector={false}
+              disableDensitySelector={false}
             />
-          </Grid>
-          
-          <Grid item xs={12} md={4}>
-            <FormControl fullWidth>
-              <InputLabel id="tipo-filter-label">Tipo de Procedimiento</InputLabel>
-              <Select
-                labelId="tipo-filter-label"
-                value={filtroTipo}
-                label="Tipo de Procedimiento"
-                onChange={(e) => setFiltroTipo(e.target.value)}
-              >
-                <MenuItem value="">Todos</MenuItem>
-                {tipos.map((tipo) => (
-                  <MenuItem key={tipo.id} value={tipo.id}>
-                    {tipo.nombre}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-          
-          <Grid item xs={12} md={4}>
-            <FormControl fullWidth>
-              <InputLabel id="estado-filter-label">Estado</InputLabel>
-              <Select
-                labelId="estado-filter-label"
-                value={filtroEstado}
-                label="Estado"
-                onChange={(e) => setFiltroEstado(e.target.value)}
-              >
-                <MenuItem value="">Todos</MenuItem>
-                <MenuItem value="BORRADOR">Borrador</MenuItem>
-                <MenuItem value="VIGENTE">Vigente</MenuItem>
-                <MenuItem value="OBSOLETO">Obsoleto</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-
-          <Grid item xs={12} md={3}>
-            <FormControl fullWidth>
-              <InputLabel id="nivel-filter-label">Nivel</InputLabel>
-              <Select
-                labelId="nivel-filter-label"
-                value={filtroNivel}
-                label="Nivel"
-                onChange={(e) => setFiltroNivel(e.target.value)}
-              >
-                <MenuItem value="">Todos</MenuItem>
-                <MenuItem value="PUESTO">Puesto</MenuItem>
-                <MenuItem value="COMPANIA">Compañía</MenuItem>
-                <MenuItem value="COMANDANCIA">Comandancia</MenuItem>
-                <MenuItem value="ZONA">Zona</MenuItem>
-                <MenuItem value="DIRECCION">Dirección General</MenuItem>
-                <MenuItem value="GENERAL">General</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-        </Grid>
-        
-        {loading ? (
-          <Box display="flex" justifyContent="center" py={4}>
-            <CircularProgress />
-          </Box>
-        ) : (
-          <>
-            <TableContainer>
-              <Table sx={{ minWidth: 650 }}>
-                <TableHead>
-                  <TableRow>
-                    <TableCell><strong>Nombre</strong></TableCell>
-                    <TableCell><strong>Tipo</strong></TableCell>
-                    <TableCell><strong>Nivel</strong></TableCell>
-                    <TableCell><strong>Estado</strong></TableCell>
-                    <TableCell><strong>Versión</strong></TableCell>
-                    <TableCell><strong>Actualización</strong></TableCell>
-                    <TableCell><strong>Tiempo Max.</strong></TableCell>
-                    <TableCell align="center"><strong>Acciones</strong></TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {procedimientosAplicables.length > 0 ? (
-                    procedimientosAplicables.map((procedimiento) => (
-                      <TableRow key={procedimiento.id} hover>
-                        <TableCell>{procedimiento.nombre}</TableCell>
-                        <TableCell>{procedimiento.tipo_nombre}</TableCell>
-                        <TableCell>{procedimiento.nivel_display}</TableCell>
-                        <TableCell>{getEstadoChip(procedimiento.estado)}</TableCell>
-                        <TableCell>{procedimiento.version}</TableCell>
-                        <TableCell>
-                          {format(new Date(procedimiento.fecha_actualizacion), 'dd/MM/yyyy HH:mm', { locale: es })}
-                        </TableCell>
-                        <TableCell>
-                          {procedimiento.tiempo_maximo 
-                            ? <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                <AccessTimeIcon fontSize="small" sx={{ mr: 0.5 }} color="secondary" />
-                                {procedimiento.tiempo_maximo} días
-                              </Box>
-                            : <Typography variant="caption" color="text.secondary">No definido</Typography>}
-                        </TableCell>
-                        <TableCell align="center">
-                          <Box display="flex" justifyContent="center">
-                            {/* Botón para ver procedimiento - visible para TODOS los usuarios */}
-                            <Tooltip title="Ver procedimiento">
-                              <IconButton
-                                color="info"
-                                onClick={() => handleViewProcedimiento(procedimiento.id)}
-                              >
-                                <VisibilityIcon />
-                              </IconButton>
-                            </Tooltip>
-                            
-                            {/* Botones de administración - solo para admins */}
-                            {isAdmin && (
-                              <>
-                                <Tooltip title="Gestionar pasos">
-                                  <IconButton
-                                    color="secondary"
-                                    onClick={() => handleManagePasos(procedimiento.id)}
-                                  >
-                                    <AssignmentIcon />
-                                  </IconButton>
-                                </Tooltip>
-                                
-                                <Tooltip title="Editar procedimiento">
-                                  <IconButton
-                                    color="primary"
-                                    onClick={() => handleEditProcedimiento(procedimiento.id)}
-                                  >
-                                    <EditIcon />
-                                  </IconButton>
-                                </Tooltip>
-                                
-                                <Tooltip title="Eliminar procedimiento">
-                                  <IconButton
-                                    color="error"
-                                    onClick={() => handleDeleteProcedimiento(procedimiento.id)}
-                                  >
-                                    <DeleteIcon />
-                                  </IconButton>
-                                </Tooltip>
-                              </>
-                            )}
-                          </Box>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  ) : (
-                    <TableRow>
-                      <TableCell colSpan={7} align="center">
-                        No se encontraron procedimientos
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
-            
-            <TablePagination
-              component="div"
-              count={totalCount}
-              page={page}
-              onPageChange={handleChangePage}
-              rowsPerPage={rowsPerPage}
-              onRowsPerPageChange={handleChangeRowsPerPage}
-              rowsPerPageOptions={[5, 10, 25]}
-              labelRowsPerPage="Filas por página:"
-              labelDisplayedRows={({ from, to, count }) => `${from}-${to} de ${count}`}
-            />
-          </>
-        )}
+          </CardContent>
+        </Card>
       </Paper>
       
       <Snackbar

@@ -2,75 +2,58 @@ import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
-  Paper,
   Typography,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TablePagination,
   Button,
   Chip,
   IconButton,
-  TextField,
-  InputAdornment,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Grid,
-  Snackbar,
-  Alert,
   Tooltip,
-  CircularProgress,
   LinearProgress,
-  Divider,
   Card,
   CardContent,
-  Stack,
   Dialog,
   DialogActions,
   DialogContent,
   DialogContentText,
-  DialogTitle
+  DialogTitle,
+  Snackbar,
+  Alert
 } from '@mui/material';
-import FilterListIcon from '@mui/icons-material/FilterList';
+// Reemplazar DataTable por DataGrid
+import { DataGrid, GridToolbar } from '@mui/x-data-grid';
 import AddIcon from '@mui/icons-material/Add';
-import SearchIcon from '@mui/icons-material/Search';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import PauseIcon from '@mui/icons-material/Pause';
 import ResumeIcon from '@mui/icons-material/PlayCircleOutline';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import DeleteIcon from '@mui/icons-material/Delete';
-import FilterAltOffIcon from '@mui/icons-material/FilterAltOff';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+// Ya no necesitamos StyleSheetManager
+// import { StyleSheetManager } from 'styled-components';
 
 import { AuthContext } from '../../contexts/AuthContext';
 import trabajosService from '../../assets/services/trabajos.service';
 import procedimientosService from '../../assets/services/procedimientos.service';
-import TrabajoForm from './TrabajoForm';
+
+// Ya no necesitamos esta función
+// const shouldForwardProp = (prop) => { ... };
 
 const TrabajosList = () => {
   const navigate = useNavigate();
   const { user } = useContext(AuthContext);
   
   const [trabajos, setTrabajos] = useState([]);
-  const [procedimientos, setProcedimientos] = useState([]);
   const [loading, setLoading] = useState(false);
   const [totalTrabajos, setTotalTrabajos] = useState(0);
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [openForm, setOpenForm] = useState(false);
-  const [confirmDialog, setConfirmDialog] = useState({ open: false, id: null, action: '' });
-  const [filtersApplied, setFiltersApplied] = useState(false);
-  
-  const [filter, setFilter] = useState({
-    search: '',
-    estado: '',
-    procedimiento: ''
+  // Cambiar el formato de paginación para DataGrid
+  const [paginationModel, setPaginationModel] = useState({
+    page: 0, // DataGrid usa índice 0 para la primera página
+    pageSize: 10
+  });
+  const [confirmDialog, setConfirmDialog] = useState({ 
+    open: false, 
+    id: null, 
+    action: '' 
   });
   
   const [snackbar, setSnackbar] = useState({
@@ -78,43 +61,34 @@ const TrabajosList = () => {
     message: '',
     severity: 'success'
   });
-  
+
   useEffect(() => {
-    // Cargar procedimientos para el filtro y formulario
-    const fetchProcedimientos = async () => {
-      try {
-        const response = await procedimientosService.getProcedimientos({
-          estado: 'VIGENTE',
-          page_size: 500
-        });
-        setProcedimientos(response.data.results || []);
-      } catch (error) {
-        console.error('Error al cargar procedimientos:', error);
-      }
-    };
-    
-    fetchProcedimientos();
     loadTrabajos();
-  }, [page, rowsPerPage]);
+  }, [paginationModel.page, paginationModel.pageSize]);
   
   const loadTrabajos = async () => {
     setLoading(true);
     try {
+      // Construir parámetros de filtro para la API (ajustando para el índice 0)
       const params = {
-        page: page + 1,
-        page_size: rowsPerPage,
-        ...filter
+        page: paginationModel.page + 1, // Convertir de índice 0 a índice 1
+        page_size: paginationModel.pageSize
       };
-      
-      // Verificar si hay filtros aplicados
-      const hasActiveFilters = Object.values(filter).some(value => value !== '');
-      setFiltersApplied(hasActiveFilters);
       
       console.log('Consultando trabajos con parámetros:', params);
       
       const response = await trabajosService.getTrabajos(params);
-      setTrabajos(response.data.results || []);
+      
+      // Formatear datos para la tabla
+      const trabajosConFormato = (response.data.results || []).map(trabajo => ({
+        ...trabajo,
+        // Usar el formato de fecha para mostrar
+        fecha_inicio_formateada: format(new Date(trabajo.fecha_inicio), 'dd/MM/yyyy HH:mm', { locale: es })
+      }));
+      
+      setTrabajos(trabajosConFormato);
       setTotalTrabajos(response.data.count || 0);
+      
     } catch (error) {
       console.error('Error al cargar trabajos:', error);
       setSnackbar({
@@ -126,74 +100,9 @@ const TrabajosList = () => {
       setLoading(false);
     }
   };
-  
-  const handlePageChange = (event, newPage) => {
-    setPage(newPage);
-  };
-  
-  const handleRowsPerPageChange = (event) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
-  };
-  
-  const handleFilterChange = (e) => {
-    const { name, value } = e.target;
-    setFilter(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-  
-  const handleSearch = () => {
-    setPage(0);
-    loadTrabajos();
-  };
-  
-  const handleResetFilter = () => {
-    setFilter({
-      search: '',
-      estado: '',
-      procedimiento: ''
-    });
-    setPage(0);
     
-    // Usamos setTimeout para asegurar que la UI se actualice primero
-    setTimeout(() => loadTrabajos(), 100);
-  };
-  
-  const handleKeyPress = (e) => {
-    // Ejecutar búsqueda al presionar Enter en el campo de búsqueda
-    if (e.key === 'Enter') {
-      handleSearch();
-    }
-  };
-  
   const handleCreateTrabajo = () => {
     navigate('/dashboard/trabajos/crear');
-  };
-  
-  const handleCloseForm = () => {
-    setOpenForm(false);
-  };
-  
-  const handleSaveTrabajo = async (trabajoData) => {
-    try {
-      await trabajosService.createTrabajo(trabajoData);
-      setOpenForm(false);
-      setSnackbar({
-        open: true,
-        message: 'Trabajo creado correctamente',
-        severity: 'success'
-      });
-      loadTrabajos();
-    } catch (error) {
-      console.error('Error al crear trabajo:', error);
-      setSnackbar({
-        open: true,
-        message: 'Error al crear el trabajo: ' + (error.message || 'Error desconocido'),
-        severity: 'error'
-      });
-    }
   };
   
   const handleViewTrabajo = (id) => {
@@ -204,10 +113,7 @@ const TrabajosList = () => {
     navigate(`/dashboard/trabajos/${id}/ejecutar`);
   };
   
-  const handleConfirmAction = (id, action, event) => {
-    if (event) {
-      event.stopPropagation();
-    }
+  const handleConfirmAction = (id, action) => {
     setConfirmDialog({
       open: true,
       id,
@@ -281,40 +187,244 @@ const TrabajosList = () => {
       default: return 'default';
     }
   };
-
-  // Agrega estas funciones debajo de los otros handlers
-  const customSelectProps = {
-    MenuProps: {
-      PaperProps: {
-        style: {
-          maxHeight: 300,
-          minWidth: '100%', // Asegurar que el menú tenga al menos el ancho del select
-        },
-      },
-      // Mejorar visualización en móviles
-      anchorOrigin: {
-        vertical: 'bottom',
-        horizontal: 'left',
-      },
-      transformOrigin: {
-        vertical: 'top',
-        horizontal: 'left',
-      },
-    }
-  };
-
-  // Aseguramos que los elementos del menú tengan suficiente ancho y altura
-  const menuItemStyle = {
-    minHeight: '40px',
-    padding: '8px 16px',
-    whiteSpace: 'normal', // Permitir wrap del texto en elementos muy largos
+  
+  // Función para renderizar la celda de acciones
+  const renderAcciones = (params) => {
+    const row = params.row;
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+        <Tooltip title="Ver detalle">
+          <IconButton 
+            size="small" 
+            onClick={() => handleViewTrabajo(row.id)}
+            sx={{ mx: 0.5 }}
+          >
+            <VisibilityIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+        
+        {row.estado !== 'COMPLETADO' && row.estado !== 'CANCELADO' && (
+          <Tooltip title="Ejecutar trabajo">
+            <IconButton 
+              size="small" 
+              color="primary"
+              onClick={() => handleExecuteTrabajo(row.id)}
+              sx={{ mx: 0.5 }}
+            >
+              <PlayArrowIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        )}
+        
+        {row.estado === 'EN_PROGRESO' && (
+          <Tooltip title="Pausar trabajo">
+            <IconButton 
+              size="small" 
+              color="warning"
+              onClick={() => handleConfirmAction(row.id, 'pausar')}
+              sx={{ mx: 0.5 }}
+            >
+              <PauseIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        )}
+        
+        {row.estado === 'PAUSADO' && (
+          <Tooltip title="Reanudar trabajo">
+            <IconButton 
+              size="small" 
+              color="success"
+              onClick={() => handleConfirmAction(row.id, 'reanudar')}
+              sx={{ mx: 0.5 }}
+            >
+              <ResumeIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        )}
+        
+        {row.estado !== 'COMPLETADO' && row.estado !== 'CANCELADO' && (
+          <Tooltip title="Cancelar trabajo">
+            <IconButton 
+              size="small" 
+              color="error"
+              onClick={() => handleConfirmAction(row.id, 'cancelar')}
+              sx={{ mx: 0.5 }}
+            >
+              <DeleteIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        )}
+      </Box>
+    );
   };
   
+  // Renderizar la celda de progreso
+  const renderProgreso = (params) => {
+    const row = params.row;
+    return (
+      <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', maxWidth: 150 }}>
+        <Box sx={{ width: '100%', mr: 1 }}>
+          <LinearProgress 
+            variant="determinate" 
+            value={row.progreso} 
+            color={row.estado === 'COMPLETADO' ? 'success' : 'primary'}
+            sx={{ 
+              height: 8, 
+              borderRadius: 2,
+              bgcolor: 'background.paper',
+              boxShadow: 'inset 0 0 2px rgba(0,0,0,0.2)'
+            }}
+          />
+        </Box>
+        <Box sx={{ minWidth: 35 }}>
+          <Typography variant="body2" fontWeight="bold">
+            {`${row.progreso}%`}
+          </Typography>
+        </Box>
+      </Box>
+    );
+  };
+  
+  // Renderizar la celda de estado
+  const renderEstado = (params) => {
+    return (
+      <Chip 
+        label={params.value}
+        color={getEstadoColor(params.value)}
+        size="small"
+        sx={{ fontWeight: 'medium', minWidth: '90px' }}
+      />
+    );
+  };
+  
+  // Definición de columnas para DataGrid (formato diferente)
+  const columns = [
+    { 
+      field: 'titulo', 
+      headerName: 'Título', 
+      flex: 2,
+      minWidth: 200,
+      renderCell: (params) => (
+        <Typography sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>
+          {params.value}
+        </Typography>
+      )
+    },
+    { 
+      field: 'procedimiento_nombre', 
+      headerName: 'Procedimiento', 
+      flex: 2,
+      minWidth: 200,
+      renderCell: (params) => (
+        <Typography sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>
+          {params.value}
+        </Typography>
+      )
+    },
+    { 
+      field: 'usuario_creador_nombre', 
+      headerName: 'Usuario', 
+      flex: 1,
+      minWidth: 150
+    },
+    { 
+      field: 'unidad_nombre', 
+      headerName: 'Unidad', 
+      flex: 1,
+      minWidth: 300
+    },
+    { 
+      field: 'fecha_inicio_formateada', 
+      headerName: 'Fecha inicio', 
+      flex: 1,
+      minWidth: 150
+    },
+    { 
+      field: 'estado', 
+      headerName: 'Estado', 
+      width: 150,
+      renderCell: renderEstado
+    },
+    { 
+      field: 'progreso', 
+      headerName: 'Progreso', 
+      width: 200,
+      renderCell: renderProgreso
+    },
+    { 
+      field: 'acciones', 
+      headerName: 'Acciones', 
+      width: 180, 
+      sortable: false, 
+      filterable: false,
+      renderCell: renderAcciones
+    },
+  ];
+
+  // Definir textos en español para el DataGrid
+  const localeText = {
+    // Columnas
+    columnMenuLabel: 'Menú',
+    columnMenuShowColumns: 'Mostrar columnas',
+    columnMenuManageColumns: 'Gestionar columnas',
+    columnMenuFilter: 'Filtro',
+    columnMenuHideColumn: 'Ocultar columna',
+    columnMenuUnsort: 'Quitar orden',
+    columnMenuSortAsc: 'Ordenar ascendente',
+    columnMenuSortDesc: 'Ordenar descendente',
+    
+    // Filtros
+    filterOperatorContains: 'contiene',
+    filterOperatorEquals: 'es igual a',
+    filterOperatorStartsWith: 'comienza con',
+    filterOperatorEndsWith: 'termina con',
+    filterOperatorIsEmpty: 'está vacío',
+    filterOperatorIsNotEmpty: 'no está vacío',
+    filterOperatorIsAnyOf: 'es cualquiera de',
+    
+    // Paginación
+    footerRowSelected: count => count !== 1
+      ? `${count.toLocaleString()} filas seleccionadas`
+      : `${count.toLocaleString()} fila seleccionada`,
+    footerTotalRows: 'Filas totales:',
+    footerTotalVisibleRows: (visibleCount, totalCount) =>
+      `${visibleCount.toLocaleString()} de ${totalCount.toLocaleString()}`,
+    MuiTablePagination: {
+      labelRowsPerPage: 'Filas por página:',
+      labelDisplayedRows: ({ from, to, count }) =>
+        `${from}-${to} de ${count !== -1 ? count : `más de ${to}`}`
+    },
+    
+    // Toolbar
+    toolbarFilters: 'Filtros',
+    toolbarFiltersTooltipShow: 'Mostrar filtros',
+    toolbarFiltersTooltipHide: 'Ocultar filtros',
+    toolbarColumns: 'Columnas',
+    toolbarColumnsLabel: 'Seleccionar columnas',
+    toolbarDensity: 'Densidad',
+    toolbarDensityLabel: 'Densidad',
+    toolbarDensityCompact: 'Compacta',
+    toolbarDensityStandard: 'Estándar',
+    toolbarDensityComfortable: 'Confortable',
+    toolbarExport: 'Exportar',
+    toolbarExportLabel: 'Exportar',
+    toolbarExportCSV: 'Descargar como CSV',
+    toolbarExportPrint: 'Imprimir',
+    
+    // Búsqueda
+    toolbarQuickFilterPlaceholder: 'Buscar...',
+    toolbarQuickFilterLabel: 'Buscar',
+    
+    // Otros
+    noRowsLabel: 'No hay datos',
+    noResultsOverlayLabel: 'No se encontraron resultados',
+  };
+
   return (
     <Box sx={{ p: 3 }}>
       {/* Encabezado y botón de nuevo trabajo */}
-      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Typography variant="h4" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
+        <Typography variant="h4" sx={{ fontWeight: 'bold', color: 'primary.main', mb: { xs: 2, md: 0 } }}>
           Mis Trabajos
         </Typography>
         <Button
@@ -332,379 +442,77 @@ const TrabajosList = () => {
         </Button>
       </Box>
       
-      {/* Panel de filtros mejorado */}
-      <Card sx={{ mb: 3, boxShadow: 2, borderRadius: 2 }}>
+      {/* DataGrid */}
+      <Card sx={{ 
+        width: '100%', 
+        boxShadow: 2, 
+        borderRadius: 2,
+      }}>
         <CardContent sx={{ 
-          pb: 2, // Ajuste: reducir padding bottom para evitar espacio excesivo
-          '& .MuiFormHelperText-root': { // Ajuste: estilizar textos de ayuda
-            marginTop: '4px', 
-            marginLeft: '4px' 
-          },
-          // Asegurar espaciado consistente
-          '& .MuiFormControl-root': {
-            width: '100%',
-            marginBottom: 0
-          },
-          // Asegurar que los textos de ayuda tengan un espacio consistente
-          '& .MuiFormHelperText-root': {
-            marginTop: '4px', 
-            marginLeft: '4px',
-            height: '20px'
-          }
+          p: 0, 
+          '&:last-child': { pb: 0 },
+          height: '100%'
         }}>
-          <Box sx={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            mb: 2,
-            flexWrap: 'wrap', // Ajuste: permitir wrap en móviles
-            gap: 1 // Ajuste: espaciado entre elementos
-          }}>
-            <FilterListIcon color="primary" />
-            <Typography variant="h6" component="h2" sx={{ ml: 1 }}>Filtros de búsqueda</Typography>
-            {filtersApplied && (
-              <Chip 
-                label="Filtros aplicados" 
-                color="primary" 
-                size="small"
-                icon={<FilterAltOffIcon fontSize="small" />} // Añadir icono para mejor identificación
-              />
-            )}
-          </Box>
-          
-          <Divider sx={{ mb: 2 }} />
-          
-          <Grid container spacing={2} alignItems="flex-start">
-            {/* Ajuste: quitar alignItems="flex-end" del container para mejor alineación */}
-            <Grid item xs={12} md={4}>
-              <TextField
-                name="search"
-                label="Buscar por título"
-                value={filter.search}
-                onChange={handleFilterChange}
-                onKeyPress={handleKeyPress}
-                fullWidth
-                variant="outlined"
-                size="medium" // Ajuste: asegurar tamaño consistente
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon color="action" />
-                    </InputAdornment>
-                  ),
-                }}
-                helperText="Presiona Enter para buscar"
-                // Ajustar altura para compensar el texto de ayuda
-                sx={{ 
-                  mb: 0,
-                  '& .MuiInputBase-root': { height: '56px' }
-                }}
-              />
-            </Grid>
-            
-            <Grid item xs={12} sm={6} md={3}>
-              <FormControl fullWidth variant="outlined" size="medium">
-                {/* Ajuste: asegurar tamaño consistente */}
-                <InputLabel id="estado-label">Estado</InputLabel>
-                <Select
-                  labelId="estado-label"
-                  id="estado-select" // Ajuste: agregar id para mejor accesibilidad
-                  name="estado"
-                  value={filter.estado}
-                  onChange={handleFilterChange}
-                  label="Estado"
-                  MenuProps={{ 
-                    PaperProps: { 
-                      sx: { maxHeight: 300 } // Ajuste: controlar altura del menú desplegable
-                    } 
-                  }}
-                  sx={{ 
-                    minHeight: '56px', // Ajuste: altura mínima igual al TextField
-                    '& .MuiSelect-select': { 
-                      display: 'flex', 
-                      alignItems: 'center',
-                      padding: '12px 14px' // Padding consistente
-                    }
-                  }}
-                  {...customSelectProps}
-                >
-                  <MenuItem value="">Todos</MenuItem>
-                  <MenuItem value="INICIADO" sx={{ ...menuItemStyle, color: 'info.main' }}>Iniciado</MenuItem>
-                  <MenuItem value="EN_PROGRESO" sx={{ ...menuItemStyle, color: 'primary.main' }}>En progreso</MenuItem>
-                  <MenuItem value="PAUSADO" sx={{ ...menuItemStyle, color: 'warning.main' }}>Pausado</MenuItem>
-                  <MenuItem value="COMPLETADO" sx={{ ...menuItemStyle, color: 'success.main' }}>Completado</MenuItem>
-                  <MenuItem value="CANCELADO" sx={{ ...menuItemStyle, color: 'error.main' }}>Cancelado</MenuItem>
-                </Select>
-                {/* Espacio invisible para compensar el helperText del TextField */}
-                <Typography variant="caption" sx={{ visibility: 'hidden', height: '20px', display: 'block' }}>
-                  Espacio para alinear
-                </Typography>
-              </FormControl>
-            </Grid>
-            
-            <Grid item xs={12} sm={6} md={3}>
-              <FormControl fullWidth variant="outlined" size="medium">
-                {/* Ajuste: asegurar tamaño consistente */}
-                <InputLabel id="procedimiento-label">Procedimiento</InputLabel>
-                <Select
-                  labelId="procedimiento-label"
-                  id="procedimiento-select" // Ajuste: agregar id para mejor accesibilidad
-                  name="procedimiento"
-                  value={filter.procedimiento}
-                  onChange={handleFilterChange}
-                  label="Procedimiento"
-                  MenuProps={{ 
-                    PaperProps: { 
-                      sx: { maxHeight: 300 } // Ajuste: controlar altura del menú desplegable
-                    } 
-                  }}
-                  sx={{ 
-                    minHeight: '56px', // Ajuste: altura mínima igual al TextField
-                    '& .MuiSelect-select': { 
-                      display: 'flex', 
-                      alignItems: 'center',
-                      padding: '12px 14px' // Padding consistente
-                    }
-                  }}
-                  {...customSelectProps}
-                >
-                  <MenuItem value="">Todos los procedimientos</MenuItem>
-                  {procedimientos.map(proc => (
-                    <MenuItem key={proc.id} value={proc.id} sx={menuItemStyle}>
-                      {proc.nombre}
-                    </MenuItem>
-                  ))}
-                </Select>
-                {/* Espacio invisible para compensar el helperText del TextField */}
-                <Typography variant="caption" sx={{ visibility: 'hidden', height: '20px', display: 'block' }}>
-                  Espacio para alinear
-                </Typography>
-              </FormControl>
-            </Grid>
-            
-            <Grid item xs={12} md={2} sx={{ display: 'flex', alignItems: 'flex-start' }}>
-              {/* Ajuste: contenedor flex para alinear verticalmente con otros campos */}
-              <Stack 
-                direction={{ xs: 'row', md: 'row' }}
-                spacing={1} 
-                justifyContent={{ xs: 'center', md: 'flex-end' }} 
-                width="100%"
-                sx={{ mt: { xs: 1, md: 0 } }} // Ajuste: margen superior en móvil
-              >
-                <Button
-                  variant="contained"
-                  color="primary"
-                  onClick={handleSearch}
-                  startIcon={<SearchIcon />}
-                  sx={{ 
-                    borderRadius: 2,
-                    flex: { xs: 1, md: 'initial' },
-                    height: '56px', // Altura igual a los inputs
-                  }}
-                >
-                  Buscar
-                </Button>
-                <Tooltip title="Limpiar filtros">
-                  <span> {/* Ajuste: wrapper para que Tooltip funcione con Button disabled */}
-                    <Button
-                      variant="outlined"
-                      color="secondary"
-                      onClick={handleResetFilter}
-                      startIcon={<FilterAltOffIcon />}
-                      disabled={!filtersApplied}
-                      sx={{ 
-                        borderRadius: 2,
-                        flex: { xs: 1, md: 'initial' },
-                        height: '56px', // Altura igual a los inputs
-                      }}
-                    >
-                      Limpiar
-                    </Button>
-                  </span>
-                </Tooltip>
-              </Stack>
-            </Grid>
-          </Grid>
+          <DataGrid
+            rows={trabajos}
+            columns={columns}
+            rowCount={totalTrabajos}
+            loading={loading}
+            pageSizeOptions={[5, 10, 25, 50]}
+            paginationModel={paginationModel}
+            paginationMode="server"
+            onPaginationModelChange={setPaginationModel}
+            disableRowSelectionOnClick
+            autoHeight
+            localeText={localeText}
+            sx={{
+              '& .MuiDataGrid-columnHeader': {
+                backgroundColor: 'primary.light',
+                color: 'primary.contrastText',
+                fontWeight: 'bold',
+                display: 'flex',
+                alignItems: 'center' // Alineación vertical centrada para encabezados
+              },
+              '& .MuiDataGrid-cell': {
+                display: 'flex',
+                alignItems: 'center', // Alineación vertical centrada para todas las celdas
+                padding: '8px 16px', // Padding consistente
+                whiteSpace: 'normal', // Permitir saltos de línea
+                wordWrap: 'break-word' // Asegurar que el texto se rompe correctamente
+              },
+              '& .MuiDataGrid-cell:focus-within': {
+                outline: 'none'
+              },
+              '& .MuiDataGrid-row': {
+                minHeight: '52px', // Altura mínima para las filas
+                '&:hover': {
+                  backgroundColor: 'rgba(25, 118, 210, 0.08)'
+                },
+              },
+              border: 'none',
+              overflow: 'hidden',
+              '& .MuiDataGrid-main': {
+                overflow: 'hidden'
+              },
+              // Asegurar que los componentes de Box dentro de las celdas también se alineen correctamente
+              '& .MuiBox-root': {
+                display: 'flex',
+                alignItems: 'center'
+              }
+            }}
+            slots={{
+              toolbar: GridToolbar,
+              loadingOverlay: LinearProgress,
+            }}
+            slotProps={{
+              toolbar: {
+                showQuickFilter: true,
+                quickFilterProps: { debounceMs: 300 },
+              }
+            }}
+          />
         </CardContent>
       </Card>
-      
-      {/* Tabla de resultados */}
-      <Paper sx={{ borderRadius: 2, boxShadow: 2, overflow: 'hidden' }}>
-        {loading && <LinearProgress color="primary" />}
-        <TableContainer>
-          <Table>
-            <TableHead sx={{ bgcolor: 'primary.light' }}>
-              <TableRow>
-                <TableCell sx={{ fontWeight: 'bold', color: 'primary.contrastText' }}>Título</TableCell>
-                <TableCell sx={{ fontWeight: 'bold', color: 'primary.contrastText' }}>Procedimiento</TableCell>
-                <TableCell sx={{ fontWeight: 'bold', color: 'primary.contrastText' }}>Usuario</TableCell>
-                <TableCell sx={{ fontWeight: 'bold', color: 'primary.contrastText' }}>Unidad</TableCell>
-                <TableCell sx={{ fontWeight: 'bold', color: 'primary.contrastText' }}>Fecha inicio</TableCell>
-                <TableCell sx={{ fontWeight: 'bold', color: 'primary.contrastText' }}>Estado</TableCell>
-                <TableCell sx={{ fontWeight: 'bold', color: 'primary.contrastText' }}>Progreso</TableCell>
-                <TableCell sx={{ fontWeight: 'bold', color: 'primary.contrastText', textAlign: 'center' }}>Acciones</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {trabajos.length === 0 && !loading ? (
-                <TableRow>
-                  <TableCell colSpan={8} align="center">
-                    <Box sx={{ py: 4, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                      <Typography variant="body1" color="textSecondary" gutterBottom>
-                        No hay trabajos disponibles {filtersApplied ? 'con los filtros aplicados' : ''}
-                      </Typography>
-                      {filtersApplied && (
-                        <Button 
-                          variant="text" 
-                          color="primary" 
-                          onClick={handleResetFilter} 
-                          startIcon={<FilterAltOffIcon />}
-                          sx={{ mt: 1 }}
-                        >
-                          Limpiar filtros
-                        </Button>
-                      )}
-                    </Box>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                trabajos.map((trabajo) => (
-                  <TableRow 
-                    key={trabajo.id}
-                    hover
-                    sx={{ 
-                      cursor: 'pointer',
-                      '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.04)' }
-                    }}
-                    onClick={() => handleViewTrabajo(trabajo.id)}
-                  >
-                    <TableCell sx={{ fontWeight: 'medium' }}>{trabajo.titulo}</TableCell>
-                    <TableCell>{trabajo.procedimiento_nombre}</TableCell>
-                    <TableCell>{trabajo.usuario_creador_nombre}</TableCell>
-                    <TableCell>{trabajo.unidad_nombre}</TableCell>
-                    <TableCell>
-                      {format(new Date(trabajo.fecha_inicio), 'dd/MM/yyyy HH:mm', { locale: es })}
-                    </TableCell>
-                    <TableCell>
-                      <Chip 
-                        label={trabajo.estado}
-                        color={getEstadoColor(trabajo.estado)}
-                        size="small"
-                        sx={{ fontWeight: 'medium', minWidth: '90px' }}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', maxWidth: 150 }}>
-                        <Box sx={{ width: '100%', mr: 1 }}>
-                          <LinearProgress 
-                            variant="determinate" 
-                            value={trabajo.progreso} 
-                            color={trabajo.estado === 'COMPLETADO' ? 'success' : 'primary'}
-                            sx={{ 
-                              height: 8, 
-                              borderRadius: 2,
-                              bgcolor: 'background.paper',
-                              boxShadow: 'inset 0 0 2px rgba(0,0,0,0.2)'
-                            }}
-                          />
-                        </Box>
-                        <Box sx={{ minWidth: 35 }}>
-                          <Typography variant="body2" fontWeight="bold">
-                            {`${trabajo.progreso}%`}
-                          </Typography>
-                        </Box>
-                      </Box>
-                    </TableCell>
-                    <TableCell align="center">
-                      <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-                        <Tooltip title="Ver detalle">
-                          <IconButton 
-                            size="small" 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleViewTrabajo(trabajo.id);
-                            }}
-                            sx={{ mx: 0.5 }}
-                          >
-                            <VisibilityIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                        
-                        {trabajo.estado !== 'COMPLETADO' && trabajo.estado !== 'CANCELADO' && (
-                          <Tooltip title="Ejecutar trabajo">
-                            <IconButton 
-                              size="small" 
-                              color="primary"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleExecuteTrabajo(trabajo.id);
-                              }}
-                              sx={{ mx: 0.5 }}
-                            >
-                              <PlayArrowIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                        
-                        {trabajo.estado === 'EN_PROGRESO' && (
-                          <Tooltip title="Pausar trabajo">
-                            <IconButton 
-                              size="small" 
-                              color="warning"
-                              onClick={(e) => handleConfirmAction(trabajo.id, 'pausar', e)}
-                              sx={{ mx: 0.5 }}
-                            >
-                              <PauseIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                        
-                        {trabajo.estado === 'PAUSADO' && (
-                          <Tooltip title="Reanudar trabajo">
-                            <IconButton 
-                              size="small" 
-                              color="success"
-                              onClick={(e) => handleConfirmAction(trabajo.id, 'reanudar', e)}
-                              sx={{ mx: 0.5 }}
-                            >
-                              <ResumeIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                        
-                        {trabajo.estado !== 'COMPLETADO' && trabajo.estado !== 'CANCELADO' && (
-                          <Tooltip title="Cancelar trabajo">
-                            <IconButton 
-                              size="small" 
-                              color="error"
-                              onClick={(e) => handleConfirmAction(trabajo.id, 'cancelar', e)}
-                              sx={{ mx: 0.5 }}
-                            >
-                              <DeleteIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                      </Box>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-        
-        <TablePagination
-          rowsPerPageOptions={[5, 10, 25, 50]}
-          component="div"
-          count={totalTrabajos}
-          rowsPerPage={rowsPerPage}
-          page={page}
-          onPageChange={handlePageChange}
-          onRowsPerPageChange={handleRowsPerPageChange}
-          labelRowsPerPage="Filas por página:"
-          labelDisplayedRows={({ from, to, count }) => `${from}-${to} de ${count !== -1 ? count : `más de ${to}`}`}
-          sx={{ borderTop: '1px solid rgba(224, 224, 224, 1)' }}
-        />
-      </Paper>
       
       {/* Dialog de confirmación para acciones */}
       <Dialog
