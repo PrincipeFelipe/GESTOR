@@ -134,6 +134,17 @@ const getAlertasPlazos = async () => {
   }
 };
 
+// Añadir esta función al objeto trabajosService
+const getPasoTrabajoById = async (pasoId) => {
+  try {
+    const response = await api.get(`${BASE_URL}/pasos-trabajo/${pasoId}/`);
+    return response;
+  } catch (error) {
+    console.error(`Error al obtener detalles del paso ${pasoId}:`, error);
+    throw new Error(error.response?.data?.detail || 'Error al obtener detalles del paso');
+  }
+};
+
 const trabajosService = {
   getTrabajos,
   getTrabajoById,
@@ -144,7 +155,8 @@ const trabajosService = {
   getPasoTrabajo,
   iniciarPasoTrabajo,
   completarPasoTrabajo,
-  getAlertasPlazos
+  getAlertasPlazos,
+  getPasoTrabajoById // Añadir este método
 };
 
 export default trabajosService;
