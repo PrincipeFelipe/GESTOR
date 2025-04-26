@@ -189,6 +189,19 @@ class Documento(models.Model):
     procedimiento = models.ForeignKey(Procedimiento, on_delete=models.CASCADE, related_name='documentos', null=True)
     archivo = models.FileField(upload_to=documento_upload_path, null=True, blank=True)
     url = models.URLField(max_length=500, null=True, blank=True)
+    
+    # Nuevo campo para el tipo de documento
+    TIPO_CHOICES = [
+        ('GENERAL', 'Documento general'),
+        ('PASO', 'Documento asociado a paso'),
+    ]
+    tipo_documento = models.CharField(
+        max_length=10, 
+        choices=TIPO_CHOICES, 
+        default='GENERAL',
+        help_text="Indica si el documento es general del procedimiento o está asociado a un paso específico"
+    )
+    
     fecha_creacion = models.DateTimeField(auto_now_add=True)
     fecha_actualizacion = models.DateTimeField(auto_now=True)
     extension = models.CharField(max_length=10, blank=True, null=True)
@@ -288,6 +301,10 @@ class DocumentoPaso(models.Model):
                 )
                 self.documento = nuevo_doc
                 
+            # Marcar el documento como tipo PASO
+            self.documento.tipo_documento = 'PASO'
+            self.documento.save()
+        
         super().save(*args, **kwargs)
 
 class HistorialProcedimiento(models.Model):

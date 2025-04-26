@@ -123,10 +123,12 @@ const completarPasoTrabajo = async (pasoId, data) => {
   }
 };
 
-// Añadir este método al servicio existente
-const getAlertasPlazos = async () => {
+// Modificar la función getAlertasPlazos para aceptar el parámetro isSuperAdmin
+const getAlertasPlazos = async (isSuperAdmin = false) => {
   try {
-    const response = await api.get(`${BASE_URL}/alertas-plazos/`);
+    // Si es SuperAdmin, añadir un parámetro para obtener todas las alertas
+    const params = isSuperAdmin ? { all: true } : {};
+    const response = await api.get(`${BASE_URL}/alertas-plazos/`, { params });
     return response.data;
   } catch (error) {
     console.error('Error al obtener alertas de plazos:', error);

@@ -678,27 +678,32 @@ const PasosManager = () => {
   const [documentosGenerales, setDocumentosGenerales] = useState([]);
   const [loadingDocumentos, setLoadingDocumentos] = useState(false);
   // Modificar la función fetchDocumentosGenerales
-  const fetchDocumentosGenerales = async () => {
-    setLoadingDocumentos(true);
-    try {
-      // Usar la función específica para documentos generales
-      const response = await procedimientosService.getDocumentosGenerales(procedimientoId);
-      // Solo mostrar documentos que no pertenecen a pasos y que están en la carpeta general
-      const documentosGeneralesFiltrados = response.data.filter(doc => 
-        doc.archivo_url && doc.archivo_url.includes('/general/')
-      );
-      setDocumentosGenerales(documentosGeneralesFiltrados);
-    } catch (error) {
-      console.error('Error al cargar documentos generales:', error);
-      setSnackbar({
-        open: true,
-        message: 'Error al cargar documentos generales',
-        severity: 'error'
-      });
-    } finally {
-      setLoadingDocumentos(false);
-    }
-  };
+const fetchDocumentosGenerales = async () => {
+  setLoadingDocumentos(true);
+  try {
+    // Usar la función específica para documentos generales
+    const response = await procedimientosService.getDocumentosGenerales(procedimientoId);
+    
+    // Filtrar documentos que explícitamente tengan tipo_documento = 'GENERAL'
+    // o no tengan tipo_documento definido pero estén en la carpeta 'general'
+    const documentosGeneralesFiltrados = response.data.filter(doc => 
+      doc.tipo_documento === 'GENERAL' || 
+      (!doc.tipo_documento && doc.archivo_url && doc.archivo_url.includes('/general/') && !doc.archivo_url.includes('/pasos/'))
+    );
+    
+    console.log('Documentos generales filtrados:', documentosGeneralesFiltrados.length);
+    setDocumentosGenerales(documentosGeneralesFiltrados);
+  } catch (error) {
+    console.error('Error al cargar documentos generales:', error);
+    setSnackbar({
+      open: true,
+      message: 'Error al cargar documentos generales',
+      severity: 'error'
+    });
+  } finally {
+    setLoadingDocumentos(false);
+  }
+};
   // Añadir esta función para calcular el tiempo total estimado de los pasos
 const calcularTiempoTotalEstimado = (pasos, pasoExcluido = null) => {
   // Filtrar el paso excluido si se proporciona (útil al editar)
@@ -1450,7 +1455,7 @@ const handleSaveGeneralDoc = async (data) => {
     const documentoData = {
       ...data,
       procedimiento: procedimientoId,
-      // No incluimos paso_id para que se guarde en la carpeta general
+      tipo_documento: 'GENERAL' // Establecer explícitamente el tipo
     };
     if (editingDoc) {
       await procedimientosService.updateDocumento(editingDoc.id, documentoData);
@@ -1948,7 +1953,7 @@ const handleDeleteGeneralDoc = (doc) => {
             </MuiTooltip>
             {/* Añadir el nuevo control para requiere_envio */}
             <MuiTooltip 
-              title="Marque esta casilla si este paso requiere un envío que necesita respuesta para continuar."
+              title="Marque esta casilla si este paso requiere un envío."
               placement="top"
             >
               <FormControlLabel
@@ -1960,7 +1965,7 @@ const handleDeleteGeneralDoc = (doc) => {
                     color="secondary"
                   />
                 }
-                label="Este paso requiere envío y respuesta"
+                label="Este paso requiere envío"
               />
             </MuiTooltip>
             <Divider sx={{ my: 3 }} />

@@ -162,21 +162,14 @@ class ProcedimientoViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['get'], url_path='documentos-generales')
     def documentos_generales(self, request, pk=None):
-        """
-        Retorna los documentos generales asociados al procedimiento (no vinculados a pasos)
-        """
+        """Retorna los documentos generales asociados al procedimiento"""
         try:
             procedimiento = self.get_object()
             
-            # Buscar documentos que estén en la carpeta /general/ y excluir los que están asociados a pasos
+            # Usar el nuevo campo tipo_documento para filtrar
             documentos = Documento.objects.filter(
-                procedimiento=procedimiento
-            ).exclude(
-                # Excluir documentos que estén asociados a pasos
-                id__in=DocumentoPaso.objects.values_list('documento_id', flat=True)
-            ).exclude(
-                # Excluir documentos con ruta en la carpeta de pasos
-                archivo__contains='/pasos/'
+                procedimiento=procedimiento,
+                tipo_documento='GENERAL'
             )
             
             serializer = DocumentoSerializer(documentos, many=True, context={'request': request})
@@ -652,23 +645,38 @@ from rest_framework.decorators import api_view, permission_classes
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def alertas_plazos(request):
-    """Obtener alertas de pasos próximos a vencer para el usuario y su unidad"""
-    # Obtener la unidad del usuario actual - CORREGIR AQUÍ
-    unidad_usuario = request.user.unidad_destino  # Cambiar unidad por unidad_destino
+    """Obtener alertas de pasos próximos a vencer o ya vencidos para el usuario y su unidad"""
+    # Verificar si el usuario es SuperAdmin
+    is_super_admin = request.user.is_superuser or (hasattr(request.user, 'tipo_usuario') and request.user.tipo_usuario == 'SUPERADMIN')
     
-    if not unidad_usuario:
-        return Response([])  # Si el usuario no tiene unidad asignada, retornar lista vacía
+    # Verificar si se solicitan todas las alertas mediante parámetro de consulta
+    show_all = request.query_params.get('all', '').lower() == 'true'
     
-    # Obtener trabajos de toda la unidad (no solo los asignados al usuario)
-    trabajos = Trabajo.objects.filter(
-        # Trabajos de la misma unidad
-        Q(unidad=unidad_usuario) &  
-        # Excluir trabajos ya finalizados o cancelados
-        ~Q(estado__in=['COMPLETADO', 'CANCELADO'])
-    )
+    # Obtener trabajos según el rol del usuario
+    if is_super_admin and show_all:
+        # SuperAdmin: Mostrar todos los trabajos activos del sistema
+        trabajos = Trabajo.objects.filter(
+            ~Q(estado__in=['COMPLETADO', 'CANCELADO'])
+        )
+    else:
+        # Usuario regular: Solo mostrar trabajos de su unidad
+        unidad_usuario = request.user.unidad_destino
+        
+        if not unidad_usuario:
+            return Response([])  # Si el usuario no tiene unidad asignada, retornar lista vacía
+        
+        trabajos = Trabajo.objects.filter(
+            # Trabajos de la misma unidad
+            Q(unidad=unidad_usuario) &  
+            # Excluir trabajos ya finalizados o cancelados
+            ~Q(estado__in=['COMPLETADO', 'CANCELADO'])
+        )
     
     # Lista para almacenar las alertas
     alertas = []
+    
+    # Fecha actual para comparar
+    fecha_actual = timezone.now().date()
     
     for trabajo in trabajos:
         # Obtener pasos en progreso o pendientes que tengan fecha de inicio
@@ -682,27 +690,52 @@ def alertas_plazos(request):
             # Solo incluir pasos con tiempo_estimado definido
             if not paso.paso.tiempo_estimado:
                 continue
-                
-            # Verificar si está próximo a vencer
-            if paso.proximo_a_vencer:
+            
+            # Calcular si el paso ya venció o está próximo a vencer
+            fecha_limite = paso.fecha_limite
+            if not fecha_limite:  # Si no hay fecha límite, continuar con el siguiente paso
+                continue
+            
+            # Convertir a fecha si es datetime
+            if hasattr(fecha_limite, 'date'):
+                fecha_limite = fecha_limite.date()
+            
+            # Calcular días restantes (pueden ser negativos si ya venció)
+            dias_restantes = (fecha_limite - fecha_actual).days
+            
+            # Incluir si está próximo a vencer O YA VENCIÓ (días_restantes <= 0)
+            if dias_restantes <= 3:  # Incluir vencidos y próximos a vencer (3 días)
                 alertas.append({
                     'trabajo_id': trabajo.id,
                     'trabajo_titulo': trabajo.titulo,
                     'paso_id': paso.id,
                     'paso_numero': paso.paso_numero,
                     'paso_titulo': paso.paso.titulo or f"Paso {paso.paso_numero}",
-                    'fecha_limite': paso.fecha_limite,
-                    'dias_restantes': paso.dias_restantes,
+                    'fecha_limite': fecha_limite,
+                    'dias_restantes': dias_restantes,
+                    'vencido': dias_restantes < 0,  # Agregar indicador de vencimiento
                     'estado': paso.estado,
                     'tiempo_estimado': paso.paso.tiempo_estimado,
-                    # Añadir información del usuario asignado para mostrar de quién es el trabajo
+                    # Añadir información del usuario asignado
                     'usuario_asignado': trabajo.usuario_iniciado.username if trabajo.usuario_iniciado else trabajo.usuario_creador.username,
+                    # Añadir nombre completo del responsable para facilitar identificación
+                    'responsable_nombre': (trabajo.usuario_iniciado.get_full_name() if trabajo.usuario_iniciado else 
+                                         trabajo.usuario_creador.get_full_name()),
+                    # Añadir información de la unidad
+                    'unidad_nombre': trabajo.unidad.nombre if trabajo.unidad else None,
+                    'unidad_id': trabajo.unidad.id if trabajo.unidad else None,
                     # Indicar si el trabajo pertenece al usuario actual o a otro miembro de la unidad
                     'es_propio': trabajo.usuario_iniciado == request.user or trabajo.usuario_creador == request.user
                 })
     
-    # Ordenar: primero los propios, luego por días restantes (ascendente)
-    alertas = sorted(alertas, key=lambda x: (not x['es_propio'], x['dias_restantes']))
+    # Ordenar las alertas:
+    # - Primero los vencidos (más grave)
+    # - Luego por días restantes (ascendente)
+    if is_super_admin and show_all:
+        alertas = sorted(alertas, key=lambda x: (not x['vencido'], x['dias_restantes']))
+    else:
+        # Para usuarios normales, primero los propios, luego vencidos y finalmente por días restantes
+        alertas = sorted(alertas, key=lambda x: (not x['es_propio'], not x['vencido'], x['dias_restantes']))
     
     return Response(alertas)
 
