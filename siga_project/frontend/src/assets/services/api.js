@@ -2,10 +2,18 @@
 import axios from 'axios';
 import { navigateTo } from './navigation.service';
 
-const baseURL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
+// Determinar la URL base de la API según el entorno
+const getBaseUrl = () => {
+  // En producción, usar rutas relativas al dominio actual
+  if (process.env.NODE_ENV === 'production') {
+    return '/api';
+  } 
+  // En desarrollo, usar la URL completa de desarrollo
+  return process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
+};
 
 const api = axios.create({
-  baseURL,
+  baseURL: getBaseUrl(),
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
@@ -53,7 +61,8 @@ api.interceptors.response.use(
           return Promise.reject(error);
         }
         
-        const response = await axios.post(`${baseURL}/token/refresh/`, {
+        // Usar la ruta relativa para el refreshToken también
+        const response = await axios.post(`${getBaseUrl()}/token/refresh/`, {
           refresh: refreshToken,
         });
         

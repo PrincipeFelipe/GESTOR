@@ -1,5 +1,13 @@
-// URLs
-export const API_BASE_URL = 'http://localhost:8000/api';
+// URLs - Usar una función para determinar la URL base
+export const getApiBaseUrl = () => {
+  if (process.env.NODE_ENV === 'production') {
+    return '/api'; 
+  }
+  return 'http://localhost:8000/api';
+};
+
+// Constante para compatibilidad con código existente
+export const API_BASE_URL = getApiBaseUrl();
 
 // Roles de usuario
 export const USER_ROLES = {

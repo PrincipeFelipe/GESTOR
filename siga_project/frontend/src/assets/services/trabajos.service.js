@@ -1,6 +1,6 @@
 import api from './api';
 
-// Definir la BASE_URL al principio del archivo
+// Solo definir la ruta relativa, sin host
 const BASE_URL = '/procedimientos';
 
 const getTrabajos = async (params = {}) => {
